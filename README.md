@@ -3,27 +3,27 @@
  
  แดชบอร์ด Web Application สำหรับ MeeChain Blockchain Platform
  
-+## Prerequisites
+## Prerequisites
 +- Modern web browser (Chrome, Firefox, Safari, Edge)
 +- Local web server (e.g., `python -m http.server` or `npx serve`)
 +
-+## Installation
-+\```bash
-+# Clone the repository
+## Installation
+\```bash
+# Clone the repository
 +git clone https://github.com/MEECHAIN1/MeeChain-Connect.git
 +cd MeeChain-Connect
 +
-+# Start local server
+# Start local server
 +python -m http.server 8000
-+# OR
-+npx serve
-+\```
-+
-+## Usage
-+Open your browser and navigate to `http://localhost:8000`
-+
-+## Project Structure
-+\```
+# OR
+npx serve
+\```
+
+## Usage
+Open your browser and navigate to `http://localhost:8000`
+
+## Project Structure
+```
 +├── index.html          # Main dashboard page
 +├── nft-market.html     # NFT Marketplace
 +├── block-explorer.html # Mee Ritual Chain Explorer
@@ -34,8 +34,7 @@
 +├── css/                # Stylesheets
 +├── js/                 # JavaScript files
 +└── assets/             # Images and resources
-+\```
-+
+```
 
 ## Prerequisites
 - Modern web browser (Chrome, Firefox, Safari, Edge)
