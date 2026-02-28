@@ -2,14 +2,8 @@
 
 แดชบอร์ด Web Application สำหรับ MeeChain Blockchain Platform
 
-## Features
-- NFT Marketplace
-- Mee Ritual Chain Block Explorer  
-- Staking & Mining
-- Wallet Management
-- MeeBot NFT Collection
+## Prerequisites
+- Modern web browser (Chrome, Firefox, Safari, Edge)
+- Local web server (e.g., `python -m http.server` or `npx serve`)
 
-## Tech Stack
-- Vanilla HTML/CSS/JavaScript
-- Chart.js for price charts
-- Thai language support
+## Installation
