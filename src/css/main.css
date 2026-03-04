@@ -198,6 +198,34 @@ a { text-decoration: none; color: inherit; }
 }
 .sidebar.collapsed ~ .main-content { margin-left: var(--sidebar-collapsed); }
 
+/* ===== NETWORK STATUS BAR ===== */
+.network-status-bar {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  padding: 6px 24px;
+  background: rgba(13,21,37,0.95);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-secondary);
+  position: sticky; top: 0; z-index: 91;
+}
+.net-status-left { display: flex; align-items: center; gap: 6px; font-weight: 500; }
+.net-dot { font-size: 10px; color: var(--text-muted); animation: pulse-dot 2s infinite; }
+.net-dot.online  { color: #10B981; }
+.net-dot.offline { color: #EF4444; animation: none; }
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.net-status-right { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.net-chip {
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.net-chip strong { color: var(--primary-light); }
+.net-chip-contract { display: none; }
+@media (min-width: 1200px) { .net-chip-contract { display: inline-flex; } }
+
 /* ===== TOP HEADER ===== */
 .top-header {
   height: var(--header-height);

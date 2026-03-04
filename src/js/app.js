@@ -147,7 +147,7 @@ function renderTrendingNFTs() {
   grid.innerHTML = trending.map(nft => `
     <div class="nft-card" onclick="openNFTModal(${nft.id})">
       <div class="nft-img-wrap">
-        <img src="${nft.image}" alt="${nft.name}" loading="lazy" />
+        ${MEECHAIN_DATA.getNFTImageHTML(nft)}
         <div class="nft-overlay">
           <button class="nft-buy-btn" onclick="event.stopPropagation(); handleBuyNFT(${nft.id})">ซื้อเลย</button>
         </div>
@@ -173,7 +173,7 @@ function renderMainNFTGrid(filter = 'all') {
   grid.innerHTML = filtered.map(nft => `
     <div class="nft-grid-card" onclick="openNFTModal(${nft.id})">
       <div class="nft-grid-img">
-        <img src="${nft.image}" alt="${nft.name}" loading="lazy" />
+        ${MEECHAIN_DATA.getNFTImageHTML(nft)}
       </div>
       <div class="nft-grid-info">
         <div class="nft-grid-name">${nft.name}</div>
@@ -301,7 +301,7 @@ function renderMeeBotCollection() {
   container.innerHTML = MEECHAIN_DATA.meebotNFTs.map(bot => `
     <div class="meebot-nft-card">
       <div class="meebot-nft-img">
-        <img src="${bot.image}" alt="${bot.name}" loading="lazy" />
+        ${MEECHAIN_DATA.getNFTImageHTML(bot)}
       </div>
       <div class="meebot-nft-info">
         <div class="meebot-nft-name">${bot.name}</div>
@@ -360,7 +360,7 @@ function openNFTModal(nftId) {
   $('#nft-modal-body').innerHTML = `
     <div class="nft-modal-grid">
       <div class="nft-modal-img">
-        <img src="${nft.image}" alt="${nft.name}" />
+        ${MEECHAIN_DATA.getNFTImageHTML(nft)}
       </div>
       <div class="nft-modal-details">
         <div class="nft-modal-name">${nft.name}</div>
@@ -598,6 +598,7 @@ function initCreateNFT() {
           price: parseFloat(price) || 0,
           likes: 0, creator: 'You',
           image: MEECHAIN_DATA.logos.meebot,
+          artColor: '#7C3AED',
           desc: $('#nft-desc')?.value || '',
           attributes: [],
           rarity: 'common'
@@ -787,6 +788,59 @@ function initKeyboardShortcuts() {
 }
 
 // ============================================================
+// WEB3 / NETWORK STATUS BAR
+// ============================================================
+async function checkWeb3Status() {
+  try {
+    const res = await fetch('/api/web3/status');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    // ── Update the top network status bar ──────────────────
+    const dot   = $('#net-dot');
+    const label = $('#net-label');
+    const block = $('#net-block');
+
+    if (dot) {
+      dot.className = `net-dot ${data.connected ? 'online' : 'offline'}`;
+    }
+    if (label) {
+      label.textContent = data.connected
+        ? `🟢 เชื่อมต่อ Ritual Chain สำเร็จ (Chain ID: ${data.chainId || 13390})`
+        : '🔴 Ritual Chain: Offline — ใช้ข้อมูล Mock';
+    }
+    if (block && data.blockNumber) {
+      block.textContent = '#' + Number(data.blockNumber).toLocaleString();
+    }
+
+    // ── Also update live block counter ─────────────────────
+    if (data.connected && data.blockNumber) {
+      blockNumber = Number(data.blockNumber);
+      const el      = $('#block-number');
+      const totalEl = $('#total-blocks');
+      if (el)      el.textContent      = blockNumber.toLocaleString('th-TH');
+      if (totalEl) totalEl.textContent = blockNumber.toLocaleString('th-TH');
+    }
+
+    if (data.connected) {
+      showToast(`✅ เชื่อมต่อ Ritual Chain | Block #${data.blockNumber || '—'}`, 'success');
+    }
+  } catch(e) {
+    console.warn('Web3 status check failed:', e.message);
+    const dot   = $('#net-dot');
+    const label = $('#net-label');
+    if (dot)   dot.className   = 'net-dot offline';
+    if (label) label.textContent = '🔴 ไม่สามารถเชื่อมต่อ Server ได้';
+  }
+}
+
+// Poll network status every 30 seconds
+function startNetworkStatusPoll() {
+  checkWeb3Status();
+  setInterval(checkWeb3Status, 30000);
+}
+
+// ============================================================
 // MAIN INIT
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
@@ -841,6 +895,9 @@ document.addEventListener('DOMContentLoaded', () => {
   setTimeout(() => {
     showToast('ยินดีต้อนรับสู่ MeeChain Dashboard! 🚀', 'success');
   }, 2800);
+
+  // Web3 / network status polling
+  startNetworkStatusPoll();
 
   console.log('✅ MeeChain Dashboard initialized successfully!');
 });
