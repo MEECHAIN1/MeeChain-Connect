@@ -36,15 +36,14 @@ app.use(express.static(path.join(__dirname)));
 const RPC_CONFIG = {
   // Primary: dRPC gateway (used by frontend DApp via DRPC_ACCESS_KEY)
   drpcUrl:        process.env.DRPC_RPC_URL          || 'http://rpc.meechain.run.place',
-  drpcAccessKey:  process.env.DRPC_ACCESS_KEY        || '06411549-4e0b-46ac-943c-d4ae580a7a9b',
+  drpcAccessKey:  process.env.DRPC_ACCESS_KEY,
 
   // NodeCore: server-side proxy layer
-  nodecoreKey:    process.env.NODECORE_API_KEY       || 'b5541d67bbd86c9b474928976884b360ab38e8bcbd78fd88d354f3882194c2ef',
+  nodecoreKey:    process.env.NODECORE_API_KEY,
 
   // NodeCloud: infra + monitoring
-  nodecloudKey:   process.env.NODECLOUD_API_KEY      || '339f5fe83effa15f7e37939d9a53f6b3109364a599668d33a5eb8146099c76c5',
-  nodecloudStats: process.env.NODECLOUD_STATS_KEY    || 'fdcefb680e09a2605b2c3be8cdca65f45962780fb76e598c443fec7063d13d30',
-
+  nodecloudKey:   process.env.NODECLOUD_API_KEY,
+  nodecloudStats: process.env.NODECLOUD_STATS_KEY,
   // Fallback: original Ritual Chain endpoint
   fallbackUrl:    process.env.VITE_RPC_URL           || 'https://ritual-chain--pouaun2499.replit.app',
   chainId:        parseInt(process.env.CHAIN_ID)     || 13390,
