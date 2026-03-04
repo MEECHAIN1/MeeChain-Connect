@@ -793,7 +793,7 @@ function initKeyboardShortcuts() {
 async function checkWeb3Status() {
   try {
     const res = await fetch('/api/web3/status');
-    if (!res.ok) return;
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
     // ── Update the top network status bar ──────────────────
