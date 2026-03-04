@@ -18,7 +18,17 @@ const http    = require('http');
 const { MeeChainWeb3 } = require('./src/web3/contracts');
 
 const app = express();
-app.use(cors());
+const allowedOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    return cb(new Error('CORS blocked'));
+  }
+}));
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
