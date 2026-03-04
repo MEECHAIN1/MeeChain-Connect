@@ -1,6 +1,13 @@
 import { ethers } from "hardhat";
 
 async function main() {
+  const network = process.env.HARDHAT_NETWORK;
+  if (!network || network !== "ritual") {
+    throw new Error(
+      `Refusing to deploy on '${network ?? "undefined"}'. Use --network ritual`
+    );
+  }
+
   const MeeChainToken = await ethers.deployContract("MeeChainToken");
   await MeeChainToken.waitForDeployment();
   console.log("MeeChainToken deployed to:", await MeeChainToken.getAddress());
