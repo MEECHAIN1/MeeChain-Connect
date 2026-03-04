@@ -233,7 +233,8 @@ class MeeChainWeb3 {
     try {
       const latestBlock = await this.provider.getBlockNumber();
       const txList = [];
-      for (let i = 0; i < Math.min(blockCount, 5); i++) {
+      const maxBlocks = Math.min(blockCount, 5, latestBlock + 1);
+      for (let i = 0; i < maxBlocks; i++) {
         const block = await this.provider.getBlock(latestBlock - i, true);
         if (!block) continue;
         const txs = block.transactions?.slice(0, 3) || [];
