@@ -3,8 +3,8 @@
   'use strict';
 
   const API_BASE = window.location.origin; // same origin = server.js
-  const BOT_AVATAR = 'https://www.genspark.ai/api/files/s/7KwFcyZ0';
-  const USER_AVATAR = 'https://www.genspark.ai/api/files/s/djHvsw51';
+  const BOT_AVATAR = 'src/assets/images/meebot.png';
+  const USER_AVATAR = 'src/assets/images/meechain_logo.png';
 
   // ── Generate unique session ID ──────────────────────────────────
   const SESSION_ID = 'sess_' + Math.random().toString(36).slice(2, 10);

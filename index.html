@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MeeChain Dashboard | Mee Ritual Chain</title>
-  <link rel="icon" href="https://www.genspark.ai/api/files/s/djHvsw51" type="image/png" />
+  <link rel="icon" href="src/assets/images/meechain_logo.png" type="image/png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -16,7 +16,7 @@
   <div id="loading-screen">
     <div class="loader-content">
       <div class="loader-logo">
-        <img src="https://www.genspark.ai/api/files/s/djHvsw51" alt="MeeChain" class="loader-img" />
+        <img src="src/assets/images/meechain_logo.png" alt="MeeChain" class="loader-img" onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><circle cx=\"40\" cy=\"40\" r=\"38\" fill=\"%237C3AED\"/><text x=\"40\" y=\"52\" text-anchor=\"middle\" font-size=\"36\" fill=\"white\">🐻</text></svg>'" />
       </div>
       <div class="loader-bar-wrap">
         <div class="loader-bar"></div>
@@ -31,7 +31,7 @@
     <!-- Sidebar -->
     <aside id="sidebar" class="sidebar">
       <div class="sidebar-header">
-        <img src="https://www.genspark.ai/api/files/s/djHvsw51" alt="MeeChain Logo" class="sidebar-logo" />
+        <img src="src/assets/images/meechain_logo.png" alt="MeeChain Logo" class="sidebar-logo" onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#1A2236,#0D1525)';this.style.padding='8px';" />
         <span class="sidebar-brand">MeeChain</span>
         <button id="sidebar-toggle" class="sidebar-toggle-btn" title="Toggle Sidebar">
           <span class="toggle-icon">☰</span>
@@ -86,6 +86,20 @@
     <!-- Main Content -->
     <main id="main-content" class="main-content">
 
+      <!-- Network Status Bar -->
+      <div id="network-status-bar" class="network-status-bar">
+        <div class="net-status-left">
+          <span class="net-dot" id="net-dot">●</span>
+          <span id="net-label">กำลังเชื่อมต่อ Ritual Chain...</span>
+        </div>
+        <div class="net-status-right">
+          <span class="net-chip">⛓️ Chain ID: <strong id="net-chain-id">13390</strong></span>
+          <span class="net-chip">📦 Block: <strong id="net-block">—</strong></span>
+          <span class="net-chip">🔗 RPC: <strong id="net-rpc-label">rpc.meechain.run.place</strong></span>
+          <span class="net-chip net-chip-contract" title="MEE Token Contract">📋 Token: <strong id="net-token">0x5FbD...80aa3</strong></span>
+        </div>
+      </div>
+
       <!-- Top Header -->
       <header class="top-header">
         <div class="header-left">
@@ -106,7 +120,7 @@
             <span id="wallet-btn-text">เชื่อมต่อกระเป๋า</span>
           </button>
           <div class="user-avatar">
-            <img src="https://www.genspark.ai/api/files/s/7KwFcyZ0" alt="MeeBot" />
+            <img src="src/assets/images/meebot.png" alt="MeeBot" onerror="this.onerror=null;this.style.display='none';this.parentElement.innerHTML='🤖';" />
           </div>
         </div>
       </header>
@@ -155,7 +169,7 @@
               </div>
             </div>
             <div class="hero-mascot">
-              <img src="https://www.genspark.ai/api/files/s/7KwFcyZ0" alt="MeeBot" class="mascot-img float-anim" />
+              <img src="src/assets/images/meebot.png" alt="MeeBot" class="mascot-img float-anim" onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#1A2236,#0D1525)';this.style.padding='8px';" />
             </div>
           </div>
           <div class="hero-particles" id="hero-particles"></div>
@@ -254,7 +268,7 @@
               <h3>🚀 Mee Ritual Chain</h3>
             </div>
             <div class="ritual-content">
-              <img src="https://www.genspark.ai/api/files/s/sXVY2ZKL" alt="Mee Ritual Chain" class="ritual-logo" />
+              <img src="src/assets/images/ritual_chain.png" alt="Mee Ritual Chain" class="ritual-logo" onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#1A2236,#0D1525)';this.style.padding='8px';" />
               <div class="ritual-stats">
                 <div class="ritual-stat-item">
                   <span class="rstat-label">Block ล่าสุด</span>
@@ -323,7 +337,7 @@
       <section id="page-ritual" class="page-section">
         <div class="ritual-hero">
           <div class="ritual-hero-content">
-            <img src="https://www.genspark.ai/api/files/s/sXVY2ZKL" alt="Mee Ritual Chain" class="ritual-hero-logo" />
+            <img src="src/assets/images/ritual_chain.png" alt="Mee Ritual Chain" class="ritual-hero-logo" onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#1A2236,#0D1525)';this.style.padding='8px';" />
             <div class="ritual-hero-text">
               <h2>Mee Ritual Chain</h2>
               <p>บล็อกเชนสำหรับพิธีกรรมและศิลปะดิจิทัล</p>
@@ -402,7 +416,7 @@
 
         <div class="staking-overview">
           <div class="staking-hero-card">
-            <img src="https://www.genspark.ai/api/files/s/djHvsw51" alt="MeeChain Bear" class="staking-mascot" />
+            <img src="src/assets/images/meechain_logo.png" alt="MeeChain Bear" class="staking-mascot" onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#1A2236,#0D1525)';this.style.padding='8px';" />
             <div class="staking-hero-info">
               <h3>MEE Staking Pool</h3>
               <p>วาง MEE Token ของคุณเพื่อรับรางวัลทุกวัน</p>
@@ -436,7 +450,7 @@
           </div>
           <div class="my-stakes-content" id="my-stakes">
             <div class="empty-state">
-              <img src="https://www.genspark.ai/api/files/s/djHvsw51" alt="Empty" class="empty-img" />
+              <img src="src/assets/images/meechain_logo.png" alt="Empty" class="empty-img" onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#1A2236,#0D1525)';this.style.padding='8px';" />
               <p>ยังไม่มีการ Staking</p>
               <button class="btn btn-primary">เริ่ม Staking ตอนนี้</button>
             </div>
@@ -456,7 +470,7 @@
           <div class="wallet-card-inner">
             <div class="wallet-card-front">
               <div class="wcard-header">
-                <img src="https://www.genspark.ai/api/files/s/djHvsw51" alt="MeeChain" class="wcard-logo" />
+                <img src="src/assets/images/meechain_logo.png" alt="MeeChain" class="wcard-logo" onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#1A2236,#0D1525)';this.style.padding='8px';" />
                 <span class="wcard-network">MeeChain Mainnet</span>
               </div>
               <div class="wcard-balance">
@@ -523,7 +537,7 @@
 
         <div class="meebot-intro">
           <div class="meebot-intro-content">
-            <img src="https://www.genspark.ai/api/files/s/7KwFcyZ0" alt="MeeBot" class="meebot-hero-img float-anim" />
+            <img src="src/assets/images/meebot.png" alt="MeeBot" class="meebot-hero-img float-anim" onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#1A2236,#0D1525)';this.style.padding='8px';" />
             <div class="meebot-intro-text">
               <h3>MeeChain_MeeBot NFT</h3>
               <p>NFT ที่เป็นตัวแทนสิทธิพิเศษในการเข้าถึงเนื้อหาพิเศษ หรือการมีส่วนร่วมในกิจกรรมพิเศษบนแพลตฟอร์ม MeeChain</p>
