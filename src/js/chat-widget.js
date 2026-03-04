@@ -246,7 +246,10 @@
               botBubble.classList.remove('stream-cursor');
             }
             if (data.error && botBubble) {
-              botBubble.innerHTML = `<span style="color:#EF4444">${data.error}</span>`;
+              const errSpan = document.createElement('span');
+              errSpan.style.color = '#EF4444';
+              errSpan.textContent = data.error;
+              botBubble.replaceChildren(errSpan);
               botBubble.classList.remove('stream-cursor');
             }
           } catch (_) {}
