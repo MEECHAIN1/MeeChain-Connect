@@ -368,7 +368,7 @@
       if (e.target.classList.contains('suggestion-chip')) {
         const text = e.target.textContent.replace(/^[^\s]+\s/, ''); // strip emoji
         toggleChat(true);
-        sendMessage(e.target.textContent);
+        sendMessage(text);
       }
     });
 
