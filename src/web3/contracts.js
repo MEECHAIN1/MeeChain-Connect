@@ -219,7 +219,7 @@ class MeeChainWeb3 {
       return {
         blockNumber,
         gasPrice: parseFloat(gasPrice).toFixed(4) + ' Gwei',
-        chainId: this.chainInfo?.chainId || 1337,
+        chainId: this.chainInfo?.chainId || 13390,
         live: true,
       };
     } catch (e) {
@@ -260,8 +260,8 @@ class MeeChainWeb3 {
   // ── Mock Fallbacks ──────────────────────────────────────────────
   _mockTokenInfo() {
     return {
-      name: 'MeeChain Token', symbol: 'MEE',
-      decimals: 18, totalSupply: '100000000',
+      name: 'MeeChain Token', symbol: 'MCT',
+      decimals: 18, totalSupply: '10000000',
       address: this.addresses.token, live: false,
     };
   }
