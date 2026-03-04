@@ -201,7 +201,15 @@
   border-radius: 16px;
   font-size: 13.5px;
   line-height: 1.55;
-  word-break: break-word;
+  .msg-bubble {
+    max-width: 82%;
+    padding: 10px 14px;
+    border-radius: 16px;
+    font-size: 13.5px;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
 }
 .msg.bot .msg-bubble {
   background: #1A2236;
