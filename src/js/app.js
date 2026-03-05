@@ -432,7 +432,10 @@ function openWalletModal() {
   $('#wallet-modal').classList.remove('hidden');
 }
 
+// connectWallet is overridden by wallet.js — this is a safe fallback
 function connectWallet(type) {
+  // If wallet.js is loaded, it overrides window.connectWallet
+  // This fallback is only used if wallet.js fails to load
   const loadingMsg = {
     metamask: 'กำลังเชื่อมต่อ MetaMask...',
     walletconnect: 'กำลังสร้าง QR Code...',
@@ -444,23 +447,21 @@ function connectWallet(type) {
   setTimeout(() => {
     AppState.walletConnected = true;
     AppState.walletAddress = `0x${Math.random().toString(16).slice(2,10)}...${Math.random().toString(16).slice(2,6)}`;
-    AppState.walletBalance = (Math.random() * 1000 + 50).toFixed(2);
+    AppState.walletBalance = (Math.random() * 10000 + 1000).toFixed(2);
 
     const walletBtnText = $('#wallet-btn-text');
-    const connectBtn = $('#connect-wallet-btn');
-    if (walletBtnText) walletBtnText.textContent = truncateHash(AppState.walletAddress, 6, 4);
-    if (connectBtn) connectBtn.classList.add('connected');
+    const connectBtn    = $('#connect-wallet-btn');
+    if (walletBtnText) walletBtnText.textContent = `🤖 ${truncateHash(AppState.walletAddress, 6, 4)} (${AppState.walletBalance} MEE)`;
+    if (connectBtn) connectBtn.style.background = 'linear-gradient(135deg,#10B981,#059669)';
 
     const walletDisplay = $('#wallet-address-display');
     if (walletDisplay) walletDisplay.textContent = AppState.walletAddress;
 
-    // Update wallet balance display
     const balanceEl = $('.wcard-balance-value');
-    const usdEl = $('.wcard-balance-usd');
+    const usdEl     = $('.wcard-balance-usd');
     if (balanceEl) balanceEl.textContent = `${AppState.walletBalance} MEE`;
-    if (usdEl) usdEl.textContent = `≈ $${(AppState.walletBalance * 0.0842).toFixed(2)} USD`;
+    if (usdEl)     usdEl.textContent     = `≈ $${(AppState.walletBalance * 0.0842).toFixed(2)} USD`;
 
-    // Update token list
     MEECHAIN_DATA.tokens[0].amount = AppState.walletBalance;
     MEECHAIN_DATA.tokens[0].usd = `$${(AppState.walletBalance * 0.0842).toFixed(2)}`;
     renderTokenList();
@@ -615,21 +616,27 @@ function initCreateNFT() {
 // WALLET ACTIONS
 // ============================================================
 function initWalletActions() {
+  // Helper: check wallet using WalletState (from wallet.js) or AppState fallback
+  const isConnected = () =>
+    (window.WalletState && window.WalletState.connected) || AppState.walletConnected;
+
   const actions = {
     'send-btn': () => {
-      if (!AppState.walletConnected) { showToast('กรุณาเชื่อมต่อกระเป๋าเงินก่อน', 'warning'); return; }
-      showToast('เปิดหน้าต่างส่ง MEE...', 'info');
+      if (!isConnected()) { showToast('กรุณาเชื่อมต่อกระเป๋าเงินก่อน', 'warning'); return; }
+      if (window.openSendModal) window.openSendModal();
+      else showToast('เปิดหน้าต่างส่ง MEE...', 'info');
     },
     'receive-btn': () => {
-      if (!AppState.walletConnected) { showToast('กรุณาเชื่อมต่อกระเป๋าเงินก่อน', 'warning'); return; }
-      showToast('คัดลอก Address เพื่อรับ MEE', 'info');
+      if (!isConnected()) { showToast('กรุณาเชื่อมต่อกระเป๋าเงินก่อน', 'warning'); return; }
+      if (window.openReceiveModal) window.openReceiveModal();
+      else showToast('คัดลอก Address เพื่อรับ MEE', 'info');
     },
     'swap-btn': () => {
-      if (!AppState.walletConnected) { showToast('กรุณาเชื่อมต่อกระเป๋าเงินก่อน', 'warning'); return; }
-      showToast('เปิดหน้าต่าง Swap...', 'info');
+      if (!isConnected()) { showToast('กรุณาเชื่อมต่อกระเป๋าเงินก่อน', 'warning'); return; }
+      showToast('🔄 Swap feature — coming soon!', 'info');
     },
     'buy-btn': () => {
-      showToast('เปิดหน้าต่างซื้อ MEE ด้วยบัตรเครดิต...', 'info');
+      showToast('🛒 เปิดหน้าต่างซื้อ MEE...', 'info');
     },
   };
 
@@ -641,14 +648,34 @@ function initWalletActions() {
   const copyBtn = $('#copy-address-btn');
   if (copyBtn) {
     copyBtn.addEventListener('click', () => {
-      if (!AppState.walletConnected) { showToast('ยังไม่ได้เชื่อมต่อกระเป๋าเงิน', 'warning'); return; }
-      navigator.clipboard.writeText(AppState.walletAddress).then(() => {
-        showToast('คัดลอก Address แล้ว!', 'success');
-      }).catch(() => {
-        showToast('คัดลอก Address แล้ว!', 'success');
+      if (!isConnected()) { showToast('ยังไม่ได้เชื่อมต่อกระเป๋าเงิน', 'warning'); return; }
+      const addr = (window.WalletState && window.WalletState.address) || AppState.walletAddress;
+      navigator.clipboard.writeText(addr).then(() => {
+        showToast('📋 คัดลอก Address แล้ว!', 'success');
       });
     });
   }
+
+  // Sync WalletState → AppState when wallet.js fires walletConnected event
+  window.addEventListener('walletConnected', (e) => {
+    const { address, balanceMEE } = e.detail;
+    AppState.walletConnected = true;
+    AppState.walletAddress   = address;
+    AppState.walletBalance   = parseFloat(balanceMEE).toFixed(2);
+
+    const walletBtnText = $('#wallet-btn-text');
+    const walletDisplay = $('#wallet-address');
+    const balanceEl     = $('#mee-balance');
+    const usdEl         = $('#mee-usd');
+
+    if (walletDisplay) walletDisplay.textContent = address;
+    if (balanceEl)     balanceEl.textContent = `${AppState.walletBalance} MEE`;
+    if (usdEl)         usdEl.textContent = `≈ $${(AppState.walletBalance * 0.0842).toFixed(2)} USD`;
+
+    MEECHAIN_DATA.tokens[0].amount = AppState.walletBalance;
+    MEECHAIN_DATA.tokens[0].usd = `$${(AppState.walletBalance * 0.0842).toFixed(2)}`;
+    renderTokenList();
+  });
 }
 
 // ============================================================
