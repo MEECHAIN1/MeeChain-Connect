@@ -91,10 +91,12 @@ contract MeeBotNFT is ERC721, ERC721Enumerable, ERC721URIStorage, Ownable {
 
     /// @notice Get rarity label string
     function getRarityLabel(uint256 tokenId) external view returns (string memory) {
+        require(_ownerOf(tokenId) != address(0), "MeeBot: token does not exist");
         Rarity r = attributes[tokenId].rarity;
         if (r == Rarity.Legendary) return "Legendary";
         if (r == Rarity.Rare)      return "Rare";
         return "Common";
+    }
     }
 
     // ── Required overrides ─────────────────────────────────────────
