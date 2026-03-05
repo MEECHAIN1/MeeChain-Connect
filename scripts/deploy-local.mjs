@@ -181,7 +181,7 @@ async function main() {
     const portalWithSigner = new ethers.Contract(portalAddr, portalAbi, deployer);
     const tx = await portalWithSigner.setMeeToken(tokenAddr);
     await tx.wait();
-    console.log('\n🔗 Portal.setTokenAddress() ✅');
+    envContent = setEnvVar(envContent, 'VITE_PORTAL_CONTRACT_ADDRESS', portalAddr);
   } catch (e) {
     console.warn(`\n⚠  setTokenAddress skip: ${e.message}`);
   }
