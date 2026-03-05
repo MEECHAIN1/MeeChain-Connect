@@ -428,11 +428,25 @@ const AppState = {
   walletBalance: 0,
 };
 
+/**
+ * แสดงโมดัลกระเป๋าเงินบนหน้าจอ
+ *
+ * ทำให้องค์ประกอบ DOM ของโมดัลกระเป๋าเงินมองเห็นได้โดยเอา class `hidden` ออกจาก `#wallet-modal`
+ */
 function openWalletModal() {
   $('#wallet-modal').classList.remove('hidden');
 }
 
+/**
+ * ดำเนินการเชื่อมต่อกระเป๋าเงินโดยใช้ตัวเชื่อมต่อที่ระบุและทำงานเป็นฟอลแบ็กเมื่อ wallet.js ไม่ถูกโหลดหรือใช้งานไม่ได้
+ *
+ * ฟังก์ชันจะจำลองกระบวนการเชื่อมต่อ (แสดงข้อความสถานะ ชุดข้อมูลจำลองของที่อยู่และยอดคงเหลือ) และอัปเดตสถานะแอป (AppState), อัปเดตส่วนติดต่อผู้ใช้ที่เกี่ยวข้อง (ปุ่มเชื่อมต่อ, แสดงที่อยู่, ยอดเงิน, รายการโทเค็น) และแสดงการแจ้งเตือนความสำเร็จเมื่อเสร็จสิ้น
+ *
+ * @param {string} type - ชนิดของผู้ให้บริการกระเป๋าเงินที่ต้องการเชื่อมต่อ (เช่น `"metamask"`, `"walletconnect"`, `"coinbase"`, `"demo"`); หากไม่ระบุชนิดที่จับคู่ จะใช้ข้อความสถานะทั่วไป
+ */
 function connectWallet(type) {
+  // If wallet.js is loaded, it overrides window.connectWallet
+  // This fallback is only used if wallet.js fails to load
   const loadingMsg = {
     metamask: 'กำลังเชื่อมต่อ MetaMask...',
     walletconnect: 'กำลังสร้าง QR Code...',
@@ -444,23 +458,21 @@ function connectWallet(type) {
   setTimeout(() => {
     AppState.walletConnected = true;
     AppState.walletAddress = `0x${Math.random().toString(16).slice(2,10)}...${Math.random().toString(16).slice(2,6)}`;
-    AppState.walletBalance = (Math.random() * 1000 + 50).toFixed(2);
+    AppState.walletBalance = (Math.random() * 10000 + 1000).toFixed(2);
 
     const walletBtnText = $('#wallet-btn-text');
-    const connectBtn = $('#connect-wallet-btn');
-    if (walletBtnText) walletBtnText.textContent = truncateHash(AppState.walletAddress, 6, 4);
-    if (connectBtn) connectBtn.classList.add('connected');
+    const connectBtn    = $('#connect-wallet-btn');
+    if (walletBtnText) walletBtnText.textContent = `🤖 ${truncateHash(AppState.walletAddress, 6, 4)} (${AppState.walletBalance} MEE)`;
+    if (connectBtn) connectBtn.style.background = 'linear-gradient(135deg,#10B981,#059669)';
 
     const walletDisplay = $('#wallet-address-display');
     if (walletDisplay) walletDisplay.textContent = AppState.walletAddress;
 
-    // Update wallet balance display
     const balanceEl = $('.wcard-balance-value');
-    const usdEl = $('.wcard-balance-usd');
+    const usdEl     = $('.wcard-balance-usd');
     if (balanceEl) balanceEl.textContent = `${AppState.walletBalance} MEE`;
-    if (usdEl) usdEl.textContent = `≈ $${(AppState.walletBalance * 0.0842).toFixed(2)} USD`;
+    if (usdEl)     usdEl.textContent     = `≈ $${(AppState.walletBalance * 0.0842).toFixed(2)} USD`;
 
-    // Update token list
     MEECHAIN_DATA.tokens[0].amount = AppState.walletBalance;
     MEECHAIN_DATA.tokens[0].usd = `$${(AppState.walletBalance * 0.0842).toFixed(2)}`;
     renderTokenList();
@@ -613,23 +625,35 @@ function initCreateNFT() {
 
 // ============================================================
 // WALLET ACTIONS
-// ============================================================
+/**
+ * ตั้งค่าการกระทำที่เกี่ยวกับกระเป๋าเงินบนหน้า UI (ปุ่มส่ง/รับ/สลับ/ซื้อ) และการซิงค์สถานะกระเป๋าเงิน
+ *
+ * ผูกตัวจัดการเหตุการณ์คลิกกับปุ่มส่ง รับ สลับ และซื้อ รวมถึงปุ่มคัดลอกที่อยู่ซึ่งจะคัดลอกที่อยู่กระเป๋าไปยังคลิปบอร์ด
+ * ตรวจสอบสถานะการเชื่อมต่อโดยใช้ `window.WalletState` หากมี หรือสำรองด้วย `AppState` ก่อนอนุญาตการกระทำที่ต้องการการเชื่อมต่อ
+ * ฟังเหตุการณ์ `walletConnected` เพื่อซิงค์ข้อมูลจากรายละเอียดเหตุการณ์มายัง `AppState` และอัปเดตองค์ประกอบ UI ที่เกี่ยวข้อง รวมทั้งข้อมูลโทเค็นแล้วเรียก `renderTokenList()` เพื่อรีเฟรชรายการโทเค็น
+ */
 function initWalletActions() {
+  // Helper: check wallet using WalletState (from wallet.js) or AppState fallback
+  const isConnected = () =>
+    (window.WalletState && window.WalletState.connected) || AppState.walletConnected;
+
   const actions = {
     'send-btn': () => {
-      if (!AppState.walletConnected) { showToast('กรุณาเชื่อมต่อกระเป๋าเงินก่อน', 'warning'); return; }
-      showToast('เปิดหน้าต่างส่ง MEE...', 'info');
+      if (!isConnected()) { showToast('กรุณาเชื่อมต่อกระเป๋าเงินก่อน', 'warning'); return; }
+      if (window.openSendModal) window.openSendModal();
+      else showToast('เปิดหน้าต่างส่ง MEE...', 'info');
     },
     'receive-btn': () => {
-      if (!AppState.walletConnected) { showToast('กรุณาเชื่อมต่อกระเป๋าเงินก่อน', 'warning'); return; }
-      showToast('คัดลอก Address เพื่อรับ MEE', 'info');
+      if (!isConnected()) { showToast('กรุณาเชื่อมต่อกระเป๋าเงินก่อน', 'warning'); return; }
+      if (window.openReceiveModal) window.openReceiveModal();
+      else showToast('คัดลอก Address เพื่อรับ MEE', 'info');
     },
     'swap-btn': () => {
-      if (!AppState.walletConnected) { showToast('กรุณาเชื่อมต่อกระเป๋าเงินก่อน', 'warning'); return; }
-      showToast('เปิดหน้าต่าง Swap...', 'info');
+      if (!isConnected()) { showToast('กรุณาเชื่อมต่อกระเป๋าเงินก่อน', 'warning'); return; }
+      showToast('🔄 Swap feature — coming soon!', 'info');
     },
     'buy-btn': () => {
-      showToast('เปิดหน้าต่างซื้อ MEE ด้วยบัตรเครดิต...', 'info');
+      showToast('🛒 เปิดหน้าต่างซื้อ MEE...', 'info');
     },
   };
 
@@ -641,14 +665,34 @@ function initWalletActions() {
   const copyBtn = $('#copy-address-btn');
   if (copyBtn) {
     copyBtn.addEventListener('click', () => {
-      if (!AppState.walletConnected) { showToast('ยังไม่ได้เชื่อมต่อกระเป๋าเงิน', 'warning'); return; }
-      navigator.clipboard.writeText(AppState.walletAddress).then(() => {
-        showToast('คัดลอก Address แล้ว!', 'success');
-      }).catch(() => {
-        showToast('คัดลอก Address แล้ว!', 'success');
+      if (!isConnected()) { showToast('ยังไม่ได้เชื่อมต่อกระเป๋าเงิน', 'warning'); return; }
+      const addr = (window.WalletState && window.WalletState.address) || AppState.walletAddress;
+      navigator.clipboard.writeText(addr).then(() => {
+        showToast('📋 คัดลอก Address แล้ว!', 'success');
       });
     });
   }
+
+  // Sync WalletState → AppState when wallet.js fires walletConnected event
+  window.addEventListener('walletConnected', (e) => {
+    const { address, balanceMEE } = e.detail;
+    AppState.walletConnected = true;
+    AppState.walletAddress   = address;
+    AppState.walletBalance   = parseFloat(balanceMEE).toFixed(2);
+
+    const walletBtnText = $('#wallet-btn-text');
+    const walletDisplay = $('#wallet-address');
+    const balanceEl     = $('#mee-balance');
+    const usdEl         = $('#mee-usd');
+
+    if (walletDisplay) walletDisplay.textContent = address;
+    if (balanceEl)     balanceEl.textContent = `${AppState.walletBalance} MEE`;
+    if (usdEl)         usdEl.textContent = `≈ $${(AppState.walletBalance * 0.0842).toFixed(2)} USD`;
+
+    MEECHAIN_DATA.tokens[0].amount = AppState.walletBalance;
+    MEECHAIN_DATA.tokens[0].usd = `$${(AppState.walletBalance * 0.0842).toFixed(2)}`;
+    renderTokenList();
+  });
 }
 
 // ============================================================
