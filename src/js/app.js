@@ -437,6 +437,7 @@ function openWalletModal() {
   $('#wallet-modal').classList.remove('hidden');
 }
 
+// connectWallet is overridden by wallet.js — this is a safe fallback
 /**
  * ดำเนินการเชื่อมต่อกระเป๋าเงินโดยใช้ตัวเชื่อมต่อที่ระบุและทำงานเป็นฟอลแบ็กเมื่อ wallet.js ไม่ถูกโหลดหรือใช้งานไม่ได้
  *
@@ -681,9 +682,9 @@ function initWalletActions() {
     AppState.walletBalance   = parseFloat(balanceMEE).toFixed(2);
 
     const walletBtnText = $('#wallet-btn-text');
-    const walletDisplay = $('#wallet-address');
-    const balanceEl     = $('#mee-balance');
-    const usdEl         = $('#mee-usd');
+    const walletDisplay = $('#wallet-address-display');
+    const balanceEl     = $('.wcard-balance-value');
+    const usdEl         = $('.wcard-balance-usd');
 
     if (walletDisplay) walletDisplay.textContent = address;
     if (balanceEl)     balanceEl.textContent = `${AppState.walletBalance} MEE`;

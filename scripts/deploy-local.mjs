@@ -21,7 +21,10 @@ dotenv.config({ path: join(__dirname, '..', '.env') });
 
 // ── Config ──────────────────────────────────────────────────────────
 const RPC_URL    = process.env.DRPC_RPC_URL || 'http://127.0.0.1:8080';
-const PRIVATE_KEY= process.env.PRIVATE_KEY  || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
+const PRIVATE_KEY = process.env.PRIVATE_KEY;
+if (!PRIVATE_KEY) {
+  throw new Error('Missing PRIVATE_KEY in environment');
+}
 const CHAIN_ID   = parseInt(process.env.CHAIN_ID || '13390', 10);
 
 // ── Load compiled artifacts ─────────────────────────────────────────
@@ -49,6 +52,7 @@ function getArtifact(name) {
   };
 }
 
+// ── Deploy helper ───────────────────────────────────────────────────
 /**
  * ดำเนินการปรับใช้ (deploy) สัญญาอัจฉริยะโดยชื่อและอ็อพชันของอาร์กิวเมนต์คอนสตรัคเตอร์ที่ระบุ
  *
@@ -79,6 +83,7 @@ async function deployContract(deployer, name, constructorArgs = []) {
   return { contract, address, abi };
 }
 
+// ── Verify on-chain ─────────────────────────────────────────────────
 /**
  * ดำเนินการตรวจสอบสถานะบนเครือข่ายสำหรับสัญญาที่ระบุและพิมพ์สรุปข้อมูลที่เกี่ยวข้อง
  *
@@ -109,6 +114,7 @@ async function verifyDeployment(provider, name, address, abi, ...callArgs) {
   }
 }
 
+// ── Main ────────────────────────────────────────────────────────────
 /**
  * ดำเนินกระบวนการปรับใช้สัญญา MeeChain ทั้งหมดไปยัง RPC ที่กำหนด และบันทึกผลการปรับใช้
  *
@@ -166,16 +172,16 @@ async function main() {
   // ── 3. Deploy NeonovaPortal ────────────────────────────────────
   //    NeonovaPortal needs the MEE token address in constructor
   const { contract: portal, address: portalAddr, abi: portalAbi } =
-    await deployContract(deployer, 'NeonovaPortal', [tokenAddr]);
+    await deployContract(deployer, 'NeonovaPortal', []);
   deployedAddresses.NeonovaPortal = portalAddr;
   await verifyDeployment(provider, 'NeonovaPortal', portalAddr, portalAbi);
 
   // ── Post-deployment: set token address in portal if needed ─────
   try {
     const portalWithSigner = new ethers.Contract(portalAddr, portalAbi, deployer);
-    const tx = await portalWithSigner.setTokenAddress(tokenAddr);
+    const tx = await portalWithSigner.setMeeToken(tokenAddr);
     await tx.wait();
-    console.log('\n🔗 Portal.setTokenAddress() ✅');
+    envContent = setEnvVar(envContent, 'VITE_PORTAL_CONTRACT_ADDRESS', portalAddr);
   } catch (e) {
     console.warn(`\n⚠  setTokenAddress skip: ${e.message}`);
   }
@@ -205,16 +211,6 @@ async function main() {
   const envPath  = join(__dirname, '..', '.env');
   let envContent = existsSync(envPath) ? readFileSync(envPath, 'utf8') : '';
 
-  /**
-   * อัปเดตหรือเพิ่มตัวแปรสภาพแวดล้อมในเนื้อหาไฟล์และส่งคืนเนื้อหาที่ปรับปรุงแล้ว
-   *
-   * ถ้าพบบรรทัดที่มีคีย์อยู่แล้ว จะถูกแทนที่ด้วยบรรทัดใหม่ที่มีค่าที่ระบุ; หากไม่พบจะต่อท้ายบรรทัดใหม่ที่ประกอบด้วย `key=value`
-   *
-   * @param {string} content - เนื้อหาปัจจุบันของไฟล์ (.env) ที่จะถูกอัปเดต
-   * @param {string} key - ชื่อของตัวแปรสภาพแวดล้อม (เช่น `VITE_TOKEN_CONTRACT_ADDRESS`)
-   * @param {string} value - ค่าที่จะตั้งให้กับตัวแปร
-   * @returns {string} เนื้อหาไฟล์ที่ได้รับการอัปเดตแล้ว
-   */
   function setEnvVar(content, key, value) {
     const regex = new RegExp(`^${key}=.*$`, 'm');
     if (regex.test(content)) return content.replace(regex, `${key}=${value}`);
