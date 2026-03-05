@@ -172,14 +172,14 @@ async function main() {
   // ── 3. Deploy NeonovaPortal ────────────────────────────────────
   //    NeonovaPortal needs the MEE token address in constructor
   const { contract: portal, address: portalAddr, abi: portalAbi } =
-    await deployContract(deployer, 'NeonovaPortal', [tokenAddr]);
+    await deployContract(deployer, 'NeonovaPortal', []);
   deployedAddresses.NeonovaPortal = portalAddr;
   await verifyDeployment(provider, 'NeonovaPortal', portalAddr, portalAbi);
 
   // ── Post-deployment: set token address in portal if needed ─────
   try {
     const portalWithSigner = new ethers.Contract(portalAddr, portalAbi, deployer);
-    const tx = await portalWithSigner.setTokenAddress(tokenAddr);
+    const tx = await portalWithSigner.setMeeToken(tokenAddr);
     await tx.wait();
     console.log('\n🔗 Portal.setTokenAddress() ✅');
   } catch (e) {
