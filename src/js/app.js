@@ -682,9 +682,9 @@ function initWalletActions() {
     AppState.walletBalance   = parseFloat(balanceMEE).toFixed(2);
 
     const walletBtnText = $('#wallet-btn-text');
-    const walletDisplay = $('#wallet-address');
-    const balanceEl     = $('#mee-balance');
-    const usdEl         = $('#mee-usd');
+    const walletDisplay = $('#wallet-address-display');
+    const balanceEl     = $('.wcard-balance-value');
+    const usdEl         = $('.wcard-balance-usd');
 
     if (walletDisplay) walletDisplay.textContent = address;
     if (balanceEl)     balanceEl.textContent = `${AppState.walletBalance} MEE`;
