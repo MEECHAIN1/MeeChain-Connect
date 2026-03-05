@@ -33,6 +33,13 @@ if (!existsSync(artifactsPath)) {
 const raw       = JSON.parse(readFileSync(artifactsPath, 'utf8'));
 const compiled  = raw.contracts || {};
 
+/**
+ * ดึง ABI และ bytecode ของคอนแทรกต์ที่คอมไพล์ไว้ตามชื่อที่ระบุ
+ *
+ * @param {string} name - ชื่อคอนแทรกต์ (เช่น 'MeeChainToken')
+ * @returns {{abi: any[], bytecode: string}} วัตถุที่มีฟิลด์ `abi` เป็น ABI ของคอนแทรกต์ และ `bytecode` เป็นสตริงไบนารีเริ่มต้นด้วย `0x`
+ * @throws {Error} ถ้าไม่พบคอนแทรกต์ที่ระบุในไฟล์ compiled artifacts
+ */
 function getArtifact(name) {
   const key = Object.keys(compiled).find(k => k.endsWith(`:${name}`));
   if (!key) throw new Error(`Contract "${name}" not found in compiled artifacts`);
@@ -43,6 +50,15 @@ function getArtifact(name) {
 }
 
 // ── Deploy helper ───────────────────────────────────────────────────
+/**
+ * ดำเนินการปรับใช้ (deploy) สัญญาอัจฉริยะโดยชื่อและอ็อพชันของอาร์กิวเมนต์คอนสตรัคเตอร์ที่ระบุ
+ *
+ * @param {import("ethers").Signer} deployer - ผู้ส่งธุรกรรม/ผู้ถือคีย์ที่ใช้ปรับใช้สัญญา
+ * @param {string} name - ชื่อสัญญาในไฟล์ artifacts (ตรงกับชื่อที่ใช้ใน combined.json)
+ * @param {Array<any>} [constructorArgs=[]] - อาร์กิวเมนต์สำหรับคอนสตรัคเตอร์ของสัญญา
+ * @returns {{contract: import("ethers").Contract, address: string, abi: any}} วัตถุที่มีอินสแตนซ์สัญญาที่ปรับใช้แล้ว ที่อยู่ของสัญญา และ ABI ของสัญญา
+ * @throws {Error} เมื่อไม่พบหรือมี bytecode ว่างสำหรับสัญญาที่ระบุ
+ */
 async function deployContract(deployer, name, constructorArgs = []) {
   console.log(`\n🚀 Deploying ${name}...`);
   const { abi, bytecode } = getArtifact(name);
@@ -65,6 +81,18 @@ async function deployContract(deployer, name, constructorArgs = []) {
 }
 
 // ── Verify on-chain ─────────────────────────────────────────────────
+/**
+ * ดำเนินการตรวจสอบสถานะบนเครือข่ายสำหรับสัญญาที่ระบุและพิมพ์สรุปข้อมูลที่เกี่ยวข้อง
+ *
+ * ฟังก์ชันจะอ่านข้อมูลสถานะจากสัญญา (เช่น name, symbol, totalSupply หรือ portal stats ขึ้นกับประเภทสัญญา)
+ * แล้วพิมพ์ผลสรุปไปยังคอนโซล; ความผิดพลาดระหว่างการตรวจสอบจะถูกจับและพิมพ์เป็นคำเตือนโดยไม่โยนข้อยกเว้นต่อไป.
+ *
+ * @param {*} provider - Provider หรือ RPC client ที่ใช้เชื่อมต่อกับเครือข่าย
+ * @param {string} name - ชื่อของสัญญา (เช่น 'MeeChainToken', 'MeeBotNFT', 'NeonovaPortal') เพื่อเลือกการตรวจสอบที่เหมาะสม
+ * @param {string} address - ที่อยู่ของสัญญาที่จะตรวจสอบ
+ * @param {*} abi - ABI ของสัญญา เพื่อเรียกฟังก์ชันสาธารณะบนสัญญานั้น
+ * @param {...*} callArgs - อาร์กิวเมนต์เพิ่มเติม (ไม่ได้ใช้โดยปัจจุบัน แต่สงวนไว้สำหรับการเรียกตรวจสอบเพิ่มเติม)
+ */
 async function verifyDeployment(provider, name, address, abi, ...callArgs) {
   try {
     const c = new ethers.Contract(address, abi, provider);
@@ -84,6 +112,13 @@ async function verifyDeployment(provider, name, address, abi, ...callArgs) {
 }
 
 // ── Main ────────────────────────────────────────────────────────────
+/**
+ * ดำเนินกระบวนการปรับใช้สัญญา MeeChain ทั้งหมดไปยัง RPC ที่กำหนด และบันทึกผลการปรับใช้
+ *
+ * ปรับใช้ MeeChainToken, MeeBotNFT และ NeonovaPortal (ส่งที่อยู่โทเค็นเป็น constructor ของ Portal),
+ * ตรวจสอบสถานะพื้นฐานบน chain แต่ละสัญญา, พยายามเรียก NeonovaPortal.setTokenAddress(tokenAddr) แบบ best-effort,
+ * บันทึก deployment-log.json ในรากโปรเจค และอัปเดตไฟล์ .env ด้วยที่อยู่สัญญาที่ปรับใช้
+ */
 async function main() {
   console.log('╔══════════════════════════════════════════════════════╗');
   console.log('║       MeeChain Contract Deployment                   ║');
