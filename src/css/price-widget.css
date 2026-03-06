@@ -1,0 +1,202 @@
+/* ===== MeeChain Price Widget Styles ===== */
+
+.price-widget {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  padding: 20px;
+  color: white;
+  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+  min-width: 280px;
+  animation: fadeIn 0.5s ease;
+}
+
+.price-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.price-token {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.price-status {
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+.price-status.live {
+  background: rgba(16, 185, 129, 0.3);
+  color: #10b981;
+}
+
+.price-status.offline {
+  background: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+.price-main {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.price-label {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.mee-price {
+  font-size: 32px;
+  font-weight: 700;
+  font-family: 'Courier New', monospace;
+}
+
+.price-unit {
+  font-size: 16px;
+  opacity: 0.8;
+}
+
+.price-usd {
+  margin-bottom: 16px;
+}
+
+.mee-price-usd {
+  font-size: 18px;
+  opacity: 0.9;
+}
+
+.price-volume {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  margin-bottom: 16px;
+}
+
+.mee-volume {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.price-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  opacity: 0.7;
+  margin-bottom: 12px;
+}
+
+.price-trade-btn {
+  display: block;
+  text-align: center;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: white;
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.price-trade-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Price Chart Container */
+.price-chart-container {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #f3f4f6;
+}
+
+.chart-header h3 {
+  margin: 0;
+  font-size: 20px;
+  color: #1f2937;
+}
+
+.chart-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.chart-stat {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 16px;
+  border-radius: 12px;
+  color: white;
+}
+
+.stat-label {
+  display: block;
+  font-size: 12px;
+  opacity: 0.8;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-value {
+  display: inline-block;
+  font-size: 24px;
+  font-weight: 700;
+  font-family: 'Courier New', monospace;
+}
+
+.stat-unit {
+  font-size: 14px;
+  opacity: 0.8;
+  margin-left: 4px;
+}
+
+.chart-actions {
+  text-align: center;
+}
+
+/* Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .price-widget {
+    min-width: 100%;
+  }
+  
+  .chart-info {
+    grid-template-columns: 1fr;
+  }
+}

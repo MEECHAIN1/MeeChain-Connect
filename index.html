@@ -10,6 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="src/css/main.css" />
   <link rel="stylesheet" href="src/css/animations.css" />
+  <link rel="stylesheet" href="src/css/price-widget.css" />
 </head>
 <body>
   <!-- Loading Screen -->
@@ -217,6 +218,15 @@
 
         <!-- Charts & Activity Row -->
         <div class="dashboard-row">
+          <!-- MintMe Price Widget -->
+          <div class="card price-widget-card">
+            <div class="card-header">
+              <h3>💹 ราคา MeeChain (MintMe)</h3>
+              <a href="https://www.mintme.com/token/MeeChain/POL/trade" target="_blank" class="see-all-btn">Trade →</a>
+            </div>
+            <div id="mintme-price-widget"></div>
+          </div>
+
           <!-- Price Chart -->
           <div class="card chart-card">
             <div class="card-header">
@@ -232,7 +242,7 @@
               <canvas id="priceChart"></canvas>
             </div>
             <div class="chart-footer">
-              <span class="current-price">ราคาปัจจุบัน: <strong>0.0842 USDT</strong></span>
+              <span class="current-price">ราคาปัจจุบัน: <strong class="mee-price-usd">$0.0421</strong></span>
               <span class="price-change positive">+12.5% (24h)</span>
             </div>
           </div>
@@ -766,9 +776,14 @@
   <div class="toast-container" id="toast-container"></div>
 
   <!-- Scripts -->
+  <!-- Ethers.js v6 for Web3 Integration -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.7.0/dist/ethers.umd.min.js"></script>
+  
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="src/js/data.js"></script>
+  <script src="src/js/price-widget.js"></script>
   <script src="src/js/chart.js"></script>
+  <script src="src/js/wallet-integration.js"></script>
   <script src="src/js/app.js"></script>
   <!-- MeeBot AI Chat Widget -->
   <script src="src/js/chat-widget.js"></script>

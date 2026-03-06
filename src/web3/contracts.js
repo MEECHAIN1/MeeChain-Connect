@@ -1,7 +1,7 @@
 // ===== MeeChain Web3 Service =====
 // เชื่อมต่อ Smart Contract บน Ritual Chain (Chain ID: 13390)
-// RPC: http://rpc.meechain.run.place  (dRPC gateway)
-// Fallback: https://ritual-chain--pouaun2499.replit.app
+// RPC: https://rpc.meechain.run.place:5005 (SSL-secured via Nginx ✅)
+// Fallback: http://127.0.0.1:8545 (local node)
 
 const { ethers } = require('ethers');
 

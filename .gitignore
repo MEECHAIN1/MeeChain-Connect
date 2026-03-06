@@ -2,9 +2,18 @@ node_modules/
 npm-debug.log*
 .env
 *.log
+logs/*.log
 .DS_Store
 dist/
 build/
+
+# MeeChain specific
+.hardhat.pid
+.server.pid
+cache/
+artifacts/
+docs/jsdoc/
+DEPLOYMENT_CREDENTIALS.md
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
