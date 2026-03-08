@@ -1,4 +1,6 @@
-## CodeRabbitreviews.review_status
+ CodeRabbitreviews.review_status
+ 
+yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 
 รีวิวโปรไฟล์: CHILL
 เรียกใช้ ID: 559b2ca3-f807-4ef7-9404-bc917986acef
