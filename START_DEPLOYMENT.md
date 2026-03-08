@@ -20,7 +20,7 @@ nslookup meebot.io
 **Expected output:**
 ```
 Name:   meebot.io
-Address: YOUR_SERVER_IP
+Address: 58.10.249.239
 ```
 
 ✅ If you see your server IP, DNS is ready!
@@ -50,27 +50,27 @@ tar -czf meebot-deploy-$(date +%Y%m%d).tar.gz \
 
 ```bash
 # Upload all files
-scp -r * root@YOUR_SERVER_IP:/tmp/meebot-upload/
+scp -r * root@58.10.249.239P:/tmp/meebot-upload/
 
 # Or if you have specific user
-scp -r * deploy@YOUR_SERVER_IP:/tmp/meebot-upload/
+scp -r * deploy@58.10.249.239:/tmp/meebot-upload/
 ```
 
 **Option B: Using Git (If you have repository)**
 
 ```bash
 # SSH to server first
-ssh root@YOUR_SERVER_IP
+ssh root@58.10.249.239
 
 # Clone repository
 cd /var/www
-git clone YOUR_GITHUB_REPO meebot.io
+git clone MEECHAIN1/MeeChain-Connect meebot.io
 cd meebot.io
 ```
 
 **Option C: Using SFTP Client**
 - Use FileZilla, WinSCP, or Cyberduck
-- Connect to YOUR_SERVER_IP
+- Connect to 58.10.249.239
 - Upload entire project folder to `/tmp/meebot-upload/`
 
 ---
@@ -78,7 +78,7 @@ cd meebot.io
 ### Step 4: SSH to Server
 
 ```bash
-ssh root@YOUR_SERVER_IP
+ssh root@58.10.249.239
 ```
 
 ---
@@ -157,7 +157,7 @@ Do you want to setup SSL now? (y/n)
 Type: `y` and press Enter
 
 **For SSL setup, provide:**
-- Email: your@email.com
+- Email: pouaun2499@gmail.com
 - Agree to terms: Y
 - Share email: N (optional)
 

@@ -8,6 +8,19 @@
 
 ---
 
+## 📚 Documentation Index
+
+**[📖 ดูดัชนีเอกสารทั้งหมด (40+ ไฟล์) →](DOCUMENTATION_INDEX.md)**
+
+เอกสารจัดกลุ่มตามหมวดหมู่เพื่อให้เข้าถึงง่าย:
+- 🚀 **Quick Start** - เริ่มต้นใช้งาน
+- 🔧 **Development** - การพัฒนาและ Architecture
+- 🌐 **Blockchain** - การเชื่อมต่อ BSC และ MetaMask
+- 🚢 **Deployment** - Deploy ผ่าน Vercel หรือ VPS
+- 🧪 **Testing & QA** - การทดสอบและ QA Checklist
+
+---
+
 ## 🚀 Quick Start
 
 ```bash

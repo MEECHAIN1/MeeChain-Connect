@@ -52,7 +52,7 @@
           <span class="online-ring"></span>
         </div>
         <div class="chat-header-info">
-          <div class="chat-header-name">🤖 MeeBot AI</div>
+          <div class="chat-header-name">👷‍♂️ MeeBot AI</div>
           <div class="chat-header-status">
             <span style="width:6px;height:6px;background:#10B981;border-radius:50%;display:inline-block;"></span>
             ออนไลน์ · พร้อมช่วยเหลือ
@@ -73,7 +73,7 @@
       <div class="chat-messages" id="chat-messages">
         <div class="chat-welcome">
           <img src="${BOT_AVATAR}" alt="MeeBot" />
-          <h4>สวัสดีครับ! ผม MeeBot 🤖</h4>
+          <h4>สวัสดีครับ! ผม MeeBot 👷‍♂️</h4>
           <p>AI Assistant ของ MeeChain<br/>ถามอะไรเกี่ยวกับ NFT, Staking,<br/>Wallet หรือ Blockchain ได้เลยครับ!</p>
         </div>
       </div>
