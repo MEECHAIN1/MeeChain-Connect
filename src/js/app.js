@@ -428,11 +428,23 @@ const AppState = {
   walletBalance: 0,
 };
 
+/**
+ * แสดงโมดัลกระเป๋าเงินบนหน้าจอ
+ *
+ * ทำให้องค์ประกอบ DOM ของโมดัลกระเป๋าเงินมองเห็นได้โดยเอา class `hidden` ออกจาก `#wallet-modal`
+ */
 function openWalletModal() {
   $('#wallet-modal').classList.remove('hidden');
 }
 
 // connectWallet is overridden by wallet.js — this is a safe fallback
+/**
+ * ดำเนินการเชื่อมต่อกระเป๋าเงินโดยใช้ตัวเชื่อมต่อที่ระบุและทำงานเป็นฟอลแบ็กเมื่อ wallet.js ไม่ถูกโหลดหรือใช้งานไม่ได้
+ *
+ * ฟังก์ชันจะจำลองกระบวนการเชื่อมต่อ (แสดงข้อความสถานะ ชุดข้อมูลจำลองของที่อยู่และยอดคงเหลือ) และอัปเดตสถานะแอป (AppState), อัปเดตส่วนติดต่อผู้ใช้ที่เกี่ยวข้อง (ปุ่มเชื่อมต่อ, แสดงที่อยู่, ยอดเงิน, รายการโทเค็น) และแสดงการแจ้งเตือนความสำเร็จเมื่อเสร็จสิ้น
+ *
+ * @param {string} type - ชนิดของผู้ให้บริการกระเป๋าเงินที่ต้องการเชื่อมต่อ (เช่น `"metamask"`, `"walletconnect"`, `"coinbase"`, `"demo"`); หากไม่ระบุชนิดที่จับคู่ จะใช้ข้อความสถานะทั่วไป
+ */
 function connectWallet(type) {
   // If wallet.js is loaded, it overrides window.connectWallet
   // This fallback is only used if wallet.js fails to load
@@ -614,7 +626,13 @@ function initCreateNFT() {
 
 // ============================================================
 // WALLET ACTIONS
-// ============================================================
+/**
+ * ตั้งค่าการกระทำที่เกี่ยวกับกระเป๋าเงินบนหน้า UI (ปุ่มส่ง/รับ/สลับ/ซื้อ) และการซิงค์สถานะกระเป๋าเงิน
+ *
+ * ผูกตัวจัดการเหตุการณ์คลิกกับปุ่มส่ง รับ สลับ และซื้อ รวมถึงปุ่มคัดลอกที่อยู่ซึ่งจะคัดลอกที่อยู่กระเป๋าไปยังคลิปบอร์ด
+ * ตรวจสอบสถานะการเชื่อมต่อโดยใช้ `window.WalletState` หากมี หรือสำรองด้วย `AppState` ก่อนอนุญาตการกระทำที่ต้องการการเชื่อมต่อ
+ * ฟังเหตุการณ์ `walletConnected` เพื่อซิงค์ข้อมูลจากรายละเอียดเหตุการณ์มายัง `AppState` และอัปเดตองค์ประกอบ UI ที่เกี่ยวข้อง รวมทั้งข้อมูลโทเค็นแล้วเรียก `renderTokenList()` เพื่อรีเฟรชรายการโทเค็น
+ */
 function initWalletActions() {
   // Helper: check wallet using WalletState (from wallet.js) or AppState fallback
   const isConnected = () =>

@@ -46,6 +46,14 @@ window.WalletState = {
 };
 
 // ── Load contract addresses from server ──────────────────────────────
+/**
+ * ดึงข้อมูลที่อยู่คอนแทรกต์จากเซิร์ฟเวอร์และอัปเดตตัวแปรที่เก็บที่อยู่คอนแทรกต์ระดับแอป
+ *
+ * ดึง JSON จาก `/api/network` และเมื่อมี `contracts` ในผลลัพธ์ จะอัปเดต `TOKEN_ADDRESS`, `NFT_ADDRESS`
+ * และ `PORTAL_ADDRESS` โดยรักษาค่าปัจจุบันไว้เมื่อค่านั้นไม่ถูกส่งมาจากเซิร์ฟเวอร์
+ *
+ * ข้อสังเกต: หากการเรียกเครือข่ายหรือการแปลง JSON ล้มเหลว ฟังก์ชันจะเงียบ ๆ เพิกเฉยต่อข้อผิดพลาดและไม่โยนข้อยกเว้น
+ */
 async function loadContractAddresses() {
   try {
     const resp = await fetch('/api/network');
@@ -59,6 +67,14 @@ async function loadContractAddresses() {
 }
 
 // ── Connect MetaMask ─────────────────────────────────────────────────
+/**
+ * เชื่อมต่อกับ MetaMask, สลับหรือเพิ่มเครือข่าย MeeChain และอัปเดตสถานะกระเป๋าใน `window.WalletState`
+ *
+ * ฟังก์ชันจะร้องขอสิทธิ์เข้าถึงบัญชีจาก MetaMask, ตั้งค่า provider และ signer, ดึงยอดคงเหลือของ native token และ MEE (ERC-20),
+ * อัปเดต `window.WalletState` และ UI ของกระเป๋า แล้วลงทะเบียนตัวฟังเหตุการณ์ `accountsChanged` และ `chainChanged`
+ *
+ * @returns {boolean} `true` หากเชื่อมต่อสำเร็จ, `false` หากการเชื่อมต่อล้มเหลวหรือถูกยกเลิก
+ */
 async function connectMetaMask() {
   if (typeof window.ethereum === 'undefined') {
     showToast('ไม่พบ MetaMask — กรุณาติดตั้งก่อนใช้งาน 🦊', 'error');
@@ -115,6 +131,11 @@ async function connectMetaMask() {
 }
 
 // ── Ensure MeeChain network is added/active ──────────────────────────
+/**
+ * พยายามสลับ MetaMask ไปยังเครือข่าย MeeChain และเพิ่มเครือข่ายถ้ายังไม่ถูกติดตั้ง
+ *
+ * พยายามเรียกคำสั่งให้กระเป๋าเงินสลับไปยัง MeeChain; หากการสลับล้มเหลวเพราะเครือข่ายยังไม่ถูกเพิ่ม จะพยายามเรียกเพิ่มเครือข่ายเข้า MetaMask แทน และแสดงข้อความแจ้งความสำเร็จเมื่อเพิ่มสำเร็จ; หากการเพิ่มล้มเหลว ฟังก์ชันจะไม่โยนข้อผิดพลาดเพิ่มเติมแต่จะบันทึกคำเตือน (ไม่มีการปฏิเสธการดำเนินการต่อของผู้ใช้).
+ */
 async function ensureMeeChainNetwork() {
   try {
     await window.ethereum.request({
@@ -139,6 +160,13 @@ async function ensureMeeChainNetwork() {
 }
 
 // ── Connect Demo Wallet ──────────────────────────────────────────────
+/**
+ * เชื่อมต่อกระเป๋าทดลอง (demo) เพื่อใช้ทดสอบการทำงานของ UI และธุรกรรมจำลอง
+ *
+ * จะสร้างที่อยู่และยอดเงินจำลองแบบสุ่ม จากนั้นอัปเดต window.WalletState ให้เป็นสถานะเชื่อมต่อ
+ * ในโหมด demo (isDemo) พร้อมตั้งค่า demoBalance และยอด MEE ที่แสดง, อัปเดตส่วนติดต่อผู้ใช้,
+ * แสดงข้อความแจ้งความสำเร็จ และปิดโมดัลกระเป๋าเงิน
+ */
 function connectDemoWallet() {
   const demoAddr = '0x' + Array.from({length: 40}, () =>
     '0123456789abcdef'[Math.floor(Math.random() * 16)]).join('');
@@ -156,6 +184,12 @@ function connectDemoWallet() {
 }
 
 // ── Handle account change ────────────────────────────────────────────
+/**
+ * ประมวลผลการเปลี่ยนแปลงบัญชีจากผู้ให้บริการกระเป๋าและอัปเดตสถานะภายในแอป
+ *
+ * ถ้าไม่มีบัญชี ที่เชื่อมต่อจะถูกยกเลิก; ถ้ามี จะตั้งค่าแอดเดรสตัวแรกเป็นแอดเดรสปัจจุบัน รีเฟรชยอดคงเหลือ และอัปเดต UI
+ * @param {string[]} accounts - อาเรย์ของที่อยู่บัญชีที่ผู้ให้บริการส่งมา (เรียงลำดับตามลำดับความสำคัญ); อาเรย์ว่างหมายถึงยังไม่มีบัญชีเชื่อมต่อ
+ */
 async function handleAccountsChanged(accounts) {
   if (accounts.length === 0) {
     disconnectWallet();
@@ -167,6 +201,13 @@ async function handleAccountsChanged(accounts) {
 }
 
 // ── Refresh balances ─────────────────────────────────────────────────
+/**
+ * อัปเดตยอดคงเหลือของกระเป๋า (ยอด native และยอดโทเค็น MEE) ใน window.WalletState
+ *
+ * หากไม่มี address ให้ทำงานเป็น no-op; หากเป็นโหมดเดโม จะตั้งค่า `balanceMEE` เป็นค่า demoBalance ที่ฟอร์แมตเป็นทศนิยม 2 ตำแหน่ง
+ * ในโหมดจริง จะพยายามอ่านยอด native จาก provider และยอดโทเค็นจาก tokenContract แล้วแปลงเป็นหน่วยที่อ่านได้ก่อนเก็บลง WalletState
+ * ความผิดพลาดในการดึงยอดจะถูกละเว้นโดยไม่โยนข้อผิดพลาดขึ้นมาจากฟังก์ชันนี้
+ */
 async function refreshBalance() {
   const { address, provider, tokenContract, isDemo, demoBalance } = window.WalletState;
   if (!address) return;
@@ -187,6 +228,12 @@ async function refreshBalance() {
 }
 
 // ── Disconnect wallet ────────────────────────────────────────────────
+/**
+ * ยกเลิกการเชื่อมต่อกระเป๋าและรีเซ็ตสถานะกระเป๋าใน WalletState
+ *
+ * รีเซ็ตข้อมูลการเชื่อมต่อ (ที่อยู่ ยอดคงเหลือ ผู้ให้บริการ และสถานะเดโม) ใน window.WalletState,
+ * อัพเดตส่วนติดต่อผู้ใช้ที่เกี่ยวข้อง และแสดงการแจ้งเตือนว่าตัดการเชื่อมต่อแล้ว
+ */
 function disconnectWallet() {
   Object.assign(window.WalletState, {
     connected: false, address: null, balance: '0', balanceMEE: '0',
@@ -197,6 +244,11 @@ function disconnectWallet() {
 }
 
 // ── Update wallet button & UI ────────────────────────────────────────
+/**
+ * ปรับสถานะปุ่มและองค์ประกอบ UI ของกระเป๋าให้สอดคล้องกับสถานะการเชื่อมต่อใน window.WalletState
+ *
+ * เมื่อมีการเชื่อมต่อ จะแสดงที่อยู่สั้น ๆ พร้อมยอด MEE และส่งอีเวนต์ `walletConnected` (detail: WalletState) ให้ระบบอื่น ๆ รับรู้
+ */
 function updateWalletUI() {
   const btn  = document.getElementById('connect-wallet-btn');
   const text = document.getElementById('wallet-btn-text');
@@ -219,6 +271,15 @@ function updateWalletUI() {
   }
 }
 
+/**
+ * อัปเดตส่วนแสดงผลของกระเป๋าในหน้าให้ตรงกับข้อมูลปัจจุบันจาก window.WalletState
+ *
+ * อัปเดตองค์ประกอบ DOM ที่เกี่ยวข้องกับกระเป๋า (ที่อยู่, ยอด MEE, ยอด native) เมื่อมีที่อยู่อยู่ใน WalletState
+ * หากไม่มีที่อยู่ ฟังก์ชันจะไม่ทำอะไรเพิ่มเติม นอกจากนี้ผูกปุ่มที่มีคลาส `copy-address-btn` ให้คัดลอกที่อยู่ไปยังคลิปบอร์ดและแสดงข้อความยืนยัน
+ *
+ * รายละเอียดเพิ่มเติม:
+ * - ยอดเงินจะแสดงโดยใช้รูปแบบ locale `th-TH` และจำกัดทศนิยมสูงสุด (MEE: 4 ตำแหน่ง, native: 6 ตำแหน่ง)
+ */
 function updateWalletPageUI() {
   const { address, balanceMEE, balance, isDemo } = window.WalletState;
   if (!address) return;
@@ -241,6 +302,13 @@ function updateWalletPageUI() {
 }
 
 // ── Send Token ───────────────────────────────────────────────────────
+/**
+ * เปิดโมดัลสำหรับการส่งโทเค็นและเตรียมข้อมูลผู้ส่งใน UI
+ *
+ * หากยังไม่ได้เชื่อมต่อ Wallet จะโชว์คำเตือนและเปิดโมดัลเชื่อมต่อแทน;
+ * หากเชื่อมต่อแล้ว จะเติมที่อยู่อีกรับและยอด MEE ของผู้ส่ง (ฟอร์แมตสำหรับแสดงผล),
+ * รีเซ็ตช่องกรอกที่อยู่ผู้รับ จำนวน และสถานะการทำรายการ แล้วแสดงโมดัลส่ง
+ */
 function openSendModal() {
   if (!window.WalletState.connected) {
     showToast('กรุณาเชื่อมต่อ Wallet ก่อน', 'warning');
@@ -264,6 +332,13 @@ function openSendModal() {
   document.getElementById('send-modal')?.classList.remove('hidden');
 }
 
+/**
+ * ดำเนินการส่งโทเค็น MEE จากผู้ใช้ไปยังที่อยู่เป้าหมายตามข้อมูลในฟอร์มการส่ง
+ *
+ * อ่านที่อยู่และจำนวนจากฟอร์ม UI, ตรวจสอบความถูกต้อง, รองรับโหมด Demo (จำลองการส่งและปรับยอดเงินในหน่วยความจำ)
+ * และโหมดจริงผ่าน MetaMask (เรียก `transfer` บนสัญญา ERC-20, แสดงสถานะการส่งและรอการยืนยัน)
+ * จัดการสถานะ UI, ข้อผิดพลาด และรีเฟรชยอดเงินหลังการทำรายการสำเร็จ
+ */
 async function executeSendToken() {
   const toAddr = document.getElementById('send-to-address')?.value?.trim();
   const amount = document.getElementById('send-amount')?.value?.trim();
@@ -346,6 +421,13 @@ async function executeSendToken() {
 }
 
 // ── Receive (QR) ─────────────────────────────────────────────────────
+/**
+ * เปิดโมดอลสำหรับรับเงินโดยแสดงที่อยู่ผู้รับและรหัส QR ของที่อยู่นั้น
+ *
+ * ถ้าไม่มีการเชื่อมต่อ Wallet จะแสดงคำเตือนและเปิดหน้าต่างเชื่อมต่อแทน หากเชื่อมต่อแล้ว
+ * ฟิลด์แสดงที่อยู่จะถูกเติมด้วยที่อยู่ปัจจุบันและโมดอลรับเงินจะถูกแสดง
+ * ถ้ามีแคนวาสและไลบรารี QRCode อยู่ จะวาดรหัส QR ในรูปแบบ `ethereum:<address>@13390` ลงบนแคนวาส
+ */
 function openReceiveModal() {
   if (!window.WalletState.connected) {
     showToast('กรุณาเชื่อมต่อ Wallet ก่อน', 'warning');
@@ -368,6 +450,11 @@ function openReceiveModal() {
   }
 }
 
+/**
+ * คัดลอกที่อยู่รับเงินของกระเป๋าไปยังคลิปบอร์ดและแสดงข้อความยืนยัน
+ *
+ * หากมีที่อยู่ใน window.WalletState จะเขียนที่อยู่นั้นลงในคลิปบอร์ดและเรียก showToast เพื่อแจ้งความสำเร็จ
+ */
 function copyReceiveAddress() {
   const addr = window.WalletState.address;
   if (!addr) return;

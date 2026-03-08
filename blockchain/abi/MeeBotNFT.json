@@ -1,0 +1,66 @@
+[
+    {
+      "type": "function",
+      "name": "mintMeeBot",
+      "stateMutability": "nonpayable",
+      "inputs": [{ "name": "prompt", "type": "string" }],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "totalSupply",
+      "stateMutability": "view",
+      "inputs": [],
+      "outputs": [{ "type": "uint256" }]
+    },
+    {
+      "type": "event",
+      "name": "MeeBotMinted",
+      "inputs": [
+        { "indexed": true, "name": "minter", "type": "address" },
+        { "indexed": true, "name": "tokenId", "type": "uint256" },
+        { "indexed": false, "name": "prompt", "type": "string" }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "approve",
+      "stateMutability": "nonpayable",
+      "inputs": [
+        { "name": "to", "type": "address" },
+        { "name": "tokenId", "type": "uint256" }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "balanceOf",
+      "stateMutability": "view",
+      "inputs": [{ "name": "owner", "type": "address" }],
+      "outputs": [{ "type": "uint256" }]
+    },
+    {
+      "type": "function",
+      "name": "getApproved",
+      "stateMutability": "view",
+      "inputs": [{ "name": "tokenId", "type": "uint256" }],
+      "outputs": [{ "type": "address" }]
+    },
+    {
+      "type": "event",
+      "name": "OwnershipTransferred",
+      "inputs": [
+        { "indexed": true, "name": "previousOwner", "type": "address" },
+        { "indexed": true, "name": "newOwner", "type": "address" }
+      ]
+    },
+    {
+      "type": "event",
+      "name": "Transfer",
+      "inputs": [
+        { "indexed": true, "name": "from", "type": "address" },
+        { "indexed": true, "name": "to", "type": "address" },
+        { "indexed": true, "name": "tokenId", "type": "uint256" }
+      ]
+    }
+  ]

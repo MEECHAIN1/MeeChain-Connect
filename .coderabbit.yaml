@@ -1,3 +1,8 @@
+# CodeRabbitreviews.review_status
+
+รีวิวโปรไฟล์: CHILL
+เรียกใช้ ID: 559b2ca3-f807-4ef7-9404-bc917986acef
+
 language: th-TH  # ภาษาหลัก: ไทย
 tone_instructions: "Provide reviews in both Thai and English (ให้คำแนะนำทั้งภาษาไทยและอังกฤษ)"
 
@@ -8,3 +13,5 @@ reviews:
 code_generation:
   docstrings:
     language: th-TH  # ภาษาสำหรับ docstrings
+    
+yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
