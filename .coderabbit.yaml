@@ -22,4 +22,5 @@ code_generation:
 language: th-TH  # ภาษาหลัก: ไทย
 tone_instructions: "Provide reviews in both Thai and English (ให้คำแนะนำทั้งภาษาไทยและอังกฤษ)"
 
-
+remote_config:
+  url: "https://meebot-steel.vercel.app/.coderabbit.yaml"
