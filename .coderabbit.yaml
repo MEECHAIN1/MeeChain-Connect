@@ -1,17 +1,25 @@
-# CodeRabbitreviews.review_status
-
-รีวิวโปรไฟล์: CHILL
-เรียกใช้ ID: 559b2ca3-f807-4ef7-9404-bc917986acef
-
-language: th-TH  # ภาษาหลัก: ไทย
-tone_instructions: "Provide reviews in both Thai and English (ให้คำแนะนำทั้งภาษาไทยและอังกฤษ)"
-
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+ 
+early_access: false
 reviews:
-  profile: chill
+  profile: "chill"
   poem: true
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: true
+  review_status: true
+  review_details: false
+  auto_review:
+    enabled: true
+    drafts: false
+chat:
+  auto_reply: true
   
 code_generation:
   docstrings:
     language: th-TH  # ภาษาสำหรับ docstrings
-    
-yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+language: th-TH  # ภาษาหลัก: ไทย
+tone_instructions: "Provide reviews in both Thai and English (ให้คำแนะนำทั้งภาษาไทยและอังกฤษ)"
+
+
