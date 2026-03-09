@@ -8,6 +8,7 @@ dist/
 build/
 .env
 .env.test
+
 # MeeChain specific
 .hardhat.pid
 .server.pid
