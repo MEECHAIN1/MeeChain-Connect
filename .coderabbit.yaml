@@ -1,6 +1,11 @@
 # yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
  
 early_access: false
+# CodeRabbitreviews.review_status
+
+language: th-TH  # ภาษาหลัก: ไทย
+tone_instructions: "Provide reviews in both Thai and English (ให้คำแนะนำทั้งภาษาไทยและอังกฤษ)"
+
 reviews:
   profile: "chill"
   poem: true
@@ -23,3 +28,4 @@ tone_instructions: "Provide reviews in both Thai and English (ให้คำแ
 
 remote_config:
   url: "https://meebot-steel.vercel.app/.coderabbit.yaml"
+    

@@ -1,0 +1,228 @@
+/* ===== MeeChain Dashboard - Animations CSS ===== */
+
+/* Loading Animations */
+@keyframes loading-progress {
+  0% { width: 0%; }
+  30% { width: 40%; }
+  60% { width: 70%; }
+  80% { width: 88%; }
+  100% { width: 100%; }
+}
+
+@keyframes pulse-scale {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+/* Float Animation for Mascots */
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  25% { transform: translateY(-10px) rotate(1deg); }
+  75% { transform: translateY(-5px) rotate(-1deg); }
+}
+.float-anim { animation: float 4s ease-in-out infinite; }
+
+/* Pulse Dot */
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(16,185,129,0); }
+}
+
+/* Modal Appear */
+@keyframes modal-appear {
+  0% { transform: scale(0.8) translateY(20px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* Toast Animations */
+@keyframes toast-slide-in {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes toast-slide-out {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(100%); opacity: 0; }
+}
+
+/* Shimmer Loading Skeleton */
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-card2) 0%, var(--border) 50%, var(--bg-card2) 100%);
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
+  border-radius: 6px;
+}
+
+/* Slide In from Bottom */
+@keyframes slide-up {
+  from { transform: translateY(30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Counter Count Up */
+@keyframes count-pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+/* Glow Pulse */
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(124,58,237,0.2); }
+  50% { box-shadow: 0 0 40px rgba(124,58,237,0.5), 0 0 60px rgba(124,58,237,0.2); }
+}
+
+/* Particle Star */
+@keyframes star-twinkle {
+  0%, 100% { opacity: 0.2; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.3); }
+}
+
+/* Spin */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.spin { animation: spin 1s linear infinite; }
+
+/* Block number count animation */
+@keyframes number-update {
+  0% { color: var(--primary-light); transform: scale(1.1); }
+  100% { color: var(--text-primary); transform: scale(1); }
+}
+
+/* Page transition */
+.page-section {
+  animation: slide-up 0.3s ease;
+}
+
+/* NFT Card hover particles */
+.nft-card::after, .nft-grid-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 40%, rgba(124,58,237,0.05));
+  pointer-events: none;
+}
+
+/* Hero gradient animation */
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.hero-banner {
+  background-size: 200% 200%;
+  animation: gradient-shift 8s ease infinite;
+}
+
+/* Particle stars in hero */
+.star-particle {
+  position: absolute;
+  width: 4px; height: 4px;
+  background: white;
+  border-radius: 50%;
+  animation: star-twinkle var(--dur, 2s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+/* Sidebar active glow */
+.nav-item.active {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+/* Loading spinner */
+.loading-spinner {
+  width: 24px; height: 24px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+
+/* Ripple effect */
+@keyframes ripple {
+  to { transform: scale(4); opacity: 0; }
+}
+.btn-primary, .btn-outline { position: relative; overflow: hidden; }
+.ripple-effect {
+  position: absolute;
+  width: 20px; height: 20px;
+  background: rgba(255,255,255,0.3);
+  border-radius: 50%;
+  transform: scale(0);
+  animation: ripple 0.6s linear;
+  pointer-events: none;
+}
+
+/* Staking progress bar animation */
+@keyframes progress-grow {
+  from { width: 0%; }
+}
+.progress-fill {
+  animation: progress-grow 1s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* Live indicator blink */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.badge-live .live-dot {
+  animation: blink 1s ease-in-out infinite;
+}
+
+/* Number counter animation */
+.stat-value.counting {
+  animation: count-pulse 0.1s ease;
+}
+
+/* Card entrance animations */
+.stat-card:nth-child(1) { animation: slide-up 0.3s ease 0.05s both; }
+.stat-card:nth-child(2) { animation: slide-up 0.3s ease 0.1s both; }
+.stat-card:nth-child(3) { animation: slide-up 0.3s ease 0.15s both; }
+.stat-card:nth-child(4) { animation: slide-up 0.3s ease 0.2s both; }
+
+/* Chart glow */
+#priceChart {
+  filter: drop-shadow(0 0 8px rgba(124,58,237,0.3));
+}
+
+/* Network status pulse */
+.net-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* Wallet card shine effect */
+@keyframes card-shine {
+  0% { left: -100%; }
+  100% { left: 200%; }
+}
+.wallet-card-inner:hover::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+  animation: card-shine 0.8s ease;
+  pointer-events: none;
+}
+
+/* Block explorer live update */
+@keyframes new-block {
+  0% { background: rgba(124,58,237,0.2); border-color: var(--primary); }
+  100% { background: var(--bg-card2); border-color: var(--border); }
+}
+.block-item.new-block {
+  animation: new-block 2s ease forwards;
+}
+
+/* Activity item entrance */
+.activity-item {
+  animation: slide-up 0.2s ease;
+}

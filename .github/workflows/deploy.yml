@@ -1,0 +1,62 @@
+name: 🚀 Deploy MeeChain to Cloudflare Pages (meebot.io)
+
+on:
+  push:
+    branches:
+      - main
+      - genspark_ai_developer
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Cloudflare Pages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 🏗️ Build Cloudflare Pages output
+        run: |
+          mkdir -p dist/public
+          cp index.html dist/public/
+          cp -r src dist/public/
+          # Headers & redirects
+          echo '/*
+            Access-Control-Allow-Origin: *
+            X-Frame-Options: SAMEORIGIN
+            X-Content-Type-Options: nosniff' > dist/public/_headers
+          echo '/* /index.html 200' > dist/public/_redirects
+          echo "✅ Static build ready"
+          ls -la dist/public/
+
+      - name: 🌐 Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: meebot-io
+          directory: dist/public
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref_name }}
+          wranglerVersion: '4'
+
+      - name: 📝 Deployment Summary
+        if: success()
+        run: |
+          echo "## 🎉 Deployed to Cloudflare Pages!" >> $GITHUB_STEP_SUMMARY
+          echo "- 🌐 Pages URL: https://meebot-io.pages.dev" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔗 Custom domain: https://meebot.io (configure in CF Dashboard)" >> $GITHUB_STEP_SUMMARY
+          echo "- 📅 Deployed at: $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "- 🌿 Branch: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
