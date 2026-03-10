@@ -6,6 +6,9 @@ logs/*.log
 .DS_Store
 dist/
 build/
+.env
+.env.test
+.env.production
 
 # MeeChain specific
 .hardhat.pid
