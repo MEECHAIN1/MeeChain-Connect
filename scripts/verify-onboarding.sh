@@ -32,8 +32,8 @@ print_step() {
 check_port() {
   local port="$1"
   local name="$2"
-  if (command -v ss >/dev/null 2>&1 && ss -lnt 2>/dev/null | awk '{print $4}' | rg -q ":${port}$") \
-    || (command -v lsof >/dev/null 2>&1 && lsof -iTCP -sTCP:LISTEN -n -P 2>/dev/null | rg -q ":${port} "); then
+  if (command -v ss >/dev/null 2>&1 && ss -lnt 2>/dev/null | awk '{print $4}' | grep -Eq ":${port}$") \
+    || (command -v lsof >/dev/null 2>&1 && lsof -iTCP -sTCP:LISTEN -n -P 2>/dev/null | grep -Eq ":${port} "); then
     pass "พอร์ต ${port} (${name}) เปิดใช้งาน"
   else
     fail "พอร์ต ${port} (${name}) ไม่พร้อมใช้งาน" "ตรวจสอบว่า service ของ ${name} รันอยู่และ bind พอร์ต ${port}"
