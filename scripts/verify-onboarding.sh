@@ -10,12 +10,14 @@ PASS_COUNT=0
 FAIL_COUNT=0
 
 # pass พิมพ์บรรทัดสถานะ "PASS" พร้อมข้อความที่ระบุและเพิ่มตัวนับ PASS_COUNT.
+# pass พิมพ์ข้อความสถานะสำเร็จพร้อมสัญลักษณ์ถูกสีเขียวและเพิ่มตัวนับ PASS_COUNT ขึ้นหนึ่งค่า.
 pass() {
   echo "✅ PASS: $1"
   PASS_COUNT=$((PASS_COUNT + 1))
 }
 
 # fail พิมพ์ข้อความสถานะล้มเหลว เพิ่มตัวนับ FAIL_COUNT และแสดงคำแนะนำที่กำหนดไว้.
+# fail แสดงข้อความข้อผิดพลาดพร้อมไอคอน, เพิ่มตัวนับ FAIL_COUNT และพิมพ์คำแนะนำ (รับ: ข้อความสถานะ, ข้อแนะนำ)
 fail() {
   echo "❌ FAIL: $1"
   FAIL_COUNT=$((FAIL_COUNT + 1))
@@ -23,6 +25,7 @@ fail() {
 }
 
 # print_step แสดงหัวข้อขั้นตอนในรูปแบบ "=== <ข้อความ> ===" โดยจะแทรกบรรทัดว่างไว้ก่อนหัวข้อ
+# print_step แสดงหัวข้อของขั้นตอนโดยรับข้อความคำอธิบายและเว้นบรรทัดก่อนพิมพ์ข้อความนั้น
 print_step() {
   echo
   echo "=== $1 ==="
@@ -34,6 +37,14 @@ check_port() {
   local name="$2"
   if (command -v ss >/dev/null 2>&1 && ss -lnt 2>/dev/null | awk '{print $4}' | grep -Eq ":${port}$") \
     || (command -v lsof >/dev/null 2>&1 && lsof -iTCP -sTCP:LISTEN -n -P 2>/dev/null | grep -Eq ":${port} "); then
+# check_port ตรวจสอบว่าพอร์ตที่ระบุกำลังฟังอยู่บนเครื่องและส่งผลลัพธ์เป็นข้อความผ่านฟังก์ชัน pass หรือ fail
+# @param port หมายเลขพอร์ตที่จะตรวจสอบ
+# @param name คำอธิบายสั้นๆ ของบริการที่ผูกกับพอร์ต (ใช้ในข้อความผล)
+check_port() {
+  local port="$1"
+  local name="$2"
+  if (command -v ss >/dev/null 2>&1 && ss -lnt 2>/dev/null | awk '{print $4}' | rg -q ":${port}$") \
+    || (command -v lsof >/dev/null 2>&1 && lsof -iTCP -sTCP:LISTEN -n -P 2>/dev/null | rg -q ":${port} "); then
     pass "พอร์ต ${port} (${name}) เปิดใช้งาน"
   else
     fail "พอร์ต ${port} (${name}) ไม่พร้อมใช้งาน" "ตรวจสอบว่า service ของ ${name} รันอยู่และ bind พอร์ต ${port}"
@@ -42,6 +53,8 @@ check_port() {
 
 # check_rpc_chain_id ตรวจสอบค่า eth_chainId จาก RPC_URL และเปรียบเทียบกับ EXPECTED_CHAIN_ID_HEX.
 # เรียก `pass` เมื่อค่า chain id ตรงกับ EXPECTED_CHAIN_ID_HEX; เรียก `fail` พร้อมข้อความแนะนำเมื่อ RPC ไม่ตอบหรือค่าไม่ตรงกัน.
+# check_rpc_chain_id ตรวจสอบว่า RPC_URL ตอบกลับค่า `eth_chainId` และเปรียบเทียบกับค่า EXPECTED_CHAIN_ID_HEX
+# เมื่อค่าเท่ากันจะเรียก `pass` พร้อมข้อความสำเร็จ; เมื่อไม่มีการตอบหรือค่าไม่ตรงจะเรียก `fail` พร้อมข้อความแนะนำเป็นภาษาไทย และจะคืนจากฟังก์ชันทันที
 check_rpc_chain_id() {
   local response
   response="$(curl -sS -X POST "$RPC_URL" \
@@ -59,6 +72,7 @@ check_rpc_chain_id() {
   local expected_lower
   expected_lower="$(printf '%s' "$EXPECTED_CHAIN_ID_HEX" | tr '[:upper:]' '[:lower:]')"
   if [ "$chain_id" = "$expected_lower" ]; then
+  if [ "$chain_id" = "${EXPECTED_CHAIN_ID_HEX,,}" ]; then
     pass "RPC eth_chainId ตรงตามที่คาดไว้ (${EXPECTED_CHAIN_ID_HEX})"
   else
     fail "RPC chain id ไม่ถูกต้อง (ได้: ${chain_id:-unknown}, คาดหวัง: ${EXPECTED_CHAIN_ID_HEX})" "ตรวจสอบ chain/network ที่รันอยู่ หรือกำหนด EXPECTED_CHAIN_ID_HEX ให้ตรง"
@@ -66,6 +80,7 @@ check_rpc_chain_id() {
 }
 
 # check_http_json ตรวจสอบว่า URL ที่กำหนดส่งกลับข้อมูลที่เป็น JSON ที่ถูกต้อง และเรียก `pass` เมื่อเป็น JSON หรือ `fail` พร้อมข้อความแนะนำเมื่อไม่ตอบหรือส่งค่าที่ไม่ใช่ JSON
+# check_http_json ตรวจสอบว่า endpoint ที่ระบุส่งคืน JSON; ถ้าไม่ตอบหรือไม่ใช่ JSON จะเรียก fail พร้อมข้อความแนะนำ และถ้าตอบกลับเป็น JSON จะเรียก pass.
 check_http_json() {
   local url="$1"
   local name="$2"

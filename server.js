@@ -18,6 +18,70 @@ const http    = require('http');
 const { MeeChainWeb3 } = require('./src/web3/contracts');
 
 const app = express();
+
+const STACKING_RULES = {
+  additive: 'additive',
+  replace: 'replace',
+  maxOnly: 'max_only',
+};
+
+const GAMEFI_STATE = {
+  rigEffects: {
+    boost: 0,
+    duration: 0,
+    stackingRule: STACKING_RULES.maxOnly,
+    startedAt: null,
+    source: null,
+  },
+  activeMissions: [],
+  transactions: [],
+  activities: [],
+};
+
+function pushGamefiTimeline({ title, amount = '+0 MEE', icon = '🎮', type = 'gamefi', txHash }) {
+  const now = new Date();
+  GAMEFI_STATE.activities.unshift({ icon, title, amount, type, time: 'เมื่อสักครู่' });
+  GAMEFI_STATE.activities = GAMEFI_STATE.activities.slice(0, 50);
+
+  GAMEFI_STATE.transactions.unshift({
+    icon,
+    name: title,
+    hash: txHash || `0x${Math.random().toString(16).slice(2, 10)}...${Math.random().toString(16).slice(2, 6)}`,
+    amount,
+    type,
+    timestamp: now.toISOString(),
+  });
+  GAMEFI_STATE.transactions = GAMEFI_STATE.transactions.slice(0, 50);
+}
+
+function computeRigState() {
+  const rig = GAMEFI_STATE.rigEffects;
+  if (!rig.startedAt || !rig.duration) {
+    return { ...rig, active: false, remainingMs: 0, expiresAt: null };
+  }
+
+  const expiresAt = rig.startedAt + rig.duration;
+  const remainingMs = Math.max(0, expiresAt - Date.now());
+  const active = remainingMs > 0;
+
+  if (!active) {
+    GAMEFI_STATE.rigEffects = {
+      boost: 0,
+      duration: 0,
+      stackingRule: rig.stackingRule,
+      startedAt: null,
+      source: null,
+    };
+  }
+
+  return {
+    ...GAMEFI_STATE.rigEffects,
+    active,
+    remainingMs,
+    expiresAt: active ? new Date(expiresAt).toISOString() : null,
+  };
+}
+
 const allowedOrigins = (process.env.CORS_ORIGINS || '')
   .split(',')
   .map(s => s.trim())
@@ -295,6 +359,95 @@ app.get('/api/chain/transactions', async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// ── API: GameFi Rig Deploy ───────────────────────────────────────
+app.post('/api/gamefi/deploy', (req, res) => {
+  const { boost, duration, stackingRule = STACKING_RULES.maxOnly } = req.body || {};
+  const numericBoost = Number(boost);
+  const numericDuration = Number(duration);
+
+  if (!Number.isFinite(numericBoost) || numericBoost <= 0) {
+    return res.status(400).json({ error: 'boost must be a positive number' });
+  }
+  if (!Number.isFinite(numericDuration) || numericDuration <= 0) {
+    return res.status(400).json({ error: 'duration must be a positive number (ms)' });
+  }
+  if (!Object.values(STACKING_RULES).includes(stackingRule)) {
+    return res.status(400).json({ error: `stackingRule must be one of: ${Object.values(STACKING_RULES).join(', ')}` });
+  }
+
+  const current = computeRigState();
+  let nextBoost = numericBoost;
+  let nextDuration = numericDuration;
+  let nextStartedAt = Date.now();
+
+  if (current.active) {
+    if (stackingRule === STACKING_RULES.additive) {
+      nextBoost = current.boost + numericBoost;
+      nextDuration = current.remainingMs + numericDuration;
+      nextStartedAt = Date.now();
+    } else if (stackingRule === STACKING_RULES.replace) {
+      nextBoost = numericBoost;
+      nextDuration = numericDuration;
+      nextStartedAt = Date.now();
+    } else {
+      nextBoost = Math.max(current.boost, numericBoost);
+      nextDuration = Math.max(current.remainingMs, numericDuration);
+      nextStartedAt = Date.now();
+    }
+  }
+
+  GAMEFI_STATE.rigEffects = {
+    boost: nextBoost,
+    duration: nextDuration,
+    stackingRule,
+    startedAt: nextStartedAt,
+    source: 'deploy',
+  };
+
+  pushGamefiTimeline({
+    icon: '🛠️',
+    title: `Deploy Rig (+${numericBoost}% APY)`,
+    amount: '+0 MEE',
+    type: 'deploy',
+  });
+
+  return res.json({ ok: true, rigEffects: computeRigState() });
+});
+
+// ── API: GameFi Mission Join ─────────────────────────────────────
+app.post('/api/gamefi/mission/join', (req, res) => {
+  const { missionId = 'fire-core', stake = 0, walletAddress = null } = req.body || {};
+  const mission = {
+    missionId,
+    walletAddress,
+    stake: Number(stake) || 0,
+    joinedAt: new Date().toISOString(),
+    status: 'joined',
+  };
+  GAMEFI_STATE.activeMissions.unshift(mission);
+  GAMEFI_STATE.activeMissions = GAMEFI_STATE.activeMissions.slice(0, 20);
+
+  pushGamefiTimeline({
+    icon: '🔥',
+    title: `Join mission: ${missionId}`,
+    amount: `-${mission.stake || 0} MEE`,
+    type: 'mission',
+  });
+
+  return res.json({ ok: true, mission, rigEffects: computeRigState() });
+});
+
+// ── API: GameFi State ────────────────────────────────────────────
+app.get('/api/gamefi/state', (req, res) => {
+  const rigEffects = computeRigState();
+  return res.json({
+    rigEffects,
+    activeMissions: GAMEFI_STATE.activeMissions,
+    txCenterHistory: GAMEFI_STATE.transactions,
+    activities: GAMEFI_STATE.activities,
+  });
 });
 
 // ── API: Chat (Streaming SSE) ─────────────────────────────────────

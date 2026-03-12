@@ -129,6 +129,16 @@ const MEECHAIN_DATA = {
     rpc:     'https://ritual-chain--pouaun2499.replit.app',
   },
 
+  // GameFi data contract for rig effects
+  rigEffectContract: {
+    boost: 0,
+    duration: 0,
+    stackingRule: 'max_only',
+    active: false,
+    remainingMs: 0,
+    expiresAt: null,
+  },
+
   // NFT Collections (uses local brand images with SVG fallback art)
   nfts: [
     {
@@ -317,6 +327,16 @@ const MEECHAIN_DATA = {
 
   // Recent Transactions (Wallet)
   walletTxs: [
+    { icon: '↗️', name: 'ส่ง MEE', hash: '0x742d...8f3a', amount: '-100 MEE', type: 'send' },
+    { icon: '↙️', name: 'รับ MEE', hash: '0x891c...2b4d', amount: '+500 MEE', type: 'receive' },
+    { icon: '🔄', name: 'Swap MEE→USDT', hash: '0x3f82...9e1c', amount: '-200 MEE', type: 'swap' },
+    { icon: '🛒', name: 'ซื้อ NFT', hash: '0xa12b...7d5e', amount: '-240 MEE', type: 'buy' },
+    { icon: '⛏️', name: 'Staking Reward', hash: '0x5c4d...1f8b', amount: '+42.5 MEE', type: 'reward' },
+  ],
+
+
+  // Unified tx center history (shared with activities timeline)
+  txCenterHistory: [
     { icon: '↗️', name: 'ส่ง MEE', hash: '0x742d...8f3a', amount: '-100 MEE', type: 'send' },
     { icon: '↙️', name: 'รับ MEE', hash: '0x891c...2b4d', amount: '+500 MEE', type: 'receive' },
     { icon: '🔄', name: 'Swap MEE→USDT', hash: '0x3f82...9e1c', amount: '-200 MEE', type: 'swap' },
