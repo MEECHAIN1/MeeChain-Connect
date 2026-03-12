@@ -197,7 +197,7 @@ function renderStakingPools() {
     <div class="pool-card">
       <div class="pool-header">
         <span class="pool-name">${pool.icon} ${pool.name}</span>
-        <span class="pool-apy">APY ${pool.apy}</span>
+        <span class="pool-apy">APY ${pool.apy}${GameFiState.rigEffects.active && GameFiState.rigEffects.boost > 0 ? ` + ${GameFiState.rigEffects.boost}%` : ''}</span>
       </div>
       <div class="pool-stats">
         <div class="pool-stat">
@@ -250,7 +250,8 @@ function renderTokenList() {
 function renderWalletTxHistory() {
   const list = $('#wallet-tx-history');
   if (!list) return;
-  list.innerHTML = MEECHAIN_DATA.walletTxs.map(tx => `
+  const txCenterHistory = MEECHAIN_DATA.txCenterHistory || MEECHAIN_DATA.walletTxs;
+  list.innerHTML = txCenterHistory.map(tx => `
     <div class="tx-history-item">
       <div class="tx-type-icon">${tx.icon}</div>
       <div class="tx-type-info">
@@ -427,6 +428,197 @@ const AppState = {
   walletAddress: '',
   walletBalance: 0,
 };
+
+
+const GameFiState = {
+  rigEffects: { ...MEECHAIN_DATA.rigEffectContract },
+  countdownTimer: null,
+};
+
+function formatDuration(ms) {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const hrs = Math.floor(totalSec / 3600);
+  const mins = Math.floor((totalSec % 3600) / 60);
+  const secs = totalSec % 60;
+  if (hrs > 0) return `${hrs}h ${String(mins).padStart(2, '0')}m ${String(secs).padStart(2, '0')}s`;
+  return `${String(mins).padStart(2, '0')}m ${String(secs).padStart(2, '0')}s`;
+}
+
+function timeAgoFromISO(iso) {
+  if (!iso) return 'เมื่อสักครู่';
+  const diff = Math.max(0, Date.now() - new Date(iso).getTime());
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'เมื่อสักครู่';
+  if (mins < 60) return `${mins} นาทีที่แล้ว`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} ชั่วโมงที่แล้ว`;
+  return `${Math.floor(hrs / 24)} วันที่แล้ว`;
+}
+
+function pushUnifiedTimeline(entry) {
+  const activityEntry = {
+    icon: entry.icon || '🎮',
+    title: entry.title || entry.name,
+    time: entry.time || 'เมื่อสักครู่',
+    amount: entry.amount || '+0 MEE',
+    type: entry.type || 'gamefi',
+  };
+  const txEntry = {
+    icon: entry.icon || '🎮',
+    name: entry.name || entry.title,
+    hash: entry.hash || `0x${Math.random().toString(16).slice(2, 10)}...${Math.random().toString(16).slice(2, 6)}`,
+    amount: entry.amount || '+0 MEE',
+    type: entry.type || 'gamefi',
+  };
+
+  MEECHAIN_DATA.activities.unshift(activityEntry);
+  MEECHAIN_DATA.activities = MEECHAIN_DATA.activities.slice(0, 30);
+
+  MEECHAIN_DATA.txCenterHistory.unshift(txEntry);
+  MEECHAIN_DATA.txCenterHistory = MEECHAIN_DATA.txCenterHistory.slice(0, 30);
+
+  renderActivityList();
+  renderWalletTxHistory();
+}
+
+function renderRigEffects() {
+  const indicator = $('#apy-boost-indicator');
+  const countdown = $('#apy-boost-countdown');
+  const state = GameFiState.rigEffects;
+  if (!indicator || !countdown) return;
+
+  if (state.active && state.boost > 0) {
+    indicator.textContent = `APY boost active: +${state.boost}% (${state.stackingRule})`;
+    indicator.className = 'apy-boost-indicator active';
+    countdown.textContent = `เหลือเวลา ${formatDuration(state.remainingMs || 0)}`;
+  } else {
+    indicator.textContent = 'APY boost inactive';
+    indicator.className = 'apy-boost-indicator';
+    countdown.textContent = 'ไม่มี rig effect ที่กำลังทำงาน';
+  }
+}
+
+function startRigCountdown() {
+  if (GameFiState.countdownTimer) clearInterval(GameFiState.countdownTimer);
+  GameFiState.countdownTimer = setInterval(() => {
+    if (GameFiState.rigEffects.active && GameFiState.rigEffects.remainingMs > 0) {
+      GameFiState.rigEffects.remainingMs = Math.max(0, GameFiState.rigEffects.remainingMs - 1000);
+      GameFiState.rigEffects.active = GameFiState.rigEffects.remainingMs > 0;
+      renderRigEffects();
+      renderStakingPools();
+    }
+  }, 1000);
+}
+
+async function fetchGamefiState() {
+  try {
+    const res = await fetch('/api/gamefi/state');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    if (data.rigEffects) {
+      GameFiState.rigEffects = {
+        ...GameFiState.rigEffects,
+        ...data.rigEffects,
+      };
+      MEECHAIN_DATA.rigEffectContract = { ...GameFiState.rigEffects };
+    }
+
+    if (Array.isArray(data.activities) && data.activities.length) {
+      MEECHAIN_DATA.activities = data.activities.map((a) => ({
+        ...a,
+        time: a.time || timeAgoFromISO(a.timestamp),
+      }));
+    }
+
+    if (Array.isArray(data.txCenterHistory)) {
+      MEECHAIN_DATA.txCenterHistory = data.txCenterHistory;
+    }
+
+    renderRigEffects();
+    renderStakingPools();
+    renderActivityList();
+    renderWalletTxHistory();
+  } catch (e) {
+    console.warn('fetchGamefiState failed:', e.message);
+  }
+}
+
+async function handleDeployRig() {
+  if (!AppState.walletConnected && !(window.WalletState && window.WalletState.connected)) {
+    showToast('กรุณาเชื่อมต่อกระเป๋าเงินก่อน', 'warning');
+    openWalletModal();
+    return;
+  }
+  try {
+    showToast('กำลัง deploy rig...', 'info');
+    const res = await fetch('/api/gamefi/deploy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ boost: 35, duration: 15 * 60 * 1000, stackingRule: 'additive' }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'deploy failed');
+
+    GameFiState.rigEffects = { ...GameFiState.rigEffects, ...data.rigEffects };
+    MEECHAIN_DATA.rigEffectContract = { ...GameFiState.rigEffects };
+
+    pushUnifiedTimeline({
+      icon: '🛠️',
+      title: 'Deploy Rig สำเร็จ',
+      name: 'Deploy Rig',
+      amount: '+0 MEE',
+      type: 'deploy',
+    });
+
+    renderRigEffects();
+    renderStakingPools();
+    showToast('Deploy Rig สำเร็จ! APY boost ทำงานแล้ว', 'success');
+  } catch (e) {
+    showToast(`Deploy Rig ไม่สำเร็จ: ${e.message}`, 'error');
+  }
+}
+
+async function handleJoinFireMission() {
+  const walletAddress = (window.WalletState && window.WalletState.address) || AppState.walletAddress || null;
+  if (!walletAddress) {
+    showToast('กรุณาเชื่อมต่อกระเป๋าเงินก่อน', 'warning');
+    openWalletModal();
+    return;
+  }
+  try {
+    showToast('กำลังเข้าร่วม Fire Mission...', 'info');
+    const res = await fetch('/api/gamefi/mission/join', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ missionId: 'fire-core', stake: 120, walletAddress }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'mission join failed');
+
+    if (data.rigEffects) {
+      GameFiState.rigEffects = { ...GameFiState.rigEffects, ...data.rigEffects };
+      MEECHAIN_DATA.rigEffectContract = { ...GameFiState.rigEffects };
+    }
+
+    pushUnifiedTimeline({
+      icon: '🔥',
+      title: 'เข้าร่วม Fire Mission สำเร็จ',
+      name: 'Join Fire Mission',
+      amount: '-120 MEE',
+      type: 'mission',
+    });
+
+    renderRigEffects();
+    renderStakingPools();
+    showToast('เข้าร่วม Fire Mission สำเร็จ!', 'success');
+  } catch (e) {
+    showToast(`เข้า Mission ไม่สำเร็จ: ${e.message}`, 'error');
+  }
+}
+
+window.handleDeployRig = handleDeployRig;
+window.handleJoinFireMission = handleJoinFireMission;
 
 function openWalletModal() {
   $('#wallet-modal').classList.remove('hidden');
@@ -876,6 +1068,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderTrendingNFTs();
   renderMainNFTGrid();
   renderStakingPools();
+  renderRigEffects();
   renderTokenList();
   renderWalletTxHistory();
   renderRecentBlocks();
@@ -905,6 +1098,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Live updates
   startLiveBlockUpdate();
+  startRigCountdown();
+  fetchGamefiState();
 
   // Hide loading screen
   hideLoadingScreen();
