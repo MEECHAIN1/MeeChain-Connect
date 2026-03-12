@@ -653,7 +653,25 @@ a { text-decoration: none; color: inherit; }
 }
 .staking-mascot { width: 120px; height: 120px; object-fit: contain; filter: drop-shadow(0 0 20px var(--purple-glow)); }
 .staking-hero-info h3 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
-.staking-hero-info p { color: var(--text-secondary); margin-bottom: 16px; }
+.staking-hero-info p { color: var(--text-secondary); margin-bottom: 12px; }
+.apy-boost-indicator {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(124,58,237,0.18);
+  color: var(--text-secondary);
+  border: 1px solid rgba(124,58,237,0.3);
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.apy-boost-indicator.active {
+  color: #D8B4FE;
+  border-color: rgba(16,185,129,0.5);
+  background: rgba(16,185,129,0.12);
+}
+.apy-boost-countdown { color: var(--text-muted); font-size: 12px; margin-bottom: 14px; }
+.gamefi-actions { display: flex; gap: 10px; margin-bottom: 16px; }
 .staking-rates { display: flex; gap: 24px; }
 .rate-item { display: flex; flex-direction: column; gap: 4px; }
 .rate-item span { font-size: 12px; color: var(--text-muted); }
