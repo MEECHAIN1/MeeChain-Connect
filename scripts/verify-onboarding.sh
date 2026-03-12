@@ -9,22 +9,26 @@ EXPECTED_CHAIN_ID_HEX="${EXPECTED_CHAIN_ID_HEX:-0x344e}"
 PASS_COUNT=0
 FAIL_COUNT=0
 
+# pass พิมพ์บรรทัดสถานะ "PASS" พร้อมข้อความที่ระบุและเพิ่มตัวนับ PASS_COUNT.
 pass() {
   echo "✅ PASS: $1"
   PASS_COUNT=$((PASS_COUNT + 1))
 }
 
+# fail พิมพ์ข้อความสถานะล้มเหลว เพิ่มตัวนับ FAIL_COUNT และแสดงคำแนะนำที่กำหนดไว้.
 fail() {
   echo "❌ FAIL: $1"
   FAIL_COUNT=$((FAIL_COUNT + 1))
   echo "   ↳ แนะนำ: $2"
 }
 
+# print_step แสดงหัวข้อขั้นตอนในรูปแบบ "=== <ข้อความ> ===" โดยจะแทรกบรรทัดว่างไว้ก่อนหัวข้อ
 print_step() {
   echo
   echo "=== $1 ==="
 }
 
+# check_port ตรวจสอบว่าพอร์ตที่ระบุของบริการ (name) กำลังรับฟังบนระบบ และเรียก `pass` เมื่อพอร์ตเปิดใช้งาน หรือ `fail` พร้อมคำแนะนำเมื่อพอร์ตไม่พร้อมใช้งาน
 check_port() {
   local port="$1"
   local name="$2"
@@ -36,6 +40,8 @@ check_port() {
   fi
 }
 
+# check_rpc_chain_id ตรวจสอบค่า eth_chainId จาก RPC_URL และเปรียบเทียบกับ EXPECTED_CHAIN_ID_HEX.
+# เรียก `pass` เมื่อค่า chain id ตรงกับ EXPECTED_CHAIN_ID_HEX; เรียก `fail` พร้อมข้อความแนะนำเมื่อ RPC ไม่ตอบหรือค่าไม่ตรงกัน.
 check_rpc_chain_id() {
   local response
   response="$(curl -sS -X POST "$RPC_URL" \
@@ -59,6 +65,7 @@ check_rpc_chain_id() {
   fi
 }
 
+# check_http_json ตรวจสอบว่า URL ที่กำหนดส่งกลับข้อมูลที่เป็น JSON ที่ถูกต้อง และเรียก `pass` เมื่อเป็น JSON หรือ `fail` พร้อมข้อความแนะนำเมื่อไม่ตอบหรือส่งค่าที่ไม่ใช่ JSON
 check_http_json() {
   local url="$1"
   local name="$2"
