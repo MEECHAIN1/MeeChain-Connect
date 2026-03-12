@@ -50,7 +50,9 @@ check_rpc_chain_id() {
   local chain_id
   chain_id="$(printf '%s' "$response" | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{try{const j=JSON.parse(d);process.stdout.write((j.result||"").toLowerCase())}catch{}})')"
 
-  if [ "$chain_id" = "${EXPECTED_CHAIN_ID_HEX,,}" ]; then
+  local expected_lower
+  expected_lower="$(printf '%s' "$EXPECTED_CHAIN_ID_HEX" | tr '[:upper:]' '[:lower:]')"
+  if [ "$chain_id" = "$expected_lower" ]; then
     pass "RPC eth_chainId ตรงตามที่คาดไว้ (${EXPECTED_CHAIN_ID_HEX})"
   else
     fail "RPC chain id ไม่ถูกต้อง (ได้: ${chain_id:-unknown}, คาดหวัง: ${EXPECTED_CHAIN_ID_HEX})" "ตรวจสอบ chain/network ที่รันอยู่ หรือกำหนด EXPECTED_CHAIN_ID_HEX ให้ตรง"
