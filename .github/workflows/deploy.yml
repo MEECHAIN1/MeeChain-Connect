@@ -26,10 +26,28 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
-      - name: 📚 Install dependencies
-        run: npm ci --omit=dev --ignore-scripts
+      - name: 🔨 Build static assets
+        run: |
+          mkdir -p deploy/public/src/css \
+                   deploy/public/src/js \
+                   deploy/public/src/web3 \
+                   deploy/public/src/assets/images \
+                   deploy/functions/api/chat \
+                   deploy/functions/api/nodecloud \
+                   deploy/functions/api/web3
+
+          cp index.html deploy/public/
+          [ -f _headers ]   && cp _headers   deploy/public/ || true
+          [ -f _redirects ] && cp _redirects deploy/public/ || true
+          cp -r src/css/.          deploy/public/src/css/
+          cp -r src/js/.           deploy/public/src/js/
+          cp -r src/web3/.         deploy/public/src/web3/
+          cp -r src/assets/images/. deploy/public/src/assets/images/
+          cp -r functions/.        deploy/functions/
+
+          echo "Build complete:"
+          ls deploy/public/
 
       - name: 🌐 Deploy to Cloudflare Pages
         uses: cloudflare/pages-action@v1
@@ -37,7 +55,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: meebot-io
-          directory: .
+          directory: deploy/public
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ github.ref_name == 'main' && 'main' || 'preview' }}
           wranglerVersion: '4'
