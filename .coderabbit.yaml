@@ -1,10 +1,149 @@
+## CodeRabbit Configuration for MeeChain
+
+# Basic Configuration
 language: th-TH  # ภาษาหลัก: ไทย
+
 tone_instructions: "Provide reviews in both Thai and English (ให้คำแนะนำทั้งภาษาไทยและอังกฤษ)"
 
+# Review Settings
 reviews:
   profile: chill
   poem: true
+  auto_approve: false
+  review_simple_changes: true
+  review_comment_lgtm: true
   
 code_generation:
   docstrings:
     language: th-TH  # ภาษาสำหรับ docstrings
+    
+  # Path filters
+  path_filters: |
+    !*.md
+    !*.json
+    !*.lock
+    !*.yml
+    !*.yaml
+    !*.png
+    !*.jpg
+    !*.svg
+    !*.ico
+  
+  # Language-specific settings
+  language_settings:
+    th-TH:
+      formality: medium
+      politeness: high
+      humor: moderate
+    en-US:
+      formality: medium
+      politeness: medium
+      humor: low
+
+# Code Generation Settings
+code_generation:
+  docstrings:
+    language: th-TH  # Language for generated docstrings
+    style: google
+    include_types: true
+    
+  comments:
+    language: th-TH
+    density: medium
+    
+  # Auto-fix settings
+  auto_fix:
+    enabled: true
+    max_changes_per_review: 5
+    confidence_threshold: 0.8
+
+# Security & Quality Settings
+security:
+  enabled: true
+  check_for_secrets: true
+  check_for_hardcoded_credentials: true
+  
+quality:
+  check_complexity: true
+  max_cyclomatic_complexity: 10
+  check_duplication: true
+  max_duplication_percentage: 15
+
+# Team Collaboration
+team:
+  backend:
+    reviewers: ["team-backend"]
+    assignees: ["team-backend"]
+    
+  frontend:
+    reviewers: ["team-frontend"]
+    assignees: ["team-frontend"]
+    
+  devops:
+    reviewers: ["team-devops"]
+    assignees: ["team-devops"]
+
+# PR Labels Configuration
+labels:
+  auto_label: true
+  label_mapping:
+    backend: ["python", "fastapi", "backend"]
+    frontend: ["typescript", "react", "nextjs", "frontend"]
+    security: ["security", "vulnerability"]
+    bug: ["bug"]
+    feature: ["feature", "enhancement"]
+    documentation: ["documentation"]
+
+# Notification Settings
+notifications:
+  summary_in_pr: true
+  summary_format: "markdown"
+  include_poem: true
+  poem_frequency: 0.3  # 30% chance to include a poem
+
+# Learning & Improvement
+learning:
+  learn_from_previous_reviews: true
+  adapt_to_team_style: true
+  feedback_loop: true
+
+# Custom Instructions
+custom_instructions: |
+  ## MeeChain Project Guidelines
+  
+  ### Backend (FastAPI)
+  - Follow FastAPI best practices
+  - Use Pydantic models for request/response validation
+  - Implement proper error handling
+  - Add comprehensive docstrings
+  - Follow RESTful API design principles
+  
+  ### Frontend (Next.js/React)
+  - Use TypeScript for type safety
+  - Follow React best practices
+  - Implement responsive design
+  - Use TailwindCSS for styling
+  - Follow component composition patterns
+  
+  ### Security
+  - Never hardcode secrets
+  - Validate all user inputs
+  - Implement proper authentication/authorization
+  - Follow security best practices
+  
+  ### Code Quality
+  - Write clean, maintainable code
+  - Add meaningful comments
+  - Follow DRY principle
+  - Keep functions small and focused
+  
+  ### Documentation
+  - Update API documentation when changing endpoints
+  - Update README when adding new features
+  - Add inline comments for complex logic
+  
+  ### Team Culture
+  - Be constructive in feedback
+  - Focus on learning and improvement
+  - Celebrate good code
+  - Help each other grow
