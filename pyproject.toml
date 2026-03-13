@@ -1,7 +1,7 @@
 [project]
-name = "MeeChain-Connect"
-version = "1.0.0"
-description = "แดชบอร์ด Web Application สำหรับ MeeChain Blockchain Platform"
-authors = ["Thanawat <thanawat@example.com>"]
-requires-python = ">=3.11"
-dependencies = ["flask", "web3", "python-dotenv"]
+name = "MeeChain"
+version = "0.1.0"
+authors = [
+    {name = "tanawat", email = "pouaun2499@gmail.com"}
+]
+
