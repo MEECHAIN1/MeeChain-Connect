@@ -22,6 +22,9 @@ npx serve
 ## Usage
 Open your browser and navigate to `http://localhost:8000`
 
+## Contributor Docs
+- Contributor onboarding guide: `docs/CONTRIBUTOR_ONBOARDING.md`
+
 ## Project Structure
 ```
 +├── index.html          # Main dashboard page
@@ -39,4 +42,3 @@ Open your browser and navigate to `http://localhost:8000`
 ## Prerequisites
 - Modern web browser (Chrome, Firefox, Safari, Edge)
 - Local web server (e.g., `python3 -m http.server` or `npx serve`)
-
