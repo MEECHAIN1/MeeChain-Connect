@@ -10,7 +10,7 @@
 ## Installation
 \```bash
 # Clone the repository
-+git clone https://github.com/MEECHAIN1/MeeChain-Connect.git
++git clone https://github.com/meechain1/MeeChain-Connect.git
 +cd MeeChain-Connect
 +
 # Start local server
@@ -40,3 +40,7 @@ Open your browser and navigate to `http://localhost:8000`
 - Modern web browser (Chrome, Firefox, Safari, Edge)
 - Local web server (e.g., `python3 -m http.server` or `npx serve`)
 
+
+
+## Contributor Guide
+- See `docs/CONTRIBUTOR_ONBOARDING.md` for local node/proxy/tunnel/API onboarding.
