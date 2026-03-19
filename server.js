@@ -18,17 +18,34 @@ const http    = require('http');
 const { MeeChainWeb3 } = require('./src/web3/contracts');
 
 const app = express();
-const allowedOrigins = (process.env.CORS_ORIGINS || '')
-  .split(',')
-  .map(s => s.trim())
-  .filter(Boolean);
+const allowedOrigins = [
+  'https://meebot.io',
+  'https://www.meebot.io',
+  'https://app.meechain.xyz',
+  'https://rpc.meechain.xyz',
+  'https://meebot-io.pages.dev',
+  ...(process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean)
+];
 
 app.use(cors({
   origin: (origin, cb) => {
-    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    // Allow no-origin requests (curl, mobile apps, etc.)
+    if (!origin) return cb(null, true);
+    // Allow any meechain.xyz / meebot.io subdomain + localhost
+    if (
+      allowedOrigins.includes(origin) ||
+      /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
+      /^https:\/\/[\w-]+\.meechain\.xyz$/.test(origin) ||
+      /^https:\/\/[\w-]+\.meebot\.io$/.test(origin) ||
+      /^https:\/\/[\w-]+\.pages\.dev$/.test(origin)
+    ) return cb(null, true);
     return cb(new Error('CORS blocked'));
-  }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true,
 }));
+app.options('*', cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
@@ -164,6 +181,98 @@ async function fetchNodeCloudStats() {
     req.end();
   });
 }
+
+// ── Health Check (root level — for rpc.meechain.xyz/health & app.meechain.xyz/health) ──
+app.get('/health', (req, res) => {
+  const host = req.hostname || '';
+  const isRpcHost = host.includes('rpc.');
+  res.json({
+    status:   'ok',
+    service:  isRpcHost ? 'MeeChain RPC Gateway' : 'MeeChain App Server',
+    host:     host,
+    chainId:  RPC_CONFIG.chainId,
+    rpc:      RPC_CONFIG.drpcUrl,
+    web3:     web3.connected,
+    uptime:   Math.floor(process.uptime()),
+    version:  '2.0.0',
+    ts:       new Date().toISOString(),
+  });
+});
+
+// ── RPC Proxy (JSON-RPC forward) ─────────────────────────────────
+// Handles: POST / and POST /rpc  →  used by rpc.meechain.xyz
+// Forwards JSON-RPC calls to the actual Ritual Chain node
+async function handleRpcProxy(req, res) {
+  const body = req.body;
+  if (!body || !body.jsonrpc) {
+    return res.status(400).json({ error: 'Invalid JSON-RPC request' });
+  }
+
+  // Pick target RPC (dRPC primary, fallback secondary)
+  const targets = [
+    RPC_CONFIG.drpcUrl,
+    RPC_CONFIG.fallbackUrl,
+  ].filter(Boolean);
+
+  let lastError = null;
+  for (const target of targets) {
+    try {
+      const url = new URL(target);
+      const isHttps = url.protocol === 'https:';
+      const reqLib  = isHttps ? https : http;
+      const postData = JSON.stringify(body);
+
+      const result = await new Promise((resolve, reject) => {
+        const options = {
+          hostname: url.hostname,
+          port:     url.port || (isHttps ? 443 : 80),
+          path:     url.pathname || '/',
+          method:   'POST',
+          headers:  {
+            'Content-Type':   'application/json',
+            'Content-Length': Buffer.byteLength(postData),
+          },
+          timeout: 10000,
+        };
+        // Attach dRPC access key if available
+        if (RPC_CONFIG.drpcAccessKey && target === RPC_CONFIG.drpcUrl) {
+          options.headers['Authorization'] = `Bearer ${RPC_CONFIG.drpcAccessKey}`;
+        }
+        const r = reqLib.request(options, (resp) => {
+          let data = '';
+          resp.on('data', d => data += d);
+          resp.on('end', () => {
+            try { resolve(JSON.parse(data)); }
+            catch { reject(new Error('Invalid JSON from RPC node')); }
+          });
+        });
+        r.on('error', reject);
+        r.on('timeout', () => { r.destroy(); reject(new Error('RPC timeout')); });
+        r.write(postData);
+        r.end();
+      });
+
+      // Forward the RPC response
+      return res.json(result);
+    } catch (err) {
+      lastError = err;
+      console.warn(`RPC proxy failed for ${target}: ${err.message}`);
+    }
+  }
+
+  // All targets failed — return JSON-RPC error
+  return res.status(502).json({
+    jsonrpc: '2.0',
+    id:      body.id || null,
+    error: {
+      code:    -32603,
+      message: `RPC unavailable: ${lastError?.message || 'all nodes offline'}`,
+    },
+  });
+}
+
+app.post('/',    handleRpcProxy);   // rpc.meechain.xyz  POST /
+app.post('/rpc', handleRpcProxy);   // rpc.meechain.xyz  POST /rpc
 
 // ── API: Health Check ─────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
@@ -412,4 +521,12 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`     Token   : ${CONTRACTS.token}`);
   console.log(`     NFT     : ${CONTRACTS.nft}`);
   console.log(`     Staking : ${CONTRACTS.staking}`);
+  console.log(`   Domains:`);
+  console.log(`     App  : https://${process.env.APP_DOMAIN || 'app.meechain.xyz'}`);
+  console.log(`     RPC  : https://${process.env.RPC_DOMAIN || 'rpc.meechain.xyz'}`);
+  console.log(`   Endpoints:`);
+  console.log(`     GET  /health         (root health check)`);
+  console.log(`     POST /               (JSON-RPC proxy)`);
+  console.log(`     POST /rpc            (JSON-RPC proxy alias)`);
+  console.log(`     GET  /api/health     (API health check)`);
 });
