@@ -1,7 +1,10 @@
 # ═══════════════════════════════════════════════════════════════
 # Cloudflare Tunnel Config — MeeChain
-# Domains: app.meechain.xyz  →  http://127.0.0.1:3000
-#           rpc.meechain.xyz  →  http://127.0.0.1:3000
+# Domains:
+#   app.meechain.xyz   →  http://127.0.0.1:3000  (Dashboard)
+#   rpc.meechain.xyz   →  http://127.0.0.1:3000  (RPC Gateway)
+#   app.meechain.live  →  http://127.0.0.1:3000  (Dashboard .live)
+#   rpc.meechain.live  →  http://127.0.0.1:3000  (RPC Gateway .live)
 # ═══════════════════════════════════════════════════════════════
 
 tunnel: meechain-tunnel
@@ -9,15 +12,29 @@ credentials-file: /home/user/webapp/.cloudflared/tunnel-credentials.json
 
 # ── Ingress Rules ──────────────────────────────────────────────
 ingress:
-  # App Dashboard  →  port 3000 (serves index.html + API)
+  # App Dashboard .xyz  →  port 3000
   - hostname: app.meechain.xyz
     service: http://127.0.0.1:3000
     originRequest:
       connectTimeout: 30s
       noTLSVerify: false
 
-  # RPC Gateway  →  port 3000 (/rpc endpoint handles JSON-RPC)
+  # RPC Gateway .xyz  →  port 3000
   - hostname: rpc.meechain.xyz
+    service: http://127.0.0.1:3000
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: false
+
+  # App Dashboard .live  →  port 3000
+  - hostname: app.meechain.live
+    service: http://127.0.0.1:3000
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: false
+
+  # RPC Gateway .live  →  port 3000
+  - hostname: rpc.meechain.live
     service: http://127.0.0.1:3000
     originRequest:
       connectTimeout: 30s

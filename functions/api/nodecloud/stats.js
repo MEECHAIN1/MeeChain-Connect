@@ -31,7 +31,7 @@ export async function onRequestGet(ctx) {
     uptime:      '99.98%',
     requests:    12453,
     cost:        '12.45 USDT',
-    rpcEndpoint: env.DRPC_RPC_URL || 'http://rpc.meechain.run.place',
+    rpcEndpoint: env.DRPC_RPC_URL || 'https://rpc.meechain.live',
     chainId:     13390,
     network:     'MeeChain Ritual Chain',
     lastUpdated: new Date().toISOString(),

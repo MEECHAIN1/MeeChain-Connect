@@ -6,21 +6,40 @@
 //   NodeCloud Stats    → monitoring & cost intelligence
 // =====================================================
 require('dotenv').config();
-const express = require('express');
-const cors    = require('cors');
-const OpenAI  = require('openai');
-const fs      = require('fs');
-const yaml    = require('js-yaml');
-const path    = require('path');
-const os      = require('os');
-const https   = require('https');
-const http    = require('http');
+const express   = require('express');
+const cors      = require('cors');
+const OpenAI    = require('openai');
+const fs        = require('fs');
+const yaml      = require('js-yaml');
+const path      = require('path');
+const os        = require('os');
+const https     = require('https');
+const http      = require('http');
+const WebSocket = require('ws');
 const { MeeChainWeb3 } = require('./src/web3/contracts');
+
+// ── IPv4-only DNS resolver (สำหรับ environment ที่ไม่รองรับ IPv6) ──
+// rpc.meechain.live มีเฉพาะ AAAA record → ต้อง force IPv4 หรือใช้ IP โดยตรง
+const dnsLookup4 = (hostname, options, callback) => {
+  const dns = require('dns');
+  dns.lookup(hostname, { family: 4, ...options }, (err, address, family) => {
+    if (err) {
+      // IPv4 ไม่พบ ลอง IPv6
+      dns.lookup(hostname, { family: 6, ...options }, callback);
+    } else {
+      callback(null, address, family);
+    }
+  });
+};
 
 const app = express();
 const allowedOrigins = [
   'https://meebot.io',
   'https://www.meebot.io',
+  // .live domains (PRIMARY — Cloudflare Tunnel ใช้งานได้)
+  'https://app.meechain.live',
+  'https://rpc.meechain.live',
+  // .xyz domains (fallback)
   'https://app.meechain.xyz',
   'https://rpc.meechain.xyz',
   'https://meebot-io.pages.dev',
@@ -31,12 +50,13 @@ app.use(cors({
   origin: (origin, cb) => {
     // Allow no-origin requests (curl, mobile apps, etc.)
     if (!origin) return cb(null, true);
-    // Allow any meechain.xyz / meebot.io subdomain + localhost
+    // Allow any meechain.live / meechain.xyz / meebot.io subdomain + localhost
     if (
       allowedOrigins.includes(origin) ||
       /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
-      /^https:\/\/[\w-]+\.meechain\.xyz$/.test(origin) ||
-      /^https:\/\/[\w-]+\.meebot\.io$/.test(origin) ||
+      /^https:\/\/[\w-]+\.meechain\.live$/.test(origin) ||
+      /^https:\/\/[\w-]+\.meechain\.xyz$/.test(origin)  ||
+      /^https:\/\/[\w-]+\.meebot\.io$/.test(origin)     ||
       /^https:\/\/[\w-]+\.pages\.dev$/.test(origin)
     ) return cb(null, true);
     return cb(new Error('CORS blocked'));
@@ -52,7 +72,7 @@ app.use(express.static(path.join(__dirname)));
 // ── RPC Configuration ────────────────────────────────────────────
 const RPC_CONFIG = {
   // Primary: dRPC gateway (used by frontend DApp via DRPC_ACCESS_KEY)
-  drpcUrl:        process.env.DRPC_RPC_URL          || 'http://rpc.meechain.run.place',
+  drpcUrl:        process.env.DRPC_RPC_URL          || 'https://rpc.meechain.live',
   drpcAccessKey:  process.env.DRPC_ACCESS_KEY,
 
   // NodeCore: server-side proxy layer
@@ -62,7 +82,7 @@ const RPC_CONFIG = {
   nodecloudKey:   process.env.NODECLOUD_API_KEY,
   nodecloudStats: process.env.NODECLOUD_STATS_KEY,
   // Fallback: original Ritual Chain endpoint
-  fallbackUrl:    process.env.VITE_RPC_URL           || 'https://ritual-chain--pouaun2499.replit.app',
+  fallbackUrl:    process.env.VITE_RPC_URL           || 'https://rpc.meechain.live',
   chainId:        parseInt(process.env.CHAIN_ID)     || 13390,
 };
 
@@ -182,7 +202,7 @@ async function fetchNodeCloudStats() {
   });
 }
 
-// ── Health Check (root level — for rpc.meechain.xyz/health & app.meechain.xyz/health) ──
+// ── Health Check (root level — for rpc.meechain.live/health & app.meechain.live/health) ──
 app.get('/health', (req, res) => {
   const host = req.hostname || '';
   const isRpcHost = host.includes('rpc.');
@@ -509,8 +529,392 @@ app.post('/api/nft/describe', async (req, res) => {
 });
 
 // ── Start Server ──────────────────────────────────────────────────
-const PORT = parseInt(process.env.PORT) || 3000;
-app.listen(PORT, '0.0.0.0', () => {
+const PORT   = parseInt(process.env.PORT) || 3000;
+const server = http.createServer(app);
+
+// ════════════════════════════════════════════════════════
+//  PHASE 2 — WebSocket Real-time Server
+// ════════════════════════════════════════════════════════
+const wss = new WebSocket.Server({ server, path: '/ws' });
+
+let wsBlockNumber  = 1_248_753;
+let wsClients      = new Set();
+const WS_INTERVAL  = 5000;   // push every 5 seconds
+
+function randomHex(len) {
+  return '0x' + [...Array(len)].map(() => Math.floor(Math.random()*16).toString(16)).join('');
+}
+function genWsBlock() {
+  wsBlockNumber++;
+  return {
+    type:        'new_block',
+    blockNumber: wsBlockNumber,
+    hash:        randomHex(64),
+    timestamp:   Math.floor(Date.now() / 1000),
+    txCount:     50 + Math.floor(Math.random() * 200),
+    gasUsed:     (1_000_000 + Math.floor(Math.random() * 5_000_000)).toString(),
+    miner:       randomHex(40),
+    tps:         80 + Math.floor(Math.random() * 60),
+  };
+}
+function genWsTx() {
+  const types = ['Transfer', 'NFT Mint', 'Stake', 'Unstake', 'Swap'];
+  return {
+    type:        'new_tx',
+    hash:        randomHex(64),
+    blockNumber: wsBlockNumber,
+    from:        randomHex(40),
+    to:          randomHex(40),
+    value:       (Math.random() * 500).toFixed(4),
+    txType:      types[Math.floor(Math.random() * types.length)],
+    timestamp:   Math.floor(Date.now() / 1000),
+  };
+}
+
+wss.on('connection', (ws, req) => {
+  wsClients.add(ws);
+  console.log(`🔌 WS client connected (total: ${wsClients.size})`);
+
+  // Send welcome + current stats
+  ws.send(JSON.stringify({
+    type:        'connected',
+    chainId:     RPC_CONFIG.chainId,
+    blockNumber: wsBlockNumber,
+    rpc:         RPC_CONFIG.drpcUrl,
+    contracts:   CONTRACTS,
+    ts:          Date.now(),
+  }));
+
+  ws.on('message', (msg) => {
+    try {
+      const data = JSON.parse(msg);
+      if (data.type === 'ping') ws.send(JSON.stringify({ type: 'pong', ts: Date.now() }));
+      if (data.type === 'subscribe') {
+        ws.subscriptions = data.channels || ['blocks', 'txs', 'price'];
+        ws.send(JSON.stringify({ type: 'subscribed', channels: ws.subscriptions }));
+      }
+    } catch {}
+  });
+
+  ws.on('close', () => {
+    wsClients.delete(ws);
+    console.log(`🔌 WS client disconnected (total: ${wsClients.size})`);
+  });
+  ws.on('error', () => wsClients.delete(ws));
+});
+
+// Broadcast to all clients
+function wsBroadcast(data) {
+  const msg = JSON.stringify(data);
+  wsClients.forEach(ws => {
+    if (ws.readyState === WebSocket.OPEN) {
+      try { ws.send(msg); } catch {}
+    }
+  });
+}
+
+// Push new block every 12s (Ritual Chain block time)
+setInterval(() => {
+  const block = genWsBlock();
+  wsBroadcast(block);
+  // Also push 2-5 new transactions with each block
+  const txCount = 2 + Math.floor(Math.random() * 4);
+  for (let i = 0; i < txCount; i++) wsBroadcast(genWsTx());
+}, 12000);
+
+// Push price update every 30s
+setInterval(() => {
+  const basePrice  = 0.0842;
+  const jitter     = (Math.random() - 0.5) * 0.004;
+  wsBroadcast({
+    type:      'price_update',
+    symbol:    'MEE',
+    price:     (basePrice + jitter).toFixed(4),
+    change24h: '+12.5%',
+    ts:        Date.now(),
+  });
+}, 30000);
+
+// ════════════════════════════════════════════════════════
+//  PHASE 2 — NFT Marketplace API
+// ════════════════════════════════════════════════════════
+
+// GET /api/nft/marketplace  — list all NFTs for sale
+app.get('/api/nft/marketplace', async (req, res) => {
+  const page  = parseInt(req.query.page)  || 1;
+  const limit = parseInt(req.query.limit) || 12;
+  const sort  = req.query.sort            || 'recent';  // recent | price_asc | price_desc | rarity
+
+  // Mock marketplace listings (in prod: query on-chain events or indexer DB)
+  const rarities = ['Common', 'Rare', 'Legendary'];
+  const elements  = ['Fire', 'Water', 'Earth', 'Wind', 'Lightning', 'Void'];
+  const botTypes  = ['Alpha Bot', 'Warrior Bot', 'Lotus Bot', 'Ritual Bot'];
+
+  const listings = [...Array(50)].map((_, i) => {
+    const id      = i + 1;
+    const rarityIdx = id % 20 === 0 ? 2 : id % 5 === 0 ? 1 : 0;
+    const price   = rarityIdx === 2 ? 500 + id * 10 : rarityIdx === 1 ? 200 + id * 5 : 50 + id * 2;
+    return {
+      tokenId:   id,
+      name:      `MeeBot #${String(id).padStart(3, '0')}`,
+      rarity:    rarities[rarityIdx],
+      price:     price,
+      priceUsd:  (price * 0.0842).toFixed(2),
+      seller:    randomHex(40),
+      element:   elements[id % 6],
+      botType:   botTypes[id % 4],
+      power:     rarityIdx === 2 ? 9000 + id * 10 : rarityIdx === 1 ? 6000 + id * 20 : 2000 + id * 30,
+      speed:     rarityIdx === 2 ? 8800 + id * 8  : rarityIdx === 1 ? 5500 + id * 18 : 1800 + id * 25,
+      listedAt:  Date.now() - id * 3600000,
+      contract:  CONTRACTS.nft,
+    };
+  });
+
+  // Sort
+  if (sort === 'price_asc')  listings.sort((a, b) => a.price - b.price);
+  if (sort === 'price_desc') listings.sort((a, b) => b.price - a.price);
+  if (sort === 'rarity') {
+    const order = { Legendary: 0, Rare: 1, Common: 2 };
+    listings.sort((a, b) => order[a.rarity] - order[b.rarity]);
+  }
+
+  const start = (page - 1) * limit;
+  res.json({
+    listings: listings.slice(start, start + limit),
+    total:    listings.length,
+    page,
+    pages:    Math.ceil(listings.length / limit),
+    live:     web3.connected,
+  });
+});
+
+// GET /api/nft/token/:id  — single NFT detail
+app.get('/api/nft/token/:id', async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id) || id < 0) return res.status(400).json({ error: 'Invalid token ID' });
+
+  const rarities = ['Common', 'Rare', 'Legendary'];
+  const elements  = ['Fire', 'Water', 'Earth', 'Wind', 'Lightning', 'Void'];
+  const botTypes  = ['Alpha Bot', 'Warrior Bot', 'Lotus Bot', 'Ritual Bot'];
+  const rarityIdx = id % 20 === 0 ? 2 : id % 5 === 0 ? 1 : 0;
+
+  res.json({
+    tokenId:   id,
+    name:      `MeeBot #${String(id).padStart(3, '0')}`,
+    rarity:    rarities[rarityIdx],
+    element:   elements[id % 6],
+    botType:   botTypes[id % 4],
+    power:     rarityIdx === 2 ? 9000 + id * 10 : rarityIdx === 1 ? 6000 + id * 20 : 2000 + id * 30,
+    speed:     rarityIdx === 2 ? 8800 + id * 8  : rarityIdx === 1 ? 5500 + id * 18 : 1800 + id * 25,
+    owner:     randomHex(40),
+    contract:  CONTRACTS.nft,
+    mintedAt:  Date.now() - id * 86400000,
+    history:   [
+      { event: 'Minted',    from: '0x0000...0000', to: randomHex(40), price: 0,        time: Date.now() - id * 86400000 },
+      { event: 'Transferred', from: randomHex(40), to: randomHex(40), price: 0,        time: Date.now() - id * 43200000 },
+    ],
+    live:      web3.connected,
+  });
+});
+
+// POST /api/nft/mint  — mint via server (for non-MetaMask users)
+app.post('/api/nft/mint', async (req, res) => {
+  const { name, uri, toAddress } = req.body;
+  if (!name || !toAddress) return res.status(400).json({ error: 'name and toAddress required' });
+  if (!/^0x[0-9a-fA-F]{40}$/.test(toAddress)) return res.status(400).json({ error: 'Invalid address' });
+
+  // In prod: call MeeBotNFT.safeMint() with owner private key
+  // For demo: return mock tx
+  res.json({
+    success:   true,
+    message:   'NFT Mint queued (MetaMask mint is instant, server mint is queued)',
+    tokenId:   Math.floor(Math.random() * 10000),
+    txHash:    randomHex(64),
+    toAddress,
+    name,
+    live:      false,
+    note:      'Use MetaMask + wallet.js for real on-chain mint',
+  });
+});
+
+// ════════════════════════════════════════════════════════
+//  PHASE 2 — Staking/Portal API (extended)
+// ════════════════════════════════════════════════════════
+
+// GET /api/portal/info  — portal stats
+app.get('/api/portal/info', async (req, res) => {
+  try {
+    if (web3.connected) {
+      const stats = await web3.getPortalStats?.() || null;
+      if (stats) return res.json({ ...stats, live: true });
+    }
+  } catch {}
+
+  // Mock portal stats
+  res.json({
+    totalEntered:    1_284 + Math.floor(Math.random() * 50),
+    totalOfferings:  52_840 + Math.floor(Math.random() * 100),
+    totalCeremonies: 247 + Math.floor(Math.random() * 10),
+    contractBalance: (42.5 + Math.random()).toFixed(4),
+    fee:             '0.001 MEE',
+    pools: [
+      { id: 'standard', name: 'MEE Standard Pool', apy: 85,  lockDays: 30,  minStake: 100,  totalStaked: 8_524_100,  capacity: 72 },
+      { id: 'premium',  name: 'MEE Premium Pool',  apy: 148, lockDays: 90,  minStake: 1000, totalStaked: 12_840_500, capacity: 58 },
+      { id: 'ritual',   name: 'Ritual Chain Pool', apy: 248, lockDays: 180, minStake: 5000, totalStaked: 24_120_000, capacity: 34 },
+    ],
+    live: false,
+  });
+});
+
+// GET /api/staking/pools  — pool list with live TVL
+app.get('/api/staking/pools', (req, res) => {
+  res.json({
+    pools: [
+      { id: 'standard', name: 'MEE Standard Pool', apy: 85,  lockDays: 30,  minStake: 100,  totalStaked: 8_524_100,  capacity: 72,  color: '#7C3AED' },
+      { id: 'premium',  name: 'MEE Premium Pool',  apy: 148, lockDays: 90,  minStake: 1000, totalStaked: 12_840_500, capacity: 58,  color: '#F97316' },
+      { id: 'ritual',   name: 'Ritual Chain Pool', apy: 248, lockDays: 180, minStake: 5000, totalStaked: 24_120_000, capacity: 34,  color: '#06B6D4' },
+    ],
+    totalTVL:  45_484_600,
+    tvlUSD:    (45_484_600 * 0.0842).toFixed(0),
+    live:      web3.connected,
+  });
+});
+
+// POST /api/staking/calculate  — calculate reward
+app.post('/api/staking/calculate', (req, res) => {
+  const { amount, poolId, days } = req.body;
+  if (!amount || !poolId) return res.status(400).json({ error: 'amount and poolId required' });
+
+  const apyMap = { standard: 85, premium: 148, ritual: 248 };
+  const apy    = apyMap[poolId] || 85;
+  const d      = parseInt(days) || 30;
+  const reward = parseFloat(amount) * apy / 100 * d / 365;
+
+  res.json({
+    amount:     parseFloat(amount),
+    apy,
+    days:       d,
+    reward:     reward.toFixed(4),
+    total:      (parseFloat(amount) + reward).toFixed(4),
+    rewardUSD:  (reward * 0.0842).toFixed(2),
+    dailyReward: (parseFloat(amount) * apy / 100 / 365).toFixed(6),
+  });
+});
+
+// GET /api/staking/history/:address  — user staking history
+app.get('/api/staking/history/:address', async (req, res) => {
+  const addr = req.params.address;
+  if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) return res.status(400).json({ error: 'Invalid address' });
+
+  // Mock history (prod: query events from blockchain indexer)
+  const history = [
+    { type: 'stake',   pool: 'MEE Standard Pool', amount: 1000, reward: 0,    tx: randomHex(64), time: Date.now() - 86400000 * 25 },
+    { type: 'stake',   pool: 'MEE Premium Pool',  amount: 5000, reward: 0,    tx: randomHex(64), time: Date.now() - 86400000 * 15 },
+    { type: 'reward',  pool: 'MEE Standard Pool', amount: 0,    reward: 58.2, tx: randomHex(64), time: Date.now() - 86400000 * 5  },
+    { type: 'unstake', pool: 'MEE Standard Pool', amount: 1000, reward: 58.2, tx: randomHex(64), time: Date.now() - 86400000 * 2  },
+  ];
+  res.json({ address: addr, history, live: false });
+});
+
+// ════════════════════════════════════════════════════════
+//  PHASE 2 — Block Explorer API (extended)
+// ════════════════════════════════════════════════════════
+
+// GET /api/blocks  — recent blocks
+app.get('/api/blocks', async (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 10, 100);
+  try {
+    const chainStats = await web3.getChainStats();
+    const currentBlock = parseInt(chainStats.blockNumber) || 1_248_753;
+    const blocks = [...Array(limit)].map((_, i) => ({
+      number:    currentBlock - i,
+      hash:      randomHex(64),
+      timestamp: Math.floor(Date.now()/1000) - i * 12,
+      txCount:   50 + Math.floor(Math.random() * 200),
+      gasUsed:   (1_000_000 + Math.floor(Math.random() * 5_000_000)).toString(),
+      miner:     randomHex(40),
+      size:      10_000 + Math.floor(Math.random() * 50_000),
+    }));
+    res.json({ blocks, live: web3.connected });
+  } catch {
+    const blocks = [...Array(limit)].map((_, i) => ({
+      number:    1_248_753 - i,
+      hash:      randomHex(64),
+      timestamp: Math.floor(Date.now()/1000) - i * 12,
+      txCount:   50 + Math.floor(Math.random() * 200),
+      gasUsed:   (1_000_000 + Math.floor(Math.random() * 5_000_000)).toString(),
+      miner:     randomHex(40),
+      size:      10_000 + Math.floor(Math.random() * 50_000),
+    }));
+    res.json({ blocks, live: false });
+  }
+});
+
+// GET /api/blocks/:number  — single block
+app.get('/api/blocks/:number', (req, res) => {
+  const num = parseInt(req.params.number);
+  if (isNaN(num)) return res.status(400).json({ error: 'Invalid block number' });
+  res.json({
+    number:     num,
+    hash:       randomHex(64),
+    parentHash: randomHex(64),
+    timestamp:  Math.floor(Date.now()/1000) - (1_248_753 - num) * 12,
+    miner:      randomHex(40),
+    txCount:    50 + Math.floor(Math.random() * 200),
+    gasUsed:    (1_000_000 + Math.floor(Math.random() * 5_000_000)).toString(),
+    gasLimit:   '15000000',
+    size:       10_000 + Math.floor(Math.random() * 50_000),
+    chainId:    RPC_CONFIG.chainId,
+    live:       false,
+  });
+});
+
+// GET /api/tx/:hash  — tx detail
+app.get('/api/tx/:hash', (req, res) => {
+  const hash = req.params.hash;
+  if (!/^0x[0-9a-fA-F]{64}$/.test(hash)) return res.status(400).json({ error: 'Invalid tx hash' });
+  const types = ['Transfer', 'NFT Mint', 'Stake', 'Unstake', 'Swap', 'Portal'];
+  res.json({
+    hash,
+    blockNumber: 1_248_753 - Math.floor(Math.random() * 100),
+    from:        randomHex(40),
+    to:          randomHex(40),
+    value:       (Math.random() * 500).toFixed(4),
+    gas:         21000 + Math.floor(Math.random() * 100000),
+    gasPrice:    '0.0001',
+    status:      'success',
+    txType:      types[Math.floor(Math.random() * types.length)],
+    timestamp:   Math.floor(Date.now()/1000) - Math.floor(Math.random() * 3600),
+    chainId:     RPC_CONFIG.chainId,
+    live:        false,
+  });
+});
+
+// GET /api/address/:addr  — address info
+app.get('/api/address/:addr', async (req, res) => {
+  const addr = req.params.addr;
+  if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) return res.status(400).json({ error: 'Invalid address' });
+
+  try {
+    const [bal, nftBal] = await Promise.allSettled([
+      web3.getTokenBalance(addr),
+      web3.getNFTBalance(addr),
+    ]);
+    res.json({
+      address:    addr,
+      meeBalance: bal.status === 'fulfilled'    ? bal.value    : '0',
+      nftBalance: nftBal.status === 'fulfilled' ? nftBal.value : 0,
+      txCount:    50 + Math.floor(Math.random() * 500),
+      firstSeen:  Date.now() - 86400000 * 180,
+      live:       web3.connected,
+    });
+  } catch {
+    res.json({ address: addr, meeBalance: '0', nftBalance: 0, txCount: 0, live: false });
+  }
+});
+
+// ── Start Server ──────────────────────────────────────────────────
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ MeeBot AI Server running on http://0.0.0.0:${PORT}`);
   console.log(`   OpenAI Base URL : ${baseURL}`);
   console.log(`   Model           : gpt-5-mini`);
@@ -522,8 +926,8 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`     NFT     : ${CONTRACTS.nft}`);
   console.log(`     Staking : ${CONTRACTS.staking}`);
   console.log(`   Domains:`);
-  console.log(`     App  : https://${process.env.APP_DOMAIN || 'app.meechain.xyz'}`);
-  console.log(`     RPC  : https://${process.env.RPC_DOMAIN || 'rpc.meechain.xyz'}`);
+  console.log(`     App  : https://${process.env.APP_DOMAIN || 'app.meechain.live'}`);
+  console.log(`     RPC  : https://${process.env.RPC_DOMAIN || 'rpc.meechain.live'}`);
   console.log(`   Endpoints:`);
   console.log(`     GET  /health         (root health check)`);
   console.log(`     POST /               (JSON-RPC proxy)`);

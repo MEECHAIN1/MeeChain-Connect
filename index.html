@@ -68,6 +68,11 @@
             <span class="nav-icon">⚙️</span>
             <span class="nav-label">ตั้งค่า</span>
           </li>
+          <!-- Phase 2: Block Explorer -->
+          <li class="nav-item" onclick="window.open('explorer.html','_blank')" style="cursor:pointer;">
+            <span class="nav-icon">🔍</span>
+            <span class="nav-label">Block Explorer <span style="font-size:10px;opacity:.5;">↗</span></span>
+          </li>
         </ul>
       </nav>
 
@@ -94,8 +99,13 @@
         </div>
         <div class="net-status-right">
           <span class="net-chip">⛓️ Chain ID: <strong id="net-chain-id">13390</strong></span>
-          <span class="net-chip">📦 Block: <strong id="net-block">—</strong></span>
-          <span class="net-chip">🔗 RPC: <strong id="net-rpc-label">rpc.meechain.run.place</strong></span>
+          <span class="net-chip">📦 Block: <strong data-ws="block-number" id="net-block">—</strong></span>
+          <span class="net-chip">⚡ TPS: <strong data-ws="tps" id="network-tps">—</strong></span>
+          <span class="net-chip">💰 MEE: <strong data-ws="mee-price" id="mee-price-live">$0.0842</strong> <small id="mee-price-change-live" class="price-up">+12.5%</small></span>
+          <span class="net-chip">
+            <span class="ws-status-dot ws-offline" data-ws="status-dot"></span>
+            <span data-ws="status-text" style="font-size:11px;">Connecting...</span>
+          </span>
           <span class="net-chip net-chip-contract" title="MEE Token Contract">📋 Token: <strong id="net-token">0x5FbD...80aa3</strong></span>
         </div>
       </div>
@@ -291,6 +301,62 @@
             </div>
           </div>
         </div>
+        <!-- WebSocket Live Feed Row -->
+        <div class="dashboard-row" style="margin-top:20px;">
+          <!-- Live Activity Feed -->
+          <div class="card ws-feed-card">
+            <div class="card-header">
+              <h3>
+                <span class="ws-status-dot ws-offline" data-ws="status-dot" style="display:inline-block;margin-right:6px;"></span>
+                📡 Live Activity Feed
+                <span data-ws="status-text" class="ws-live-label">Connecting...</span>
+              </h3>
+              <button class="btn btn-sm btn-outline" onclick="WsClient.connect()">🔄 Reconnect</button>
+            </div>
+            <div id="ws-activity-feed" class="ws-activity-list">
+              <div class="ws-activity-placeholder">⏳ กำลังรอข้อมูล Real-time...</div>
+            </div>
+          </div>
+
+          <!-- Live Block Stats -->
+          <div class="card ws-block-card">
+            <div class="card-header">
+              <h3>⬛ Latest Block</h3>
+            </div>
+            <div class="ws-block-stats">
+              <div class="ws-block-stat">
+                <span class="ws-block-label">🔢 Block Number</span>
+                <span class="ws-block-value" data-ws="block-number" id="current-block">—</span>
+              </div>
+              <div class="ws-block-stat">
+                <span class="ws-block-label">⚡ TPS</span>
+                <span class="ws-block-value" data-ws="tps">—</span>
+              </div>
+              <div class="ws-block-stat">
+                <span class="ws-block-label">💰 MEE Price</span>
+                <span class="ws-block-value" data-ws="mee-price">$0.0842</span>
+                <span class="price-up" id="mee-price-change-live">+12.5%</span>
+              </div>
+              <div class="ws-block-stat">
+                <span class="ws-block-label">🌐 Network</span>
+                <span class="ws-block-value">Ritual Chain</span>
+              </div>
+              <div class="ws-block-stat">
+                <span class="ws-block-label">🔗 Chain ID</span>
+                <span class="ws-block-value">13390</span>
+              </div>
+              <div class="ws-block-stat">
+                <span class="ws-block-label">🔌 Connection</span>
+                <span class="ws-block-value">
+                  <span class="ws-status-dot ws-offline" data-ws="status-dot"></span>
+                  <span data-ws="status-text">Offline</span>
+                </span>
+              </div>
+            </div>
+            <button class="btn btn-outline w-full" style="margin-top:12px;"
+              onclick="window.open('explorer.html','_blank')">🔍 Open Block Explorer</button>
+          </div>
+        </div>
       </section>
 
       <!-- Page: NFT Market -->
@@ -407,56 +473,77 @@
         </div>
       </section>
 
-      <!-- Page: Staking -->
+      <!-- Page: Staking (Phase 2 — Real Staking System) -->
       <section id="page-staking" class="page-section">
         <div class="page-title-row">
           <h2 class="page-title">⛏️ Staking & Mining</h2>
           <div class="staking-apy-badge">APY สูงสุด <strong>248%</strong></div>
         </div>
 
-        <div class="staking-overview">
-          <div class="staking-hero-card">
-            <img src="src/assets/images/meechain_logo.png" alt="MeeChain Bear" class="staking-mascot" onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#1A2236,#0D1525)';this.style.padding='8px';" />
-            <div class="staking-hero-info">
-              <h3>MEE Staking Pool</h3>
-              <p>วาง MEE Token ของคุณเพื่อรับรางวัลทุกวัน</p>
-              <div class="staking-rates">
-                <div class="rate-item">
-                  <span>APR</span>
-                  <strong>85%</strong>
-                </div>
-                <div class="rate-item">
-                  <span>APY</span>
-                  <strong>248%</strong>
-                </div>
-                <div class="rate-item">
-                  <span>Lock Period</span>
-                  <strong>30 วัน</strong>
-                </div>
-              </div>
-            </div>
+        <!-- Portal Stats Bar -->
+        <div class="portal-stats-bar" id="portal-stats">
+          <div class="portal-stat"><span>🔒 Total Locked</span><strong>กำลังโหลด...</strong></div>
+          <div class="portal-stat"><span>🎭 Ceremonies</span><strong>—</strong></div>
+          <div class="portal-stat"><span>📡 Live</span><strong style="color:#f59e0b">🟡 LOADING</strong></div>
+        </div>
+
+        <!-- Staking Pools v2 -->
+        <div id="staking-pools-v2" class="staking-pools-v2-grid">
+          <!-- Populated by staking.js -->
+          <div class="loading-pools">⏳ กำลังโหลด Pools...</div>
+        </div>
+
+        <!-- User Position -->
+        <div class="card" style="margin-top:20px;">
+          <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+            <h3>📊 ตำแหน่ง Staking ของฉัน</h3>
+            <button class="btn btn-sm btn-outline" onclick="window.WalletState?.connected && fetchUserStaking(window.WalletState.address)">🔄 รีเฟรช</button>
+          </div>
+          <div id="user-staking-position" class="user-position-wrapper">
+            <div class="connect-prompt">🔌 เชื่อมต่อ Wallet เพื่อดูตำแหน่ง Staking ของคุณ</div>
           </div>
         </div>
 
-        <!-- Staking Pools -->
-        <div class="staking-pools-grid" id="staking-pools">
-          <!-- Populated by JS -->
+        <!-- APY Calculator -->
+        <div class="card" style="margin-top:20px;">
+          <div id="apy-calculator"><!-- Populated by staking.js --></div>
         </div>
 
-        <!-- My Stakes -->
-        <div class="card my-stakes-card">
-          <div class="card-header">
-            <h3>📊 การ Staking ของฉัน</h3>
-          </div>
-          <div class="my-stakes-content" id="my-stakes">
-            <div class="empty-state">
-              <img src="src/assets/images/meechain_logo.png" alt="Empty" class="empty-img" onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#1A2236,#0D1525)';this.style.padding='8px';" />
-              <p>ยังไม่มีการ Staking</p>
-              <button class="btn btn-primary">เริ่ม Staking ตอนนี้</button>
-            </div>
+        <!-- Staking Activity -->
+        <div class="card" style="margin-top:20px;">
+          <div class="card-header"><h3>📋 ประวัติ Staking</h3></div>
+          <div id="staking-activity-log" class="staking-activity-list">
+            <div class="no-activity">ยังไม่มีกิจกรรม Staking</div>
           </div>
         </div>
       </section>
+
+      <!-- ── Stake Modal ────────────────────────────────────────── -->
+      <div class="modal-overlay hidden" id="stake-modal">
+        <div class="modal stake-modal-inner" id="stake-modal-color">
+          <div class="modal-header">
+            <h3 id="stake-modal-title">⛏️ Stake MEE</h3>
+            <button class="modal-close" id="btn-cancel-stake">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="stake-info-row">
+              <span>🎯 APY</span><strong id="stake-modal-apy" style="color:#10b981">—%</strong>
+              <span>⏱ Lock</span><strong id="stake-modal-lock">—</strong>
+              <span>📉 ขั้นต่ำ</span><strong id="stake-modal-min">—</strong>
+            </div>
+            <div class="form-group" style="margin-top:16px;">
+              <label class="form-label">จำนวน MEE ที่ต้องการ Stake</label>
+              <input type="number" id="stake-amount-input" class="form-input"
+                placeholder="ระบุจำนวน MEE..." min="1" step="1">
+            </div>
+            <div id="stake-preview" class="stake-preview-box"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline" id="btn-cancel-stake2" onclick="closeStakeModal()">ยกเลิก</button>
+            <button class="btn btn-primary" id="btn-confirm-stake" onclick="executeStake()">⚡ ยืนยัน Stake</button>
+          </div>
+        </div>
+      </div>
 
       <!-- Page: Wallet -->
       <section id="page-wallet" class="page-section">
@@ -828,6 +915,8 @@
   <script src="src/js/data.js"></script>
   <script src="src/js/chart.js"></script>
   <script src="src/js/wallet.js"></script>
+  <script src="src/js/staking.js"></script>
+  <script src="src/js/websocket.js"></script>
   <script src="src/js/app.js"></script>
   <!-- MeeBot AI Chat Widget -->
   <script src="src/js/chat-widget.js"></script>

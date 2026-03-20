@@ -12,9 +12,9 @@
 const MEECHAIN_NETWORK = {
   chainId:        '0x344e',   // 13390 decimal
   chainName:      'MeeChain Ritual Chain',
-  rpcUrls:        ['http://rpc.meechain.run.place'],
+  rpcUrls:        ['https://rpc.meechain.live'],
   nativeCurrency: { name: 'MEE Token', symbol: 'MEE', decimals: 18 },
-  blockExplorerUrls: ['http://explorer.meechain.run.place'],
+  blockExplorerUrls: ['http://explorer.meechain.run.place', 'https://app.meechain.live/explorer'],
 };
 
 // Minimal ERC-20 ABI for transfer + balanceOf

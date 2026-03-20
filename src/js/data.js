@@ -126,7 +126,7 @@ const MEECHAIN_DATA = {
     token:   '0x5FbDB2315678afecb367f032d93F642f64180aa3',
     nft:     '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
     staking: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
-    rpc:     'https://ritual-chain--pouaun2499.replit.app',
+    rpc:     'https://rpc.meechain.live',
   },
 
   // NFT Collections (uses local brand images with SVG fallback art)

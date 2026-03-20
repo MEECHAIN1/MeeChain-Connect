@@ -10,7 +10,7 @@ const MEEBOT_SYSTEM_PROMPT = `คุณคือ "MeeBot" — AI Assistant ผ�
 ความรู้ของคุณครอบคลุม:
 🔗 MeeChain Blockchain
   - Network: Ritual Chain (Chain ID: 13390)
-  - RPC: http://rpc.meechain.run.place (dRPC gateway)
+  - RPC: https://rpc.meechain.live (dRPC gateway)
   - MeeChain Mainnet: TPS 2,400 | Validators 128 | Fee 0.0001 MEE
   - MEE Token ราคาปัจจุบัน ~0.0842 USDT (+12.5% 24h)
   - เว็บไซต์: https://meebot.io
@@ -32,7 +32,7 @@ const MEEBOT_SYSTEM_PROMPT = `คุณคือ "MeeBot" — AI Assistant ผ�
 👛 Wallet
   - รองรับ: MetaMask, WalletConnect, Coinbase Wallet, Demo
   - ฟีเจอร์: ส่ง/รับ/Swap/ซื้อ MEE Token
-  - เพิ่ม Network: Chain ID 13390, RPC http://rpc.meechain.run.place
+  - เพิ่ม Network: Chain ID 13390, RPC https://rpc.meechain.live
 
 กฎ:
 - ตอบภาษาไทยเป็นหลัก (อังกฤษเฉพาะคำเทคนิค)

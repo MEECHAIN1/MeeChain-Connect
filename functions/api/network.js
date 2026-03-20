@@ -10,8 +10,8 @@ export async function onRequestGet(ctx) {
     chainId:          `0x${chainId.toString(16)}`, // 0x344e
     chainName:        'MeeChain Ritual Chain',
     rpcUrls:          [
-      env.DRPC_RPC_URL    || 'http://rpc.meechain.run.place',
-      env.VITE_RPC_URL    || 'https://ritual-chain--pouaun2499.replit.app',
+      env.DRPC_RPC_URL    || 'https://rpc.meechain.live',
+      env.VITE_RPC_URL    || 'https://rpc.meechain.live',
     ],
     nativeCurrency:   { name: 'MEE Token', symbol: 'MEE', decimals: 18 },
     blockExplorerUrls:['http://explorer.meechain.run.place'],
