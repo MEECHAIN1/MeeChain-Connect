@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>MeeChain DAO Governance</title>
+  <link rel="icon" href="src/assets/images/meechain_logo.png"/>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#7C3AED"/>
+  <style>
+    :root{
+      --bg:#0D1525;--bg2:#131c30;--card:#1a2439;--input:#1e2c45;
+      --border:rgba(255,255,255,0.08);--text:#e8eaf0;--muted:#8892a4;
+      --purple:#7C3AED;--cyan:#06B6D4;--green:#10b981;--orange:#F97316;
+      --red:#ef4444;--yellow:#f59e0b;--blue:#3b82f6;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;font-size:14px;min-height:100vh}
+
+    /* ── Navbar ── */
+    .navbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200}
+    .nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+    .nav-logo img{width:32px;height:32px;border-radius:8px}
+    .nav-logo-text{font-size:17px;font-weight:700}
+    .nav-logo-sub{font-size:11px;color:var(--muted)}
+    .nav-links{display:flex;gap:8px}
+    .nav-link{background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px;text-decoration:none;transition:.2s}
+    .nav-link:hover,.nav-link.active{border-color:var(--purple);color:var(--text);background:rgba(124,58,237,.1)}
+    .wallet-btn{background:var(--purple);color:#fff;border:none;border-radius:8px;padding:8px 18px;cursor:pointer;font-size:13px;font-weight:600;transition:.2s}
+    .wallet-btn:hover{opacity:.85}
+    .wallet-btn.connected{background:var(--green)}
+
+    /* ── Hero ── */
+    .hero{background:linear-gradient(135deg,#1a1040 0%,#0a1830 60%,#0D1525 100%);padding:48px 24px 36px;text-align:center}
+    .hero h1{font-size:32px;font-weight:800;margin-bottom:10px}
+    .hero h1 span{background:linear-gradient(90deg,var(--purple),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .hero p{color:var(--muted);font-size:15px;margin-bottom:28px}
+    .hero-stats{display:flex;justify-content:center;gap:32px;flex-wrap:wrap}
+    .hstat{text-align:center;min-width:100px}
+    .hstat strong{display:block;font-size:22px;font-weight:800;color:var(--cyan)}
+    .hstat span{font-size:12px;color:var(--muted)}
+
+    /* ── Layout ── */
+    .layout{max-width:1200px;margin:0 auto;padding:24px;display:grid;grid-template-columns:1fr 340px;gap:24px}
+    @media(max-width:900px){.layout{grid-template-columns:1fr}}
+
+    /* ── Filters ── */
+    .filter-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;align-items:center}
+    .filter-btn{background:var(--card);border:1px solid var(--border);border-radius:20px;color:var(--muted);padding:6px 14px;font-size:12px;cursor:pointer;transition:.2s}
+    .filter-btn:hover,.filter-btn.active{border-color:var(--purple);color:var(--text);background:rgba(124,58,237,.15)}
+    .filter-btn.all.active{border-color:var(--cyan);color:var(--cyan);background:rgba(6,182,212,.1)}
+    .filter-btn.active-v.active{border-color:var(--green);color:var(--green);background:rgba(16,185,129,.1)}
+    .filter-btn.passed.active{border-color:var(--blue);color:var(--blue);background:rgba(59,130,246,.1)}
+    .filter-btn.rejected.active{border-color:var(--red);color:var(--red);background:rgba(239,68,68,.1)}
+
+    /* ── Proposal Card ── */
+    .proposal-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:16px;cursor:pointer;transition:.2s}
+    .proposal-card:hover{border-color:var(--purple);box-shadow:0 4px 20px rgba(124,58,237,.15)}
+    .proposal-card.active-proposal{border-color:rgba(16,185,129,.4)}
+    .proposal-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+    .proposal-id{font-size:11px;color:var(--muted);white-space:nowrap}
+    .proposal-title{font-size:16px;font-weight:700;flex:1}
+    .status-badge{border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap}
+    .status-badge.active{background:rgba(16,185,129,.2);color:var(--green);border:1px solid var(--green)}
+    .status-badge.passed{background:rgba(59,130,246,.2);color:var(--blue);border:1px solid var(--blue)}
+    .status-badge.rejected{background:rgba(239,68,68,.2);color:var(--red);border:1px solid var(--red)}
+    .status-badge.pending{background:rgba(245,158,11,.2);color:var(--yellow);border:1px solid var(--yellow)}
+    .proposal-desc{color:var(--muted);font-size:13px;line-height:1.6;margin-bottom:14px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .vote-bars{margin-bottom:12px}
+    .vote-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px}
+    .vote-label{width:60px;color:var(--muted)}
+    .vote-bar-wrap{flex:1;background:rgba(255,255,255,.06);border-radius:4px;height:6px;overflow:hidden}
+    .vote-bar{height:6px;border-radius:4px;transition:.5s}
+    .vote-bar.for{background:var(--green)}
+    .vote-bar.against{background:var(--red)}
+    .vote-bar.abstain{background:var(--muted)}
+    .vote-pct{width:38px;text-align:right;font-weight:600}
+    .proposal-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+    .proposal-meta{font-size:11px;color:var(--muted)}
+    .vote-btns{display:flex;gap:6px}
+    .vote-btn{border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;transition:.2s}
+    .vote-btn.for{background:rgba(16,185,129,.2);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+    .vote-btn.for:hover{background:var(--green);color:#fff}
+    .vote-btn.against{background:rgba(239,68,68,.2);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+    .vote-btn.against:hover{background:var(--red);color:#fff}
+    .vote-btn.abstain{background:rgba(255,255,255,.07);color:var(--muted);border:1px solid var(--border)}
+    .vote-btn.abstain:hover{background:var(--border);color:var(--text)}
+    .vote-btn:disabled{opacity:.4;cursor:not-allowed}
+
+    /* ── Sidebar ── */
+    .sidebar{display:flex;flex-direction:column;gap:16px}
+    .sidebar-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px}
+    .sidebar-title{font-size:14px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+    .stat-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
+    .stat-row:last-child{border-bottom:none}
+    .stat-label{font-size:12px;color:var(--muted)}
+    .stat-val{font-size:13px;font-weight:600}
+
+    /* ── Propose Form ── */
+    .propose-form{display:flex;flex-direction:column;gap:12px}
+    .form-group{display:flex;flex-direction:column;gap:6px}
+    .form-label{font-size:12px;color:var(--muted);font-weight:600}
+    .form-input,.form-textarea,.form-select{background:var(--input);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 12px;font-size:13px;outline:none;font-family:inherit;transition:.2s;resize:vertical}
+    .form-input:focus,.form-textarea:focus,.form-select:focus{border-color:var(--purple)}
+    .form-textarea{min-height:80px}
+    .submit-btn{background:var(--purple);color:#fff;border:none;border-radius:8px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;transition:.2s;width:100%}
+    .submit-btn:hover{opacity:.85}
+    .submit-btn:disabled{opacity:.5;cursor:not-allowed}
+
+    /* ── Toast ── */
+    #toast{position:fixed;bottom:24px;right:24px;z-index:999;display:flex;flex-direction:column;gap:8px}
+    .toast-item{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;font-size:13px;min-width:260px;box-shadow:0 8px 32px rgba(0,0,0,.4);animation:slideIn .3s ease}
+    .toast-item.success{border-color:var(--green);color:var(--green)}
+    .toast-item.error{border-color:var(--red);color:var(--red)}
+    .toast-item.info{border-color:var(--cyan);color:var(--cyan)}
+    @keyframes slideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}
+
+    /* ── Modal ── */
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:500;display:none;align-items:center;justify-content:center}
+    .modal-overlay.open{display:flex}
+    .modal{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:28px;max-width:560px;width:calc(100% - 48px);max-height:90vh;overflow-y:auto}
+    .modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+    .modal-title{font-size:18px;font-weight:700}
+    .modal-close{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:.2s}
+    .modal-close:hover{background:var(--border);color:var(--text)}
+
+    /* ── Loading ── */
+    .spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--purple);border-radius:50%;animation:spin .8s linear infinite;display:inline-block}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* ── Countdown ── */
+    .countdown{font-size:12px;color:var(--yellow);font-weight:600}
+  </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <a class="nav-logo" href="/">
+    <img src="src/assets/images/meechain_logo.png" alt="MeeChain"/>
+    <div>
+      <div class="nav-logo-text">MeeChain</div>
+      <div class="nav-logo-sub">DAO Governance</div>
+    </div>
+  </a>
+  <div class="nav-links">
+    <a class="nav-link" href="index.html">🏠 Dashboard</a>
+    <a class="nav-link" href="nft-market.html">🖼️ NFT</a>
+    <a class="nav-link" href="explorer.html">🔍 Explorer</a>
+    <a class="nav-link active" href="dao.html">🏛️ DAO</a>
+    <a class="nav-link" href="analytics.html">📊 Analytics</a>
+  </div>
+  <button class="wallet-btn" id="wallet-btn" onclick="connectWallet()">👛 <span data-i18n="wallet.connect">เชื่อมต่อ Wallet</span></button>
+</nav>
+
+<!-- Hero -->
+<div class="hero">
+  <h1>🏛️ <span>MeeChain DAO</span> Governance</h1>
+  <p>ร่วมกำหนดอนาคตของ MeeChain — ลงคะแนนและเสนอแนวทางพัฒนา</p>
+  <div class="hero-stats">
+    <div class="hstat"><strong id="stat-total">4</strong><span>ข้อเสนอทั้งหมด</span></div>
+    <div class="hstat"><strong id="stat-active">1</strong><span>กำลัง Vote</span></div>
+    <div class="hstat"><strong id="stat-voters">0</strong><span>ผู้ลงคะแนน</span></div>
+    <div class="hstat"><strong id="stat-participation">34.2%</strong><span>Participation Rate</span></div>
+  </div>
+</div>
+
+<!-- Main Layout -->
+<div class="layout">
+  <!-- Left: Proposals -->
+  <div>
+    <!-- Filters -->
+    <div class="filter-bar">
+      <button class="filter-btn all active" onclick="filterProposals('all',this)">🌐 ทั้งหมด</button>
+      <button class="filter-btn active-v" onclick="filterProposals('active',this)">✅ กำลัง Vote</button>
+      <button class="filter-btn passed" onclick="filterProposals('passed',this)">🎉 ผ่านแล้ว</button>
+      <button class="filter-btn rejected" onclick="filterProposals('rejected',this)">❌ ไม่ผ่าน</button>
+      <button class="filter-btn" onclick="filterProposals('pending',this)">⏳ รอเริ่ม</button>
+    </div>
+
+    <!-- Proposal List -->
+    <div id="proposal-list"><div style="text-align:center;padding:40px;color:var(--muted)"><div class="spinner"></div><p style="margin-top:12px">กำลังโหลดข้อเสนอ...</p></div></div>
+  </div>
+
+  <!-- Right: Sidebar -->
+  <div class="sidebar">
+    <!-- Governance Stats -->
+    <div class="sidebar-card">
+      <div class="sidebar-title">📊 สถิติ Governance</div>
+      <div class="stat-row"><span class="stat-label">Voting Power</span><span class="stat-val">MEE Balance</span></div>
+      <div class="stat-row"><span class="stat-label">Quorum</span><span class="stat-val">100,000 MEE</span></div>
+      <div class="stat-row"><span class="stat-label">Voting Period</span><span class="stat-val">7 วัน</span></div>
+      <div class="stat-row"><span class="stat-label">Total Votes Cast</span><span class="stat-val" id="total-votes">-</span></div>
+      <div class="stat-row"><span class="stat-label">Contract</span><span class="stat-val" style="font-size:11px;font-family:monospace" id="dao-contract">0x9fE4...fa6e0</span></div>
+    </div>
+
+    <!-- Your Voting Power -->
+    <div class="sidebar-card">
+      <div class="sidebar-title">⚡ พลังคะแนนของคุณ</div>
+      <div id="voting-power-info" style="text-align:center;padding:16px;color:var(--muted);font-size:13px">
+        <div style="font-size:24px;margin-bottom:8px">🔒</div>
+        เชื่อมต่อ Wallet เพื่อดูพลังคะแนน
+      </div>
+    </div>
+
+    <!-- Submit Proposal -->
+    <div class="sidebar-card">
+      <div class="sidebar-title">📝 เสนอข้อเสนอใหม่</div>
+      <div class="propose-form">
+        <div class="form-group">
+          <label class="form-label">หัวข้อ *</label>
+          <input class="form-input" id="prop-title" placeholder="หัวข้อข้อเสนอ..." maxlength="100"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">หมวดหมู่</label>
+          <select class="form-select" id="prop-category">
+            <option value="general">🌐 ทั่วไป</option>
+            <option value="staking">⛏️ Staking</option>
+            <option value="nft">🎨 NFT</option>
+            <option value="development">🔧 Development</option>
+            <option value="community">👥 Community</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">รายละเอียด *</label>
+          <textarea class="form-textarea" id="prop-desc" placeholder="อธิบายข้อเสนอของคุณ..." maxlength="2000"></textarea>
+        </div>
+        <button class="submit-btn" id="propose-btn" onclick="submitProposal()">🚀 ส่งข้อเสนอ</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div id="toast"></div>
+
+<!-- Vote Modal -->
+<div class="modal-overlay" id="vote-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="vote-modal-title">🗳️ ลงคะแนน</div>
+      <button class="modal-close" onclick="closeVoteModal()">✕</button>
+    </div>
+    <div id="vote-modal-body"></div>
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button class="vote-btn for" style="flex:1;padding:12px" id="modal-vote-for" onclick="castVote('for')">👍 เห็นด้วย</button>
+      <button class="vote-btn against" style="flex:1;padding:12px" id="modal-vote-against" onclick="castVote('against')">👎 ไม่เห็นด้วย</button>
+      <button class="vote-btn abstain" style="flex:1;padding:12px" id="modal-vote-abstain" onclick="castVote('abstain')">🤷 งดออกเสียง</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──
+let walletAddress = null;
+let currentFilter = 'all';
+let proposals = [];
+let currentVoteProposalId = null;
+const votedProposals = new Set(JSON.parse(localStorage.getItem('meechain-dao-votes') || '[]'));
+
+// ── Toast ──
+function showToast(msg, type='info', duration=4000) {
+  const container = document.getElementById('toast');
+  const el = document.createElement('div');
+  el.className = `toast-item ${type}`;
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), duration);
+}
+
+// ── Wallet ──
+async function connectWallet() {
+  if (!window.ethereum) return showToast('ไม่พบ MetaMask — กรุณาติดตั้งก่อน', 'error');
+  try {
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    walletAddress = accounts[0];
+    const btn = document.getElementById('wallet-btn');
+    btn.textContent = '✅ ' + walletAddress.slice(0,6) + '...' + walletAddress.slice(-4);
+    btn.classList.add('connected');
+    showToast('เชื่อมต่อ Wallet สำเร็จ!', 'success');
+    updateVotingPowerUI();
+    await getSIWEToken();
+  } catch (e) {
+    showToast('ยกเลิกการเชื่อมต่อ', 'error');
+  }
+}
+
+// ── SIWE Login ──
+let jwtToken = localStorage.getItem('meechain-jwt');
+
+async function getSIWEToken() {
+  if (!walletAddress) return;
+  try {
+    // Get nonce
+    const nonceRes = await fetch(`/api/auth/nonce?address=${walletAddress}`);
+    const { nonce, message } = await nonceRes.json();
+    // Sign
+    const signature = await window.ethereum.request({
+      method: 'personal_sign',
+      params: [message, walletAddress],
+    });
+    // Verify
+    const verifyRes = await fetch('/api/auth/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address: walletAddress, signature, message }),
+    });
+    const data = await verifyRes.json();
+    if (data.token) {
+      jwtToken = data.token;
+      localStorage.setItem('meechain-jwt', jwtToken);
+      showToast('✅ ลงชื่อเข้าใช้ด้วย Ethereum สำเร็จ (SIWE)', 'success');
+    }
+  } catch(e) {
+    // SIWE optional — continue without it
+    console.warn('SIWE skipped:', e.message);
+  }
+}
+
+function updateVotingPowerUI() {
+  const el = document.getElementById('voting-power-info');
+  if (!walletAddress) {
+    el.innerHTML = '<div style="font-size:24px;margin-bottom:8px">🔒</div>เชื่อมต่อ Wallet เพื่อดูพลังคะแนน';
+    return;
+  }
+  const power = Math.floor(100 + Math.random() * 4900); // Mock — in production: fetch token balance
+  el.innerHTML = `
+    <div style="text-align:center">
+      <div style="font-size:28px;font-weight:800;color:var(--cyan)">${power.toLocaleString()}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">MEE Voting Power</div>
+      <div style="font-size:11px;color:var(--muted)">📍 ${walletAddress.slice(0,6)}...${walletAddress.slice(-4)}</div>
+    </div>`;
+}
+
+// ── Load Proposals ──
+async function loadProposals() {
+  try {
+    const res = await fetch('/api/dao/proposals');
+    const data = await res.json();
+    proposals = data.proposals || [];
+    document.getElementById('stat-total').textContent = data.stats ? (data.stats.active + data.stats.passed + data.stats.rejected + data.stats.pending) : proposals.length;
+    document.getElementById('stat-active').textContent = data.stats?.active || 0;
+    renderProposals(proposals);
+  } catch(e) {
+    document.getElementById('proposal-list').innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">⚠️ ไม่สามารถโหลดข้อเสนอได้</div>';
+  }
+}
+
+async function loadStats() {
+  try {
+    const res = await fetch('/api/dao/stats');
+    const data = await res.json();
+    document.getElementById('total-votes').textContent = Number(data.totalVotesCast).toLocaleString();
+    document.getElementById('stat-participation').textContent = data.participationRate;
+    if (data.governance?.contractAddress) {
+      const addr = data.governance.contractAddress;
+      document.getElementById('dao-contract').textContent = addr.slice(0,6)+'...'+addr.slice(-5);
+    }
+  } catch{}
+}
+
+// ── Render ──
+function renderProposals(list) {
+  const container = document.getElementById('proposal-list');
+  if (!list.length) {
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">📭 ไม่มีข้อเสนอในหมวดนี้</div>';
+    return;
+  }
+  container.innerHTML = list.map(p => {
+    const total  = p.votesFor + p.votesAgainst + p.votesAbstain;
+    const forPct = total ? ((p.votesFor / total) * 100).toFixed(1) : 0;
+    const agtPct = total ? ((p.votesAgainst / total) * 100).toFixed(1) : 0;
+    const absPct = total ? ((p.votesAbstain / total) * 100).toFixed(1) : 0;
+    const voted  = votedProposals.has(p.id);
+    const timeLeft = p.endTime > Date.now()
+      ? `⏰ เหลือ ${Math.ceil((p.endTime - Date.now()) / 86400000)} วัน`
+      : '⏹️ สิ้นสุดแล้ว';
+    const catIcon = {staking:'⛏️',nft:'🎨',development:'🔧',community:'👥',general:'🌐'}[p.category]||'📋';
+
+    return `
+    <div class="proposal-card ${p.status==='active'?'active-proposal':''}" onclick="openVoteModal(${p.id})">
+      <div class="proposal-header">
+        <div>
+          <div class="proposal-id">#${p.id} &nbsp;${catIcon} ${p.category}</div>
+          <div class="proposal-title">${p.title}</div>
+        </div>
+        <div class="status-badge ${p.status}">${{active:'🟢 Active',passed:'✅ Passed',rejected:'❌ Rejected',pending:'⏳ Pending'}[p.status]||p.status}</div>
+      </div>
+      <div class="proposal-desc">${p.description}</div>
+      <div class="vote-bars">
+        <div class="vote-row">
+          <span class="vote-label">👍 เห็นด้วย</span>
+          <div class="vote-bar-wrap"><div class="vote-bar for" style="width:${forPct}%"></div></div>
+          <span class="vote-pct" style="color:var(--green)">${forPct}%</span>
+        </div>
+        <div class="vote-row">
+          <span class="vote-label">👎 ไม่เห็น</span>
+          <div class="vote-bar-wrap"><div class="vote-bar against" style="width:${agtPct}%"></div></div>
+          <span class="vote-pct" style="color:var(--red)">${agtPct}%</span>
+        </div>
+        <div class="vote-row">
+          <span class="vote-label">🤷 งด</span>
+          <div class="vote-bar-wrap"><div class="vote-bar abstain" style="width:${absPct}%"></div></div>
+          <span class="vote-pct">${absPct}%</span>
+        </div>
+      </div>
+      <div class="proposal-footer">
+        <div>
+          <div class="proposal-meta">📊 ${Number(total).toLocaleString()} คะแนน &nbsp;|&nbsp; <span class="countdown">${timeLeft}</span></div>
+          <div class="proposal-meta" style="margin-top:4px">👤 ${p.proposer.slice(0,8)}...${p.proposer.slice(-4)}</div>
+        </div>
+        ${p.status==='active'?`
+        <div class="vote-btns" onclick="event.stopPropagation()">
+          <button class="vote-btn for" onclick="quickVote(${p.id},'for')" ${voted?'disabled':''}>👍</button>
+          <button class="vote-btn against" onclick="quickVote(${p.id},'against')" ${voted?'disabled':''}>👎</button>
+          <button class="vote-btn abstain" onclick="quickVote(${p.id},'abstain')" ${voted?'disabled':''}>🤷</button>
+        </div>`:'<div style="font-size:12px;color:var(--muted)">'+(voted?'✅ ลงคะแนนแล้ว':'')+'</div>'}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Filter ──
+function filterProposals(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const filtered = filter === 'all' ? proposals : proposals.filter(p => p.status === filter);
+  renderProposals(filtered);
+}
+
+// ── Vote Modal ──
+function openVoteModal(id) {
+  const p = proposals.find(x => x.id === id);
+  if (!p) return;
+  currentVoteProposalId = id;
+  document.getElementById('vote-modal-title').textContent = `🗳️ ข้อเสนอ #${p.id}`;
+  const total = p.votesFor + p.votesAgainst + p.votesAbstain;
+  const forPct = total ? ((p.votesFor/total)*100).toFixed(1) : 0;
+  const agtPct = total ? ((p.votesAgainst/total)*100).toFixed(1) : 0;
+  document.getElementById('vote-modal-body').innerHTML = `
+    <div style="font-size:16px;font-weight:700;margin-bottom:8px">${p.title}</div>
+    <div style="color:var(--muted);font-size:13px;line-height:1.6;margin-bottom:16px">${p.description}</div>
+    <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap">
+      <div style="flex:1;min-width:100px;background:rgba(16,185,129,.1);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:20px;font-weight:800;color:var(--green)">${forPct}%</div>
+        <div style="font-size:11px;color:var(--muted)">👍 ${Number(p.votesFor).toLocaleString()} MEE</div>
+      </div>
+      <div style="flex:1;min-width:100px;background:rgba(239,68,68,.1);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:20px;font-weight:800;color:var(--red)">${agtPct}%</div>
+        <div style="font-size:11px;color:var(--muted)">👎 ${Number(p.votesAgainst).toLocaleString()} MEE</div>
+      </div>
+      <div style="flex:1;min-width:100px;background:rgba(255,255,255,.05);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:20px;font-weight:800;color:var(--muted)">${total?((p.votesAbstain/total)*100).toFixed(1):0}%</div>
+        <div style="font-size:11px;color:var(--muted)">🤷 ${Number(p.votesAbstain).toLocaleString()} MEE</div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--muted)">
+      📊 รวม: ${Number(total).toLocaleString()} MEE &nbsp;|&nbsp; Quorum: ${Number(p.quorum).toLocaleString()} MEE &nbsp;|&nbsp; สถานะ: <span class="status-badge ${p.status}" style="font-size:11px">${p.status}</span>
+    </div>
+    ${votedProposals.has(id)?'<div style="margin-top:12px;color:var(--green);font-weight:600">✅ คุณลงคะแนนแล้ว</div>':''}
+  `;
+  const disabled = votedProposals.has(id) || p.status !== 'active';
+  ['modal-vote-for','modal-vote-against','modal-vote-abstain'].forEach(btnId => {
+    document.getElementById(btnId).disabled = disabled;
+  });
+  document.getElementById('vote-modal').classList.add('open');
+}
+
+function closeVoteModal() {
+  document.getElementById('vote-modal').classList.remove('open');
+  currentVoteProposalId = null;
+}
+
+// ── Cast Vote ──
+async function quickVote(proposalId, vote) {
+  if (!walletAddress) {
+    showToast('กรุณาเชื่อมต่อ Wallet ก่อนลงคะแนน', 'error');
+    return connectWallet();
+  }
+  await doVote(proposalId, vote);
+}
+
+async function castVote(vote) {
+  if (!currentVoteProposalId) return;
+  if (!walletAddress) {
+    showToast('กรุณาเชื่อมต่อ Wallet ก่อนลงคะแนน', 'error');
+    closeVoteModal();
+    return connectWallet();
+  }
+  await doVote(currentVoteProposalId, vote);
+  closeVoteModal();
+}
+
+async function doVote(proposalId, vote) {
+  if (votedProposals.has(proposalId)) {
+    showToast('คุณลงคะแนนข้อเสนอนี้แล้ว', 'error');
+    return;
+  }
+  try {
+    const res = await fetch('/api/dao/vote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(jwtToken ? { Authorization: `Bearer ${jwtToken}` } : {}) },
+      body: JSON.stringify({ proposalId, address: walletAddress, vote }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      votedProposals.add(proposalId);
+      localStorage.setItem('meechain-dao-votes', JSON.stringify([...votedProposals]));
+      showToast(data.message || 'ลงคะแนนสำเร็จ!', 'success');
+      await loadProposals();
+    } else {
+      showToast(data.error || 'ลงคะแนนไม่สำเร็จ', 'error');
+    }
+  } catch(e) {
+    showToast('เกิดข้อผิดพลาด กรุณาลองใหม่', 'error');
+  }
+}
+
+// ── Submit Proposal ──
+async function submitProposal() {
+  const title = document.getElementById('prop-title').value.trim();
+  const desc  = document.getElementById('prop-desc').value.trim();
+  const cat   = document.getElementById('prop-category').value;
+  if (!title || !desc) return showToast('กรุณากรอกหัวข้อและรายละเอียด', 'error');
+  if (!walletAddress) {
+    showToast('กรุณาเชื่อมต่อ Wallet ก่อนส่งข้อเสนอ', 'error');
+    return connectWallet();
+  }
+  const btn = document.getElementById('propose-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ กำลังส่ง...';
+  try {
+    const res = await fetch('/api/dao/propose', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(jwtToken ? { Authorization: `Bearer ${jwtToken}` } : {}) },
+      body: JSON.stringify({ title, description: desc, proposer: walletAddress, category: cat }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      showToast(data.message || 'ส่งข้อเสนอสำเร็จ!', 'success');
+      document.getElementById('prop-title').value = '';
+      document.getElementById('prop-desc').value = '';
+      await loadProposals();
+    } else {
+      showToast(data.error || 'ส่งข้อเสนอไม่สำเร็จ', 'error');
+    }
+  } catch(e) {
+    showToast('เกิดข้อผิดพลาด กรุณาลองใหม่', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🚀 ส่งข้อเสนอ';
+  }
+}
+
+// ── Update voter count from all proposals ──
+function countUniqueVoters() {
+  const total = proposals.reduce((s, p) => s + p.votesFor + p.votesAgainst + p.votesAbstain, 0);
+  document.getElementById('stat-voters').textContent = Math.floor(total / 1000 * 0.4).toLocaleString();
+}
+
+// ── Close modal on backdrop click ──
+document.getElementById('vote-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeVoteModal();
+});
+
+// ── Auto-connect if approved ──
+if (window.ethereum) {
+  window.ethereum.request({ method: 'eth_accounts' }).then(accounts => {
+    if (accounts[0]) {
+      walletAddress = accounts[0];
+      const btn = document.getElementById('wallet-btn');
+      btn.textContent = '✅ ' + walletAddress.slice(0,6) + '...' + walletAddress.slice(-4);
+      btn.classList.add('connected');
+      updateVotingPowerUI();
+    }
+  });
+  window.ethereum.on('accountsChanged', accounts => {
+    walletAddress = accounts[0] || null;
+    const btn = document.getElementById('wallet-btn');
+    btn.textContent = walletAddress ? '✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4) : '👛 <span data-i18n="wallet.connect">เชื่อมต่อ Wallet</span>';
+    btn.classList.toggle('connected', !!walletAddress);
+    updateVotingPowerUI();
+  });
+}
+
+// ── Init ──
+(async function init() {
+  await Promise.all([loadProposals(), loadStats()]);
+  countUniqueVoters();
+})();
+</script>
+  <!-- Shared Components -->
+  <script src="src/js/chat-widget.js"></script>
+  <script src="src/js/i18n.js"></script>
+  <!-- PWA Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>

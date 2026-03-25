@@ -384,3 +384,70 @@ const MEECHAIN_DATA = {
     return { labels, data };
   }
 };
+
+// ═══════════════════════════════════════════════════
+//  Live Price Feed — fetches /api/token/price every 60s
+//  Updates all elements with [data-live-price] attribute
+// ═══════════════════════════════════════════════════
+const LivePrice = {
+  current: { price: 0.0842, change24h: 12.5 },
+
+  async fetch() {
+    try {
+      const res = await fetch('/api/token/price');
+      if (!res.ok) return;
+      const data = await res.json();
+      this.current.price     = data.price;
+      this.current.change24h = parseFloat(data.change24h);
+      this.updateDOM();
+    } catch { /* keep current */ }
+  },
+
+  updateDOM() {
+    const { price, change24h } = this.current;
+    const priceStr  = '$' + price.toFixed(4);
+    const changeStr = (change24h >= 0 ? '+' : '') + change24h.toFixed(2) + '%';
+    const isUp      = change24h >= 0;
+    const colorClass = isUp ? 'price-up' : 'price-down';
+
+    // [data-live-price] — generic price elements
+    document.querySelectorAll('[data-live-price]').forEach(el => {
+      el.textContent = priceStr;
+    });
+    // [data-live-price-change] — change badge elements
+    document.querySelectorAll('[data-live-price-change]').forEach(el => {
+      el.textContent = changeStr;
+      el.className   = el.className.replace(/price-(up|down)/g, '') + ' ' + colorClass;
+    });
+    // [data-ws="mee-price"] — websocket-style price elements (index.html network bar)
+    document.querySelectorAll('[data-ws="mee-price"]').forEach(el => {
+      el.textContent = priceStr;
+    });
+    // Live price chip in network bar
+    const livePriceEl  = document.getElementById('mee-price-live');
+    const liveChangeEl = document.getElementById('mee-price-change-live');
+    if (livePriceEl)  livePriceEl.textContent  = priceStr;
+    if (liveChangeEl) {
+      liveChangeEl.textContent = changeStr;
+      liveChangeEl.className   = colorClass;
+    }
+    // Staking card price (used in staking.js)
+    const stakePriceEl = document.getElementById('mee-price');
+    if (stakePriceEl) stakePriceEl.textContent = priceStr;
+    // Dispatch custom event so other modules can react
+    document.dispatchEvent(new CustomEvent('meePriceUpdate', { detail: { price, change24h, priceStr, changeStr } }));
+  },
+
+  start() {
+    this.fetch();
+    setInterval(() => this.fetch(), 60_000);
+  },
+};
+
+// Auto-start when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => LivePrice.start());
+} else {
+  LivePrice.start();
+}
+

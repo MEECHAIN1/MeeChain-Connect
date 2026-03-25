@@ -4,7 +4,11 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 const PRIVATE_KEY = process.env.PRIVATE_KEY || "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-const RITUAL_RPC  = process.env.DRPC_RPC_URL || process.env.VITE_RPC_URL || "https://ritual-chain--pouaun2499.replit.app";
+// Priority: explicit env var > DRPC_RPC_URL > fallback to official MeeChain RPC
+const RITUAL_RPC  = process.env.RITUAL_RPC_URL
+  || process.env.DRPC_RPC_URL
+  || process.env.VITE_RPC_URL
+  || "https://rpc.meechain.live";
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -23,8 +27,14 @@ const config: HardhatUserConfig = {
       url: RITUAL_RPC,
       chainId: 13390,
       accounts: [PRIVATE_KEY],
-      timeout: 60000,
+      timeout: 120000,
       gasPrice: "auto",
+    },
+    // Alias for deploy-governance.js compatibility
+    mock: {
+      url: "http://meechain-mock-rpc:8545",
+      chainId: 31337,
+      accounts: [PRIVATE_KEY],
     },
   },
   paths: {
