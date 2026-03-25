@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MeeChain Dashboard | Mee Ritual Chain</title>
   <link rel="icon" href="src/assets/images/meechain_logo.png" type="image/png" />
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#7C3AED"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="MeeChain"/>
+  <link rel="apple-touch-icon" href="src/assets/images/meechain_logo.png"/>
+  <!-- /PWA -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -42,44 +51,61 @@
         <ul>
           <li class="nav-item active" data-page="dashboard">
             <span class="nav-icon">🏠</span>
-            <span class="nav-label">แดชบอร์ด</span>
+            <span class="nav-label" data-i18n="nav.dashboard">แดชบอร์ด</span>
           </li>
           <li class="nav-item" data-page="nft-market">
             <span class="nav-icon">🖼️</span>
-            <span class="nav-label">ตลาด NFT</span>
+            <span class="nav-label" data-i18n="nav.nft">ตลาด NFT</span>
           </li>
           <li class="nav-item" data-page="ritual">
             <span class="nav-icon">🚀</span>
-            <span class="nav-label">Mee Ritual Chain</span>
+            <span class="nav-label" data-i18n="nav.ritual">Mee Ritual Chain</span>
           </li>
           <li class="nav-item" data-page="staking">
             <span class="nav-icon">⛏️</span>
-            <span class="nav-label">Staking / Mining</span>
+            <span class="nav-label" data-i18n="nav.staking">Staking / Mining</span>
           </li>
           <li class="nav-item" data-page="wallet">
             <span class="nav-icon">👛</span>
-            <span class="nav-label">กระเป๋าเงิน</span>
+            <span class="nav-label" data-i18n="nav.wallet">กระเป๋าเงิน</span>
           </li>
           <li class="nav-item" data-page="meebot">
             <span class="nav-icon">🤖</span>
-            <span class="nav-label">MeeBot</span>
+            <span class="nav-label" data-i18n="nav.meebot">MeeBot</span>
           </li>
           <li class="nav-item" data-page="settings">
             <span class="nav-icon">⚙️</span>
-            <span class="nav-label">ตั้งค่า</span>
+            <span class="nav-label" data-i18n="nav.settings">ตั้งค่า</span>
           </li>
           <!-- Phase 2: Block Explorer -->
-          <li class="nav-item" onclick="window.open('explorer.html','_blank')" style="cursor:pointer;">
+          <li class="nav-item" onclick="window.location.href='explorer.html'" style="cursor:pointer;">
             <span class="nav-icon">🔍</span>
-            <span class="nav-label">Block Explorer <span style="font-size:10px;opacity:.5;">↗</span></span>
+            <span class="nav-label" data-i18n="nav.explorer">Block Explorer</span>
+          </li>
+          <!-- Phase 3: NFT Marketplace -->
+          <li class="nav-item" onclick="window.location.href='nft-market.html'" style="cursor:pointer;">
+            <span class="nav-icon">🎨</span>
+            <span class="nav-label" data-i18n="nav.nftMarket">NFT Market</span>
+          </li>
+          <!-- Phase 3: DAO Governance -->
+          <li class="nav-item" onclick="window.location.href='dao.html'" style="cursor:pointer;">
+            <span class="nav-icon">🏛️</span>
+            <span class="nav-label" data-i18n="nav.dao">DAO Governance</span>
+          </li>
+          <!-- Phase 4: Analytics -->
+          <li class="nav-item" onclick="window.location.href='analytics.html'" style="cursor:pointer;">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label" data-i18n="nav.analytics">Analytics</span>
           </li>
         </ul>
       </nav>
 
+      <!-- Language Switcher -->
+      <div id="lang-switcher" style="padding:8px 12px;border-top:1px solid rgba(255,255,255,.06)"></div>
       <div class="sidebar-footer">
         <div class="user-status">
           <div class="status-dot online"></div>
-          <span>เชื่อมต่อแล้ว</span>
+          <span data-i18n="wallet.connected">เชื่อมต่อแล้ว</span>
         </div>
         <div class="network-badge">
           <span class="net-dot"></span>
@@ -920,5 +946,29 @@
   <script src="src/js/app.js"></script>
   <!-- MeeBot AI Chat Widget -->
   <script src="src/js/chat-widget.js"></script>
+  <!-- i18n Multi-language -->
+  <script src="src/js/i18n.js"></script>
+  <!-- PWA Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').then(reg => {
+          console.log('[PWA] Service Worker registered:', reg.scope);
+        }).catch(err => console.warn('[PWA] SW registration failed:', err));
+      });
+    }
+    // PWA Install Prompt
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const btn = document.createElement('button');
+      btn.textContent = '📲 ติดตั้ง App';
+      btn.style.cssText = 'position:fixed;bottom:80px;right:20px;z-index:9999;background:#7C3AED;color:#fff;border:none;border-radius:20px;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(124,58,237,.4)';
+      btn.onclick = () => { deferredPrompt.prompt(); btn.remove(); };
+      document.body.appendChild(btn);
+      setTimeout(() => btn.remove(), 15000);
+    });
+  </script>
 </body>
 </html>

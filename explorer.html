@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MeeChain Block Explorer</title>
   <link rel="icon" href="src/assets/images/meechain_logo.png" type="image/png" />
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#7C3AED"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <link rel="apple-touch-icon" href="src/assets/images/meechain_logo.png"/>
   <style>
     /* ══════════════════════════════════════════════════
        MeeChain Block Explorer — Standalone Dark Theme
@@ -230,12 +234,15 @@
       <div class="logo-sub">Block Explorer</div>
     </div>
   </a>
-  <div style="display:flex;gap:12px;align-items:center;">
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+    <a class="back-btn" href="index.html" style="text-decoration:none">🏠 Dashboard</a>
+    <a class="back-btn" href="nft-market.html" style="text-decoration:none">🖼️ NFT</a>
+    <a class="back-btn" href="dao.html" style="text-decoration:none">🏛️ DAO</a>
+    <a class="back-btn" href="analytics.html" style="text-decoration:none">📊 Analytics</a>
     <div class="net-badge">
       <span class="pulse-dot" id="live-dot"></span>
       <span id="live-label">Chain ID 13390</span>
     </div>
-    <button class="back-btn" onclick="window.location='index.html'">← Dashboard</button>
   </div>
 </nav>
 
@@ -640,5 +647,16 @@ function scheduleWsReconnect() {
   }, 15000);
 })();
 </script>
+  <!-- Shared Components -->
+  <script src="src/js/chat-widget.js"></script>
+  <script src="src/js/i18n.js"></script>
+  <!-- PWA Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      });
+    }
+  </script>
 </body>
 </html>
