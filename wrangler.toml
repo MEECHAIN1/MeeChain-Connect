@@ -1,4 +1,4 @@
-name = 'meechain-rpc-proxy'
+name = 'meechain1-rpc-proxy'
 pages_build_output_dir = "deploy/public"
 compatibility_date = "2025-03-10"
 compatibility_flags = ["nodejs_compat"]
