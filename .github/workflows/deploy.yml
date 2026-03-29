@@ -1,4 +1,4 @@
-name: 🚀 Deploy MeeChain to Cloudflare Pages (meebot.io)
+name: 🚀 Deploy MeeChain to Cloudflare Pages (meechain)
 
 on:
   push:
