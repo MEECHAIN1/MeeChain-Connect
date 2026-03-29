@@ -53,7 +53,7 @@ async function loadContractAddresses() {
     if (data.contracts) {
       TOKEN_ADDRESS  = data.contracts.token   || TOKEN_ADDRESS;
       NFT_ADDRESS    = data.contracts.nft     || NFT_ADDRESS;
-      PORTAL_ADDRESS = data.contracts.portal  || PORTAL_ADDRESS;
+      PORTAL_ADDRESS = data.contracts.portal || data.contracts.staking || PORTAL_ADDRESS;
     }
   } catch (_) {}
 }
