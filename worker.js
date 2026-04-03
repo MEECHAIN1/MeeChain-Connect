@@ -160,6 +160,16 @@ function sanitizeStaticPath(pathname) {
   return pathname;
 }
 
+function shouldBypassCache(pathname) {
+  const lower = String(pathname || '').toLowerCase();
+  return (
+    lower.endsWith('.html') ||
+    lower.endsWith('.js') ||
+    lower.endsWith('.css') ||
+    lower.endsWith('.json')
+  );
+}
+
 async function proxyStatic(request, env) {
   const url = new URL(request.url);
   const pathname = sanitizeStaticPath(url.pathname);
@@ -169,13 +179,14 @@ async function proxyStatic(request, env) {
 
   const config = getConfig(env);
   const upstream = `${config.staticRepoBase}${pathname}`;
-  let response = await fetch(upstream, {
-    cf: { cacheEverything: true, cacheTtl: pathname.endsWith('.html') ? 60 : 300 },
+  const bypassCache = shouldBypassCache(pathname);
+  let response = await fetch(upstream, bypassCache ? {} : {
+    cf: { cacheEverything: true, cacheTtl: 300 },
   });
 
   if (!response.ok && !pathname.includes('.')) {
-    response = await fetch(`${config.staticRepoBase}/index.html`, {
-      cf: { cacheEverything: true, cacheTtl: 60 },
+    response = await fetch(`${config.staticRepoBase}/index.html`, bypassCache ? {} : {
+      cf: { cacheEverything: true, cacheTtl: 300 },
     });
   }
 
@@ -186,7 +197,7 @@ async function proxyStatic(request, env) {
   const headers = new Headers(response.headers);
   const contentType = mimeTypeFor(pathname) || headers.get('content-type') || 'application/octet-stream';
   headers.set('Content-Type', contentType);
-  headers.set('Cache-Control', pathname.endsWith('.html') ? 'no-cache' : 'public, max-age=300');
+  headers.set('Cache-Control', bypassCache ? 'no-cache, no-store, must-revalidate' : 'public, max-age=300');
   headers.set('Access-Control-Allow-Origin', '*');
   headers.delete('content-security-policy');
   headers.delete('x-content-type-options');
