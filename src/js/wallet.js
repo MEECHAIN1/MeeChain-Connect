@@ -9,10 +9,11 @@
  */
 
 // ── Chain & Contract Config ──────────────────────────────────────────
+const RUNTIME_RPC_URL = `${location.origin}/rpc`;
 const MEECHAIN_NETWORK = {
   chainId:        '0x344e',   // 13390 decimal
   chainName:      'MeeChain Ritual Chain',
-  rpcUrls:        ['https://rpc.meechain.live'],
+  rpcUrls:        [RUNTIME_RPC_URL],
   nativeCurrency: { name: 'MEE Token', symbol: 'MEE', decimals: 18 },
   blockExplorerUrls: ['http://explorer.meechain.run.place', 'https://app.meechain.live/explorer'],
 };
@@ -28,9 +29,9 @@ const MEE_TOKEN_ABI = [
 ];
 
 // Will be populated from /api/network or fallback
-let TOKEN_ADDRESS   = '0x5FbDB2315678afecb367f032d93F642f64180aa3';
-let NFT_ADDRESS     = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512';
-let PORTAL_ADDRESS  = '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0';
+let TOKEN_ADDRESS   = '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9';
+let NFT_ADDRESS     = '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707';
+let PORTAL_ADDRESS  = '0xa513E6E4b8f2a923D98304ec87F64353C4D5C853';
 
 // ── Wallet State ─────────────────────────────────────────────────────
 window.WalletState = {
@@ -50,10 +51,13 @@ async function loadContractAddresses() {
   try {
     const resp = await fetch('/api/network');
     const data = await resp.json();
+    if (Array.isArray(data.rpcUrls) && data.rpcUrls[0]) {
+      MEECHAIN_NETWORK.rpcUrls = data.rpcUrls;
+    }
     if (data.contracts) {
       TOKEN_ADDRESS  = data.contracts.token   || TOKEN_ADDRESS;
       NFT_ADDRESS    = data.contracts.nft     || NFT_ADDRESS;
-      PORTAL_ADDRESS = data.contracts.portal || data.contracts.staking || PORTAL_ADDRESS;
+      PORTAL_ADDRESS = data.contracts.portal  || data.contracts.staking || PORTAL_ADDRESS;
     }
   } catch (_) {}
 }
