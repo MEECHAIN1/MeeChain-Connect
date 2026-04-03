@@ -590,6 +590,39 @@ if (window.ethereum) {
   countUniqueVoters();
 })();
 </script>
+  <script src="src/js/wallet-hub.js"></script>
+  <script>
+    function hydrateWalletFromHub() {
+      const session = window.MeeWalletHub?.getSession?.();
+      walletAddress = session?.connected ? session.address : null;
+      const btn = document.getElementById('wallet-btn');
+      if (btn) {
+        btn.textContent = walletAddress
+          ? '✅ ' + walletAddress.slice(0, 6) + '...' + walletAddress.slice(-4)
+          : '👛 เชื่อมต่อ Wallet';
+        btn.classList.toggle('connected', !!walletAddress);
+      }
+      updateVotingPowerUI();
+      if (walletAddress && !jwtToken) {
+        getSIWEToken().catch(() => {});
+      }
+    }
+
+    connectWallet = async function() {
+      if (!window.MeeWalletHub) {
+        showToast('Wallet Hub ยังไม่พร้อมใช้งาน', 'error');
+        return;
+      }
+      window.MeeWalletHub.openHub({ returnTo: '/dao.html' });
+    };
+
+    window.addEventListener('meechain:wallet-changed', hydrateWalletFromHub);
+    window.addEventListener('focus', () => {
+      window.MeeWalletHub?.syncInjectedAccount?.().then(hydrateWalletFromHub);
+    });
+
+    window.MeeWalletHub?.syncInjectedAccount?.().then(hydrateWalletFromHub);
+  </script>
   <!-- Shared Components -->
   <script src="src/js/chat-widget.js"></script>
   <script src="src/js/i18n.js"></script>

@@ -506,6 +506,7 @@ const AppState = {
 };
 
 function openWalletModal() {
+  if (typeof switchPage === 'function') switchPage('wallet');
   $('#wallet-modal').classList.remove('hidden');
 }
 
@@ -1039,6 +1040,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.ChartManager) ChartManager.init();
     initCounters();
   }, 300);
+
+  const initialHash = (window.location.hash || '').replace(/^#/, '').toLowerCase();
+  if (initialHash === 'wallet' || initialHash === 'page-wallet') {
+    switchPage('wallet');
+  }
 
   // Live updates
   startLiveBlockUpdate();

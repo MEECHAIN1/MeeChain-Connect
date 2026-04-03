@@ -576,8 +576,45 @@
       <!-- Page: Wallet -->
       <section id="page-wallet" class="page-section">
         <div class="page-title-row">
-          <h2 class="page-title">👛 กระเป๋าเงิน</h2>
-          <button class="btn btn-primary" id="add-wallet-btn">+ เพิ่มกระเป๋าเงิน</button>
+          <h2 class="page-title">👛 Wallet Hub</h2>
+          <button class="btn btn-primary" id="add-wallet-btn">เชื่อมต่อหรือจัดการ Wallet</button>
+        </div>
+
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+            <h3>ศูนย์จัดการ Wallet</h3>
+            <span id="wallet-hub-status" class="net-chip">ยังไม่ได้เชื่อมต่อ</span>
+          </div>
+          <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:start;">
+            <div>
+              <p id="wallet-hub-detail" style="color:#94A3B8;line-height:1.7;margin-bottom:14px;">
+                เชื่อมต่อ MetaMask, รับและส่ง MEE, คัดลอกที่อยู่, เปิด Explorer และกลับไปหน้าที่เรียก wallet ได้จากจุดเดียว
+              </p>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="btn btn-primary" id="wallet-connect-metamask">เชื่อมต่อ MetaMask</button>
+                <button class="btn btn-outline" id="wallet-connect-demo">MeeBot Demo</button>
+                <button class="btn btn-outline" id="wallet-disconnect-btn">ตัดการเชื่อมต่อ</button>
+                <button class="btn btn-outline" id="wallet-return-btn" style="display:none;">กลับหน้าก่อนหน้า</button>
+              </div>
+            </div>
+            <div style="background:rgba(15,23,42,.7);border:1px solid rgba(148,163,184,.14);border-radius:14px;padding:14px;">
+              <div style="font-size:12px;color:#94A3B8;margin-bottom:10px;">สถานะ Wallet Hub</div>
+              <div style="display:grid;gap:10px;">
+                <div style="display:flex;justify-content:space-between;gap:12px;">
+                  <span style="color:#94A3B8;">Network</span>
+                  <strong id="wallet-hub-network">MeeChain Mainnet</strong>
+                </div>
+                <div style="display:flex;justify-content:space-between;gap:12px;">
+                  <span style="color:#94A3B8;">Address</span>
+                  <strong id="wallet-hub-address">-</strong>
+                </div>
+                <div style="display:flex;justify-content:space-between;gap:12px;">
+                  <span style="color:#94A3B8;">MEE Balance</span>
+                  <strong id="wallet-hub-balance">0.00 MEE</strong>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Wallet Card -->
@@ -944,6 +981,7 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <script src="src/js/data.js"></script>
   <script src="src/js/chart.js"></script>
+  <script src="src/js/wallet-hub.js"></script>
   <script src="src/js/wallet.js"></script>
   <script src="src/js/staking.js"></script>
   <script src="src/js/websocket.js"></script>

@@ -46,6 +46,70 @@ window.WalletState = {
   demoBalance: 50000,
 };
 
+const walletToast = (message, type = 'info') => {
+  if (typeof window.showToast === 'function') return window.showToast(message, type);
+  if (typeof window.toast === 'function') return window.toast(message, type);
+  console[type === 'error' ? 'error' : 'log'](`[Wallet] ${message}`);
+};
+
+const walletShortHash = (hash, start = 6, end = 4) => {
+  if (typeof window.truncateHash === 'function') return window.truncateHash(hash, start, end);
+  if (!hash) return '';
+  return `${hash.slice(0, start)}...${hash.slice(-end)}`;
+};
+
+function syncWalletSession() {
+  window.MeeWalletHub?.setSession({
+    connected: window.WalletState.connected,
+    address: window.WalletState.address || '',
+    balance: window.WalletState.balance || '0',
+    balanceMEE: window.WalletState.balanceMEE || '0',
+    isDemo: Boolean(window.WalletState.isDemo),
+  });
+}
+
+function clearWalletPageUI() {
+  const addrEl = document.getElementById('wallet-address-display');
+  const cardBalEl = document.querySelector('.wcard-balance-value');
+  const cardUsdEl = document.querySelector('.wcard-balance-usd');
+  const hubAddress = document.getElementById('wallet-hub-address');
+  const hubBalance = document.getElementById('wallet-hub-balance');
+
+  if (addrEl) addrEl.textContent = 'ยังไม่ได้เชื่อมต่อ';
+  if (cardBalEl) cardBalEl.textContent = '0.00 MEE';
+  if (cardUsdEl) cardUsdEl.textContent = '≈ $0.00 USD';
+  if (hubAddress) hubAddress.textContent = '-';
+  if (hubBalance) hubBalance.textContent = '0.00 MEE';
+}
+
+function updateWalletHubPanel() {
+  const { connected, address, balanceMEE, isDemo } = window.WalletState;
+  const statusEl = document.getElementById('wallet-hub-status');
+  const detailEl = document.getElementById('wallet-hub-detail');
+  const addressEl = document.getElementById('wallet-hub-address');
+  const balanceEl = document.getElementById('wallet-hub-balance');
+  const returnBtn = document.getElementById('wallet-return-btn');
+  const returnPath = window.MeeWalletHub?.getReturnPath?.();
+
+  if (statusEl) statusEl.textContent = connected ? (isDemo ? 'Demo Wallet' : 'MetaMask Connected') : 'ยังไม่ได้เชื่อมต่อ';
+  if (detailEl) {
+    detailEl.textContent = connected
+      ? (isDemo ? 'กำลังใช้งาน Demo Wallet จากจุดจัดการกลาง' : 'พร้อมใช้งานสำหรับรับ ส่ง stake และทำธุรกรรม on-chain จาก Wallet Hub')
+      : 'เชื่อมต่อ MetaMask, รับและส่ง MEE, คัดลอกที่อยู่, เปิด Explorer และกลับไปหน้าที่เรียก wallet ได้จากจุดเดียว';
+  }
+  if (addressEl) addressEl.textContent = connected && address ? walletShortHash(address, 8, 6) : '-';
+  if (balanceEl) {
+    const mee = Number.parseFloat(balanceMEE || '0');
+    balanceEl.textContent = `${Number.isFinite(mee) ? mee.toLocaleString('th-TH', { maximumFractionDigits: 4 }) : '0.00'} MEE`;
+  }
+  if (returnBtn) returnBtn.style.display = returnPath ? 'inline-flex' : 'none';
+}
+
+function navigateBackFromWalletHub() {
+  const returnPath = window.MeeWalletHub?.consumeReturnPath?.();
+  if (returnPath) location.href = returnPath;
+}
+
 // ── Load contract addresses from server ──────────────────────────────
 async function loadContractAddresses() {
   try {
@@ -424,4 +488,280 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Listen for send/receive button events from app.js wallet page
   window.addEventListener('walletActionSend', openSendModal);
   window.addEventListener('walletActionReceive', openReceiveModal);
+});
+
+// Shared wallet hub override layer
+async function connectMetaMask(options = {}) {
+  const silent = Boolean(options.silent);
+  if (typeof window.ethereum === 'undefined') {
+    if (!silent) {
+      walletToast('ไม่พบ MetaMask กรุณาติดตั้งก่อนใช้งาน', 'error');
+      window.open('https://metamask.io/download/', '_blank');
+    }
+    return false;
+  }
+
+  try {
+    if (!silent) walletToast('กำลังเชื่อมต่อ MetaMask...', 'info');
+    const accounts = await window.ethereum.request({
+      method: silent ? 'eth_accounts' : 'eth_requestAccounts',
+    });
+    if (!accounts?.[0]) {
+      if (silent) return false;
+      throw new Error('No accounts returned');
+    }
+
+    await ensureMeeChainNetwork();
+
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    const address = await signer.getAddress();
+    const rawBalance = await provider.getBalance(address);
+    const tokenContract = new ethers.Contract(TOKEN_ADDRESS, MEE_TOKEN_ABI, signer);
+    let balanceMEE = '0';
+
+    try {
+      const tokenBal = await tokenContract.balanceOf(address);
+      balanceMEE = ethers.formatUnits(tokenBal, 18);
+    } catch {}
+
+    Object.assign(window.WalletState, {
+      connected: true,
+      address,
+      balance: ethers.formatEther(rawBalance),
+      balanceMEE,
+      provider,
+      signer,
+      tokenContract,
+      isDemo: false,
+    });
+
+    syncWalletSession();
+    updateWalletUI();
+    if (!silent) walletToast(`เชื่อมต่อสำเร็จ: ${walletShortHash(address)}`, 'success');
+
+    window.ethereum.on('accountsChanged', handleAccountsChanged);
+    window.ethereum.on('chainChanged', () => window.location.reload());
+    return true;
+  } catch (err) {
+    console.error('[Wallet] MetaMask error:', err);
+    if (!silent) walletToast(`เชื่อมต่อ MetaMask ล้มเหลว: ${err.message}`, 'error');
+    return false;
+  }
+}
+
+async function handleAccountsChanged(accounts) {
+  if (!accounts.length) {
+    disconnectWallet();
+    return;
+  }
+  window.WalletState.connected = true;
+  window.WalletState.address = accounts[0];
+  window.WalletState.isDemo = false;
+  await refreshBalance();
+  syncWalletSession();
+  updateWalletUI();
+}
+
+async function refreshBalance() {
+  const { address, provider, tokenContract, isDemo, demoBalance } = window.WalletState;
+  if (!address) return;
+  if (isDemo) {
+    window.WalletState.balanceMEE = Number.parseFloat(demoBalance || 0).toFixed(2);
+    syncWalletSession();
+    return;
+  }
+
+  try {
+    if (provider) {
+      const raw = await provider.getBalance(address);
+      window.WalletState.balance = ethers.formatEther(raw);
+    }
+    if (tokenContract) {
+      const tok = await tokenContract.balanceOf(address);
+      window.WalletState.balanceMEE = ethers.formatUnits(tok, 18);
+    }
+  } catch {}
+
+  syncWalletSession();
+}
+
+function updateWalletPageUI() {
+  const { address, balanceMEE, balance } = window.WalletState;
+  const addrEl = document.getElementById('wallet-address-display');
+  const balEl = document.getElementById('wallet-mee-balance');
+  const nativeEl = document.getElementById('wallet-native-balance');
+  const cardBalEl = document.querySelector('.wcard-balance-value');
+  const cardUsdEl = document.querySelector('.wcard-balance-usd');
+
+  if (!address) {
+    clearWalletPageUI();
+    updateWalletHubPanel();
+    return;
+  }
+
+  if (addrEl) addrEl.textContent = address;
+  if (balEl) balEl.textContent = `${parseFloat(balanceMEE).toLocaleString('th-TH', { maximumFractionDigits: 4 })} MEE`;
+  if (nativeEl) nativeEl.textContent = `${parseFloat(balance).toLocaleString('th-TH', { maximumFractionDigits: 6 })} MEE (native)`;
+  if (cardBalEl) cardBalEl.textContent = `${parseFloat(balanceMEE).toLocaleString('th-TH', { maximumFractionDigits: 4 })} MEE`;
+  if (cardUsdEl) cardUsdEl.textContent = `≈ $${(parseFloat(balanceMEE || '0') * 0.0842).toFixed(2)} USD`;
+
+  document.querySelectorAll('.copy-address-btn').forEach((el) => {
+    el.onclick = () => {
+      navigator.clipboard.writeText(address).then(() => walletToast('คัดลอกที่อยู่แล้ว', 'success'));
+    };
+  });
+
+  updateWalletHubPanel();
+}
+
+function updateWalletUI() {
+  const btn = document.getElementById('connect-wallet-btn');
+  const text = document.getElementById('wallet-btn-text');
+  const { connected, address, balanceMEE, isDemo } = window.WalletState;
+
+  if (connected && address) {
+    const shortAddr = walletShortHash(address, 6, 4);
+    const bal = parseFloat(balanceMEE).toLocaleString('th-TH', { maximumFractionDigits: 2 });
+    if (text) text.textContent = `${isDemo ? '🤖' : '🦊'} ${shortAddr} (${bal} MEE)`;
+    if (btn) btn.style.cssText = 'background:linear-gradient(135deg,#10B981,#059669);color:#fff;';
+    updateWalletPageUI();
+    window.dispatchEvent(new CustomEvent('walletConnected', { detail: window.WalletState }));
+  } else {
+    if (text) text.textContent = 'เชื่อมต่อกระเป๋า';
+    if (btn) btn.style.cssText = '';
+    clearWalletPageUI();
+    updateWalletHubPanel();
+  }
+}
+
+function disconnectWallet() {
+  Object.assign(window.WalletState, {
+    connected: false,
+    address: null,
+    balance: '0',
+    balanceMEE: '0',
+    provider: null,
+    signer: null,
+    tokenContract: null,
+    isDemo: false,
+  });
+  window.MeeWalletHub?.clearSession?.();
+  updateWalletUI();
+  window.dispatchEvent(new CustomEvent('walletDisconnected'));
+  walletToast('ตัดการเชื่อมต่อกระเป๋าแล้ว', 'info');
+}
+
+function openSendModal() {
+  if (!window.WalletState.connected) {
+    walletToast('กรุณาเชื่อมต่อ Wallet ก่อน', 'warning');
+    document.getElementById('wallet-modal')?.classList.remove('hidden');
+    return;
+  }
+  const { address, balanceMEE } = window.WalletState;
+  const el = document.getElementById('send-from-addr');
+  const blEl = document.getElementById('send-from-bal');
+  if (el) el.textContent = walletShortHash(address, 8, 6);
+  if (blEl) blEl.textContent = `${parseFloat(balanceMEE).toLocaleString('th-TH', { maximumFractionDigits: 4 })} MEE`;
+
+  const toEl = document.getElementById('send-to-address');
+  const amEl = document.getElementById('send-amount');
+  const stEl = document.getElementById('send-tx-status');
+  if (toEl) toEl.value = '';
+  if (amEl) amEl.value = '';
+  if (stEl) {
+    stEl.style.display = 'none';
+    stEl.textContent = '';
+  }
+
+  document.getElementById('send-modal')?.classList.remove('hidden');
+}
+
+function openReceiveModal() {
+  if (!window.WalletState.connected) {
+    walletToast('กรุณาเชื่อมต่อ Wallet ก่อน', 'warning');
+    document.getElementById('wallet-modal')?.classList.remove('hidden');
+    return;
+  }
+  const { address } = window.WalletState;
+  const addrBox = document.getElementById('receive-address-box');
+  if (addrBox) addrBox.textContent = address;
+
+  document.getElementById('receive-modal')?.classList.remove('hidden');
+  const canvas = document.getElementById('receive-qr-canvas');
+  if (canvas && typeof QRCode !== 'undefined') {
+    QRCode.toCanvas(canvas, `ethereum:${address}@13390`, {
+      width: 200,
+      color: { dark: '#A78BFA', light: '#0A0E1A' },
+    }, (err) => { if (err) console.warn('[QR]', err); });
+  }
+}
+
+function copyReceiveAddress() {
+  const addr = window.WalletState.address;
+  if (!addr) return;
+  navigator.clipboard.writeText(addr).then(() => walletToast('คัดลอกที่อยู่แล้ว', 'success'));
+}
+
+function bindWalletCommandCenter() {
+  document.getElementById('wallet-connect-metamask')?.addEventListener('click', () => connectMetaMask());
+  document.getElementById('wallet-connect-demo')?.addEventListener('click', connectDemoWallet);
+  document.getElementById('wallet-disconnect-btn')?.addEventListener('click', disconnectWallet);
+  document.getElementById('wallet-return-btn')?.addEventListener('click', navigateBackFromWalletHub);
+  document.getElementById('add-wallet-btn')?.addEventListener('click', () => {
+    document.getElementById('wallet-modal')?.classList.remove('hidden');
+  });
+}
+
+function connectDemoWallet() {
+  const demoAddr = '0x' + Array.from({ length: 40 }, () =>
+    '0123456789abcdef'[Math.floor(Math.random() * 16)]).join('');
+  const demoBal = (Math.random() * 50000 + 1000).toFixed(2);
+
+  Object.assign(window.WalletState, {
+    connected: true,
+    address: demoAddr,
+    balance: '0',
+    balanceMEE: demoBal,
+    provider: null,
+    signer: null,
+    tokenContract: null,
+    isDemo: true,
+    demoBalance: parseFloat(demoBal),
+  });
+
+  syncWalletSession();
+  updateWalletUI();
+  walletToast(`Demo Wallet เชื่อมต่อแล้ว — ${demoBal} MEE`, 'success');
+  document.getElementById('wallet-modal')?.classList.add('hidden');
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  bindWalletCommandCenter();
+  window.addEventListener('meechain:open-wallet-hub', () => {
+    document.getElementById('wallet-modal')?.classList.remove('hidden');
+  });
+
+  await window.MeeWalletHub?.syncInjectedAccount?.();
+  const session = window.MeeWalletHub?.getSession?.();
+  if (session?.connected) {
+    if (session.isDemo) {
+      Object.assign(window.WalletState, {
+        connected: true,
+        address: session.address,
+        balance: session.balance || '0',
+        balanceMEE: session.balanceMEE || '0',
+        provider: null,
+        signer: null,
+        tokenContract: null,
+        isDemo: true,
+        demoBalance: Number.parseFloat(session.balanceMEE || '0') || 50000,
+      });
+      updateWalletUI();
+    } else {
+      await connectMetaMask({ silent: true });
+    }
+  } else {
+    updateWalletUI();
+  }
 });
