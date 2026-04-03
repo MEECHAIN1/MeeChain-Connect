@@ -159,6 +159,15 @@ function connectDemoWallet() {
   document.getElementById('wallet-modal')?.classList.add('hidden');
 }
 
+function handleUnavailableWallet(type) {
+  const labels = {
+    walletconnect: 'WalletConnect',
+    coinbase: 'Coinbase Wallet',
+  };
+  const label = labels[type] || 'Wallet';
+  showToast(`${label} ยังไม่เปิดใช้งานบนหน้าเว็บตอนนี้ กรุณาใช้ MetaMask หรือ MeeBot Demo Wallet`, 'warning');
+}
+
 // ── Handle account change ────────────────────────────────────────────
 async function handleAccountsChanged(accounts) {
   if (accounts.length === 0) {
@@ -384,8 +393,10 @@ window.connectWallet = async function(type) {
 
   if (type === 'metamask') {
     await connectMetaMask();
-  } else if (type === 'demo' || type === 'walletconnect' || type === 'coinbase') {
+  } else if (type === 'demo') {
     connectDemoWallet();
+  } else if (type === 'walletconnect' || type === 'coinbase') {
+    handleUnavailableWallet(type);
   }
 };
 

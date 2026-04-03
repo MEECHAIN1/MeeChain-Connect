@@ -515,10 +515,14 @@ function connectWallet(type) {
   // This fallback is only used if wallet.js fails to load
   const loadingMsg = {
     metamask: 'กำลังเชื่อมต่อ MetaMask...',
-    walletconnect: 'กำลังสร้าง QR Code...',
-    coinbase: 'กำลังเปิด Coinbase Wallet...',
+    walletconnect: 'WalletConnect ยังไม่เปิดใช้งานบนหน้าเว็บตอนนี้',
+    coinbase: 'Coinbase Wallet ยังไม่เปิดใช้งานบนหน้าเว็บตอนนี้',
     demo: 'กำลังสร้าง Demo Wallet...',
   };
+  if (type === 'walletconnect' || type === 'coinbase') {
+    showToast(loadingMsg[type], 'warning');
+    return;
+  }
   showToast(loadingMsg[type] || 'กำลังเชื่อมต่อ...', 'info');
 
   setTimeout(() => {
