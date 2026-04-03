@@ -206,6 +206,7 @@ function disconnectWallet() {
     provider: null, signer: null, tokenContract: null, isDemo: false,
   });
   updateWalletUI();
+  window.dispatchEvent(new CustomEvent('walletDisconnected'));
   showToast('ตัดการเชื่อมต่อกระเป๋าแล้ว', 'info');
 }
 

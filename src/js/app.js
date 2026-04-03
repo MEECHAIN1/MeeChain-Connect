@@ -509,10 +509,8 @@ function openWalletModal() {
   $('#wallet-modal').classList.remove('hidden');
 }
 
-// connectWallet is overridden by wallet.js — this is a safe fallback
-function connectWallet(type) {
-  // If wallet.js is loaded, it overrides window.connectWallet
-  // This fallback is only used if wallet.js fails to load
+// Fallback only — the real handler should come from wallet.js via window.connectWallet
+function fallbackConnectWallet(type) {
   const loadingMsg = {
     metamask: 'กำลังเชื่อมต่อ MetaMask...',
     walletconnect: 'WalletConnect ยังไม่เปิดใช้งานบนหน้าเว็บตอนนี้',
@@ -550,6 +548,10 @@ function connectWallet(type) {
     $('#wallet-modal').classList.add('hidden');
     showToast(`เชื่อมต่อกระเป๋าเงินสำเร็จ! 🎉`, 'success');
   }, 1500);
+}
+
+if (typeof window.connectWallet !== 'function') {
+  window.connectWallet = fallbackConnectWallet;
 }
 
 // ============================================================
@@ -777,10 +779,9 @@ function initWalletActions() {
     AppState.walletAddress   = address;
     AppState.walletBalance   = parseFloat(balanceMEE).toFixed(2);
 
-    const walletBtnText = $('#wallet-btn-text');
-    const walletDisplay = $('#wallet-address');
-    const balanceEl     = $('#mee-balance');
-    const usdEl         = $('#mee-usd');
+    const walletDisplay = $('#wallet-address-display');
+    const balanceEl     = $('.wcard-balance-value');
+    const usdEl         = $('.wcard-balance-usd');
 
     if (walletDisplay) walletDisplay.textContent = address;
     if (balanceEl)     balanceEl.textContent = `${AppState.walletBalance} MEE`;
@@ -789,6 +790,20 @@ function initWalletActions() {
     MEECHAIN_DATA.tokens[0].amount = AppState.walletBalance;
     MEECHAIN_DATA.tokens[0].usd = `$${(AppState.walletBalance * 0.0842).toFixed(2)}`;
     renderTokenList();
+  });
+
+  window.addEventListener('walletDisconnected', () => {
+    AppState.walletConnected = false;
+    AppState.walletAddress = '';
+    AppState.walletBalance = 0;
+
+    const walletDisplay = $('#wallet-address-display');
+    const balanceEl     = $('.wcard-balance-value');
+    const usdEl         = $('.wcard-balance-usd');
+
+    if (walletDisplay) walletDisplay.textContent = 'ยังไม่ได้เชื่อมต่อ';
+    if (balanceEl)     balanceEl.textContent = '0.00 MEE';
+    if (usdEl)         usdEl.textContent = '≈ $0.00 USD';
   });
 }
 
@@ -803,7 +818,12 @@ function initModals() {
   if (walletModalClose) walletModalClose.addEventListener('click', () => $('#wallet-modal').classList.add('hidden'));
 
   $$('.wallet-option').forEach(opt => {
-    opt.addEventListener('click', () => connectWallet(opt.dataset.wallet));
+    opt.addEventListener('click', () => {
+      const handler = typeof window.connectWallet === 'function'
+        ? window.connectWallet
+        : fallbackConnectWallet;
+      handler(opt.dataset.wallet);
+    });
   });
 
   // NFT modal close
