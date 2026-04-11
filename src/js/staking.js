@@ -319,6 +319,11 @@ async function executeStake() {
     const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
     const address  = accounts[0];
 
+    // Ensure user is on MeeChain Ritual Chain before transacting
+    if (typeof window.ensureMeeChainNetwork === 'function') {
+      await window.ensureMeeChainNetwork();
+    }
+
     // Portal fee = 0.001 MEE = 1e15 wei (fetched from contract or hardcoded)
     const PORTAL_FEE_WEI = BigInt('1000000000000000');   // 0.001 MEE
     const stakeWei       = BigInt(meeToWei(amount));
