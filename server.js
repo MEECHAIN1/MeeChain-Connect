@@ -259,7 +259,9 @@ function _handleMockRpc(body) {
     case 'eth_getBlockByHash':   return ok(null);
     case 'eth_getTransactionByHash': return ok(null);
     case 'eth_getTransactionReceipt': return ok(null);
-    case 'eth_sendRawTransaction': return ok('0x' + Array.from({length:64},()=>'0123456789abcdef'[Math.floor(Math.random()*16)]).join(''));
+    case 'eth_sendRawTransaction': return err(-32000, 'Upstream unavailable: cannot perform mutating RPC in offline mode');
+    case 'eth_sendTransaction':    return err(-32000, 'Upstream unavailable: cannot perform mutating RPC in offline mode');
+    case 'personal_sendTransaction': return err(-32000, 'Upstream unavailable: cannot perform mutating RPC in offline mode');
     case 'eth_newFilter':        return ok('0x1');
     case 'eth_newBlockFilter':   return ok('0x1');
     case 'eth_getFilterChanges': return ok([]);
@@ -323,7 +325,82 @@ async function handleRpcProxy(req, res) {
 
   // Handle batch requests (array of JSON-RPC calls)
   if (Array.isArray(body)) {
-    const results = body.map(b => _handleMockRpc(b));
+    // Deduplicate targets, skip known-dead endpoints
+    const seen = new Set();
+    const targets = [RPC_CONFIG.drpcUrl, RPC_CONFIG.fallbackUrl]
+      .filter(t => t && !seen.has(t) && seen.add(t))
+      .filter(t => !_isRpcDead(t));
+
+    // Try upstream first
+    let lastError = null;
+    for (const target of targets) {
+      try {
+        const url = new URL(target);
+        const isHttps = url.protocol === 'https:';
+        const reqLib  = isHttps ? https : http;
+        const postData = JSON.stringify(body);
+
+        const result = await new Promise((resolve, reject) => {
+          const options = {
+            hostname: url.hostname,
+            port:     url.port || (isHttps ? 443 : 80),
+            path:     url.pathname || '/',
+            method:   'POST',
+            headers:  {
+              'Content-Type':   'application/json',
+              'Content-Length': Buffer.byteLength(postData),
+            },
+            timeout: 3000,
+          };
+          if (RPC_CONFIG.drpcAccessKey && target === RPC_CONFIG.drpcUrl) {
+            options.headers['Authorization'] = `Bearer ${RPC_CONFIG.drpcAccessKey}`;
+          }
+          const r = reqLib.request(options, (resp) => {
+            let data = '';
+            resp.on('data', d => data += d);
+            resp.on('end', () => {
+              try {
+                const parsed = JSON.parse(data);
+                if (!Array.isArray(parsed)) {
+                  reject(new Error('Non-array response for batch request'));
+                } else {
+                  resolve(parsed);
+                }
+              } catch { reject(new Error('Invalid JSON from RPC node')); }
+            });
+          });
+          r.on('error', reject);
+          r.on('timeout', () => { r.destroy(); reject(new Error('RPC timeout')); });
+          r.write(postData);
+          r.end();
+        });
+
+        _markRpcAlive(target);
+        return res.json(result);
+      } catch (err) {
+        lastError = err;
+        _markRpcDead(target);
+        console.warn(`[RPC] Batch upstream ${target} failed: ${err.message} — marked dead 60s`);
+      }
+    }
+
+    // All upstream failed → use mock RPC for each item (read-only methods only)
+    const readOnlyMethods = new Set([
+      'eth_chainId', 'net_version', 'net_listening', 'eth_blockNumber', 'eth_getBalance',
+      'eth_getTransactionCount', 'eth_gasPrice', 'eth_estimateGas', 'eth_maxPriorityFeePerGas',
+      'eth_syncing', 'eth_getCode', 'eth_getStorageAt', 'eth_getLogs', 'eth_call',
+      'eth_getBlockByNumber', 'eth_getBlockByHash', 'eth_getTransactionByHash',
+      'eth_getTransactionReceipt', 'eth_newFilter', 'eth_newBlockFilter', 'eth_getFilterChanges',
+      'eth_uninstallFilter', 'eth_protocolVersion', 'eth_feeHistory', 'web3_clientVersion', 'net_peerCount'
+    ]);
+    const results = body.map(b => {
+      if (readOnlyMethods.has(b.method)) {
+        return _handleMockRpc(b);
+      } else {
+        return { jsonrpc: '2.0', id: b.id ?? null, error: { code: -32000, message: 'Upstream unavailable: cannot perform mutating RPC in offline mode' } };
+      }
+    });
+    console.log(`[RPC] All batch upstream failed (${lastError?.message}) — serving mock response`);
     return res.json(results);
   }
 
@@ -427,7 +504,6 @@ app.get('/api/network', (req, res) => {
     chainName:        'MeeChain Ritual Chain',
     rpcUrls:          [
       `https://${rpcDomain}`,           // primary: rpc.meechain.live
-      'https://rpc.meechain.run.place', // fallback
     ],
     nativeCurrency:   { name: 'MEE Token', symbol: 'MEE', decimals: 18 },
     blockExplorerUrls: [

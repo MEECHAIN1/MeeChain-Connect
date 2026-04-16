@@ -333,6 +333,12 @@ async function executeStake() {
       await window.ensureMeeChainNetwork();
     }
 
+    // Verify chain ID after network switch
+    const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
+    if (currentChainId !== '0x344e') {
+      throw new Error('Failed to switch to MeeChain Ritual Chain (Chain ID: 13390). Please switch manually.');
+    }
+
     // Portal fee = 0.001 MEE = 1e15 wei (fetched from contract or hardcoded)
     const PORTAL_FEE_WEI = BigInt('1000000000000000');   // 0.001 MEE
     const stakeWei       = BigInt(meeToWei(amount));
