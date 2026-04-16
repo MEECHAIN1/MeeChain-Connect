@@ -221,6 +221,12 @@ app.get('/health', (req, res) => {
 
 // ── Mock RPC handler (when upstream chain is not reachable) ──────
 let _mockBlockNum = 1248753 + Math.floor(Date.now() / 12000);
+/**
+ * สร้างคำตอบ JSON-RPC จำลองสำหรับคำขอ RPC ที่ระบุ โดยจะให้ผลตอบสนองเหมาะสมสำหรับชุดคำสั่ง Ethereum-style ที่รองรับและส่งกลับข้อผิดพลาดสำหรับคำสั่งที่ไม่รู้จัก
+ *
+ * @param {object} body - วัตถุคำขอ JSON-RPC (ต้องมีฟิลด์ `method` และอาจมี `id`) ที่จะถูกจำลองการตอบกลับ
+ * @returns {object} วัตถุ JSON-RPC ตอบกลับที่มี `jsonrpc: '2.0'` และ `id` เดียวกับคำขอ พร้อม `result` สำหรับการตอบสำเร็จ หรือ `error` ในรูป `{ code, message }` เมื่อเมธอดไม่รองรับ
+ */
 function _handleMockRpc(body) {
   _mockBlockNum += Math.floor(Math.random() * 2) + 1;
   const ok  = (result) => ({ jsonrpc: '2.0', id: body.id ?? null, result });
@@ -268,23 +274,47 @@ function _handleMockRpc(body) {
 
 // ── RPC upstream health tracker (circuit breaker) ────────────────
 // If an upstream fails, mark it as dead for 60 s before retrying
-const _rpcHealth = {};  // { url: { dead: bool, until: timestamp } }
+const _rpcHealth = {};  /**
+ * ตรวจสอบว่า endpoint RPC ที่ระบุถูกทำเครื่องหมายว่า "dead" และยังอยู่ในช่วงเวลาที่ถูกบล็อกหรือไม่
+ *
+ * ตรวจสอบสถานะใน `_rpcHealth` สำหรับ `url` ที่กำหนด ถ้าพบและสถานะยังไม่หมดเวลา จะคืนค่า `true` มิฉะนั้นจะรีเซ็ตสถานะเมื่อหมดเวลาและคืนค่า `false`
+ * @param {string} url - URL ของ RPC endpoint ที่จะตรวจสอบ
+ * @returns {boolean} `true` หาก endpoint ถูกทำเครื่องหมายว่า dead และเวลาบล็อกยังไม่หมด, `false` ในกรณีอื่น
+ */
 function _isRpcDead(url) {
   const h = _rpcHealth[url];
   if (!h || !h.dead) return false;
   if (Date.now() > h.until) { h.dead = false; return false; }
   return true;
 }
+/**
+ * ทำเครื่องหมาย endpoint RPC ว่าไม่พร้อมใช้งานชั่วคราว
+ * @param {string} url - URL ของ upstream RPC ที่จะถูกทำเครื่องหมายว่าไม่พร้อมใช้งานเป็นเวลา 60,000 มิลลิวินาที
+ */
 function _markRpcDead(url) {
   _rpcHealth[url] = { dead: true, until: Date.now() + 60_000 };
 }
+/**
+ * ทำเครื่องหมายว่า RPC endpoint ที่ระบุว่าใช้งานได้และรีเซ็ตสถานะหมดเวลา
+ * @param {string} url - URL ของ RPC endpoint ที่ต้องการตั้งสถานะเป็นใช้งานได้
+ */
 function _markRpcAlive(url) {
   _rpcHealth[url] = { dead: false, until: 0 };
 }
 
 // ── RPC Proxy (JSON-RPC forward) ─────────────────────────────────
 // Handles: POST / and POST /rpc
-// Tries upstream RPC; falls back to mock when chain not reachable
+/**
+ * พร็อกซีคำขอ JSON-RPC ไปยัง upstream RPC และตกกลับไปให้การตอบแบบจำลองเมื่อไม่สามารถติดต่อเครือข่ายได้
+ *
+ * ตรวจสอบความถูกต้องของ payload และ:
+ * - ถ้าเป็น batch (อาร์เรย์) จะส่งกลับผลลัพธ์จำลองสำหรับแต่ละรายการทันที
+ * - ดึงรายการเป้าหมายจากการตั้งค่า RPC โดยตัดซ้ำและข้ามโฮสต์ที่ถูกทำเครื่องหมายว่า "ตาย"
+ * - พยายามส่งคำขอไปยังแต่ละ upstream ตามลำดับ หาก upstream ตอบไม่ถูกต้องหรือไม่ตอบจะถูกทำเครื่องหมายว่า "ตาย" ชั่วคราว และพยายามกับเป้าหมายถัดไป
+ * - หากไม่สามารถรับผลจาก upstream ใดๆ ได้ จะส่งผลลัพธ์จาก mock JSON-RPC (chain simulation)
+ *
+ * พฤติกรรมการตรวจสอบข้อผิดพลาด: ส่ง HTTP 400 เมื่อ payload ไม่ใช่คำขอ JSON-RPC ที่ถูกต้อง
+ */
 async function handleRpcProxy(req, res) {
   const body = req.body;
   if (!body) {

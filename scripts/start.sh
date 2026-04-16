@@ -21,11 +21,14 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
 # ── Colors ──────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
+# log พิมพ์ข้อความสถานะนำหน้าด้วย "[start]" เป็นสีเขียวไปยัง stdout.
 log()  { echo -e "${GREEN}[start]${NC} $*"; }
+# warn พิมพ์ข้อความเตือนที่ขึ้นต้นด้วย `[warn]` เป็นสีเหลืองไปยัง stdout.
 warn() { echo -e "${YELLOW}[warn]${NC}  $*"; }
+# err แสดงข้อความข้อผิดพลาดที่มีคำนำหน้า [error] เป็นสีแดงไปยัง stderr.
 err()  { echo -e "${RED}[error]${NC} $*" >&2; }
 
-# ── Helper: detect available runtime ───────────────────────
+# detect_runtime ตรวจสอบ runtime ที่ติดตั้งบนระบบ และพิมพ์ค่าเดียวจากชุด {podman, docker, pm2, node, none} เพื่อระบุสิ่งที่ใช้ได้.
 detect_runtime() {
   if   command -v podman       &>/dev/null; then echo "podman"
   elif command -v docker       &>/dev/null; then echo "docker"
@@ -35,7 +38,7 @@ detect_runtime() {
   fi
 }
 
-# ── Helper: detect compose command ─────────────────────────
+# detect_compose ตรวจสอบว่า `podman-compose`, `docker compose` หรือ `docker-compose` ใดใช้งานได้แล้วพิมพ์ชื่อคำสั่งที่พบ หรือพิมพ์ `none` หากไม่มีคำสั่งที่รองรับอยู่ในระบบ
 detect_compose() {
   if   command -v podman-compose &>/dev/null; then echo "podman-compose"
   elif docker compose version    &>/dev/null 2>&1; then echo "docker compose"
@@ -44,7 +47,7 @@ detect_compose() {
   fi
 }
 
-# ── Start via PM2 ───────────────────────────────────────────
+# start_pm2 เริ่มแอป MeeChain Dashboard ด้วย PM2 และบันทึกพร้อมแสดงสถานะ PM2.
 start_pm2() {
   log "Starting with PM2..."
   cd "$ROOT_DIR"
@@ -58,7 +61,7 @@ start_pm2() {
   pm2 status
 }
 
-# ── Start via Podman (rootless) ──────────────────────────────
+# start_podman เริ่มคอนเทนเนอร์ด้วย Podman (rootless): สร้าง image หากไม่พบ, ลบคอนเทนเนอร์เดิม, โหลดตัวแปรจาก .env ถ้ามี, และรันคอนเทนเนอร์พร้อมพอร์ต, volume, นโยบาย restart และการตรวจสอบสุขภาพ (healthcheck).
 start_podman() {
   log "Starting with Podman (rootless)..."
   cd "$ROOT_DIR"
@@ -98,7 +101,7 @@ start_podman() {
   podman ps --filter "name=$APP_NAME"
 }
 
-# ── Start via Docker ─────────────────────────────────────────
+# start_docker เริ่ม MeeChain Dashboard ด้วย Docker โดยจะสร้าง image หากขาด ลบคอนเทนเนอร์เดิม แล้วรันคอนเทนเนอร์แบบ detached พร้อมผูกพอร์ต ตั้งตัวแปรสภาพแวดล้อมจาก .env (ถ้ามี) มอนต์โวลุ่ม meechain_logs และตั้งนโยบายรีสตาร์ท unless-stopped.
 start_docker() {
   log "Starting with Docker..."
   cd "$ROOT_DIR"
@@ -129,7 +132,7 @@ start_docker() {
   docker ps --filter "name=$APP_NAME"
 }
 
-# ── Start via Compose ────────────────────────────────────────
+# start_compose เริ่มบริการโดยใช้เครื่องมือ compose ที่ตรวจพบ (podman-compose, `docker compose` หรือ `docker-compose`), เปลี่ยนไปที่ ROOT_DIR แล้วรัน `up -d --build`; หากไม่พบเครื่องมือจะพิมพ์ข้อความผิดพลาดและออกด้วยรหัส 1.
 start_compose() {
   local COMPOSE
   COMPOSE=$(detect_compose)
@@ -143,7 +146,7 @@ start_compose() {
   log "Services started. Logs: $COMPOSE logs -f"
 }
 
-# ── Start bare node (last resort) ───────────────────────────
+# start_node เริ่มแอปด้วย Node แบบพื้นฐานเมื่อไม่มีตัวจัดการรันไทม์อื่น โดยรัน `node server.js` พื้นหลังและบันทึก PID ไปที่ /tmp/meechain.pid
 start_node() {
   warn "No PM2/Podman/Docker found. Starting with plain node (no auto-restart)..."
   cd "$ROOT_DIR"

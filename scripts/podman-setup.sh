@@ -15,13 +15,18 @@
 set -euo pipefail
 
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; RED='\033[0;31m'; BOLD='\033[1m'; NC='\033[0m'
+# log แสดงข้อความสถานะด้วยสีเขียวและไอคอนเครื่องหมายถูก โดยรับข้อความเป็นอาร์กิวเมนต์และพิมพ์ลง stdout
 log()   { echo -e "${GREEN}✅${NC} $*"; }
+# info แสดงข้อความบอกสถานะเป็นข้อความข้อมูล (แสดงเป็นสีฟ้าและไอคอน ℹ️) ไปยัง stdout โดยใช้ข้อความจากอาร์กิวเมนต์ที่ส่งเข้ามา.
 info()  { echo -e "${CYAN}ℹ️ ${NC}  $*"; }
+# warn แสดงข้อความเตือนสีเหลืองนำหน้าด้วยสัญลักษณ์ "⚠️" ไปยัง stdout
 warn()  { echo -e "${YELLOW}⚠️ ${NC}  $*"; }
+# err ส่งข้อความข้อผิดพลาดที่รับเป็นอาร์กิวเมนต์ไปยัง stderr พร้อมไอคอน ❌ สีแดง
 err()   { echo -e "${RED}❌${NC} $*" >&2; }
+# title พิมพ์หัวเรื่องแบบตัวหนาและสีฟ้า จากนั้นขึ้นบรรทัดใหม่ด้วยเส้นคั่นยาว 50 ตัว.
 title() { echo -e "\n${BOLD}${CYAN}$*${NC}"; echo "$(printf '─%.0s' {1..50})"; }
 
-# ── Detect environment ───────────────────────────────────────
+# detect_env ตรวจสอบสภาพแวดล้อมรันไทม์และส่งชื่อแพลตฟอร์มหนึ่งใน: termux, macos, debian, fedora, arch, หรือ linux.
 detect_env() {
   if [ -n "${TERMUX_VERSION:-}" ] || [ -d "/data/data/com.termux" ]; then
     echo "termux"
@@ -40,7 +45,7 @@ detect_env() {
   fi
 }
 
-# ── Check current status ─────────────────────────────────────
+# check_status แสดงสภาพแวดล้อมและสถานะของเครื่องมือที่จำเป็นสำหรับ MeeChain โดยรายงานเวอร์ชันหรือข้อความแจ้งเตือนสำหรับ Podman, Docker, podman-compose, PM2 และ Node.js (แจ้งข้อผิดพลาดหาก Node.js ไม่มี)
 check_status() {
   title "🔍 MeeChain Runtime Status"
 
@@ -85,7 +90,7 @@ check_status() {
   echo ""
 }
 
-# ── Termux / Android guide ───────────────────────────────────
+# guide_termux พิมพ์คำแนะนำสำหรับการตั้งค่า Termux โดยใช้ proot-distro เพื่อติดตั้ง Ubuntu แล้วติดตั้ง Podman, podman-compose และ Node.js พร้อมตัวอย่างคำสั่งสำหรับรันและทดสอบ MeeChain
 guide_termux() {
   title "📱 Termux → proot-distro → Podman Setup"
 
@@ -136,7 +141,7 @@ STEP 5: ทดสอบ
 GUIDE
 }
 
-# ── Install: Debian/Ubuntu ───────────────────────────────────
+# install_debian ติดตั้ง Podman และ podman-compose บนระบบ Ubuntu/Debian โดยใช้ apt-get และแสดงเวอร์ชันที่ติดตั้งแล้ว
 install_debian() {
   title "📦 Installing Podman on Ubuntu/Debian"
   apt-get update -qq
@@ -144,14 +149,15 @@ install_debian() {
   log "Podman installed: $(podman --version)"
 }
 
-# ── Install: Fedora/RHEL ─────────────────────────────────────
+# install_fedora ติดตั้ง Podman และ podman-compose บนระบบ Fedora/RHEL แล้วแสดงเวอร์ชันที่ติดตั้ง
 install_fedora() {
   title "📦 Installing Podman on Fedora/RHEL"
   dnf install -y podman podman-compose
   log "Podman installed: $(podman --version)"
 }
 
-# ── Install: Arch ────────────────────────────────────────────
+# install_arch ติดตั้ง Podman และ podman-compose บนระบบ Arch Linux
+# ฟังก์ชันจะใช้ `pacman` เพื่อติดตั้ง `podman` และ `pip3` เพื่อติดตั้ง `podman-compose` แล้วพิมพ์เวอร์ชันของ Podman ที่ติดตั้งแล้ว
 install_arch() {
   title "📦 Installing Podman on Arch"
   pacman -Sy --noconfirm podman
@@ -159,7 +165,8 @@ install_arch() {
   log "Podman installed: $(podman --version)"
 }
 
-# ── Install: macOS ───────────────────────────────────────────
+# install_macos ติดตั้ง Podman และ podman-compose บน macOS และพยายามเริ่ม `podman machine` เพื่อให้พร้อมใช้งาน.
+# หาก Homebrew ไม่พบ จะพิมพ์ข้อความแสดงข้อผิดพลาดและออกด้วยสถานะ 1; เมื่อการติดตั้งเสร็จจะแสดงเวอร์ชันของ Podman.
 install_macos() {
   title "🍎 Installing Podman on macOS"
   if ! command -v brew &>/dev/null; then
@@ -172,7 +179,7 @@ install_macos() {
   log "Podman installed: $(podman --version)"
 }
 
-# ── Install podman-compose via pip ───────────────────────────
+# ensure_podman_compose ติดตั้ง `podman-compose` ผ่าน `pip3` (หรือ `pip`) ถ้า `podman-compose` ยังไม่ถูกติดตั้ง และจะแจ้งเตือนเมื่อไม่พบตัวจัดการแพ็กเกจ `pip`
 ensure_podman_compose() {
   if ! command -v podman-compose &>/dev/null; then
     info "Installing podman-compose via pip3..."
