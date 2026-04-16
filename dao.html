@@ -270,18 +270,56 @@ function showToast(msg, type='info', duration=4000) {
 
 // ── Wallet ──
 async function connectWallet() {
+  // Prefer wallet.js connectMetaMask if loaded (handles chain-switch automatically)
+  if (typeof window.connectMetaMask === 'function') {
+    const ok = await window.connectMetaMask();
+    if (ok && window.WalletState?.address) {
+      walletAddress = window.WalletState.address;
+      updateVotingPowerUI();
+      await getSIWEToken();
+    }
+    return;
+  }
+  // Fallback: inline connect with full chain-switch
   if (!window.ethereum) return showToast('ไม่พบ MetaMask — กรุณาติดตั้งก่อน', 'error');
   try {
     const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
     walletAddress = accounts[0];
+
+    // Switch / add MeeChain Ritual Chain
+    const CHAIN_ID_HEX = '0x344e'; // 13390
+    try {
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: CHAIN_ID_HEX }],
+      });
+    } catch (switchErr) {
+      if (switchErr.code === 4902 || switchErr.code === -32603) {
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId:   CHAIN_ID_HEX,
+            chainName: 'MeeChain Ritual Chain',
+            rpcUrls:   ['https://rpc.meechain.live', 'https://rpc.meechain.run.place'],
+            nativeCurrency: { name: 'MEE Token', symbol: 'MEE', decimals: 18 },
+            blockExplorerUrls: ['https://app.meechain.live/explorer.html'],
+          }],
+        });
+      }
+    }
+
     const btn = document.getElementById('wallet-btn');
-    btn.textContent = '✅ ' + walletAddress.slice(0,6) + '...' + walletAddress.slice(-4);
-    btn.classList.add('connected');
-    showToast('เชื่อมต่อ Wallet สำเร็จ!', 'success');
+    if (btn) {
+      btn.textContent = '🦊✅ ' + walletAddress.slice(0,6) + '...' + walletAddress.slice(-4);
+      btn.classList.add('connected');
+      btn.style.background = '#10B981';
+    }
+    showToast('เชื่อมต่อ MeeChain Ritual Chain สำเร็จ!', 'success');
     updateVotingPowerUI();
     await getSIWEToken();
   } catch (e) {
-    showToast('ยกเลิกการเชื่อมต่อ', 'error');
+    if (e.code !== 4001) showToast('❌ ' + (e.message?.slice(0,80) || 'เกิดข้อผิดพลาด'), 'error');
+    else showToast('ยกเลิกการเชื่อมต่อ', 'error');
   }
 }
 
@@ -569,20 +607,44 @@ if (window.ethereum) {
   window.ethereum.request({ method: 'eth_accounts' }).then(accounts => {
     if (accounts[0]) {
       walletAddress = accounts[0];
-      const btn = document.getElementById('wallet-btn');
-      btn.textContent = '✅ ' + walletAddress.slice(0,6) + '...' + walletAddress.slice(-4);
-      btn.classList.add('connected');
+      // Use wallet.js updateWalletUI if available; otherwise update manually
+      if (typeof updateWalletUI === 'function') {
+        window.WalletState && (window.WalletState.connected = true, window.WalletState.address = accounts[0]);
+        updateWalletUI();
+      } else {
+        const btn = document.getElementById('wallet-btn');
+        if (btn) { btn.textContent = '🦊✅ ' + walletAddress.slice(0,6) + '...' + walletAddress.slice(-4); btn.classList.add('connected'); btn.style.background = '#10B981'; }
+      }
       updateVotingPowerUI();
     }
   });
   window.ethereum.on('accountsChanged', accounts => {
     walletAddress = accounts[0] || null;
-    const btn = document.getElementById('wallet-btn');
-    btn.textContent = walletAddress ? '✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4) : '👛 <span data-i18n="wallet.connect">เชื่อมต่อ Wallet</span>';
-    btn.classList.toggle('connected', !!walletAddress);
+    if (typeof updateWalletUI === 'function') {
+      if (window.WalletState) { window.WalletState.connected = !!walletAddress; window.WalletState.address = walletAddress; }
+      updateWalletUI();
+    } else {
+      const btn = document.getElementById('wallet-btn');
+      if (btn) {
+        btn.innerHTML = walletAddress ? '🦊✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4) : '👛 <span data-i18n="wallet.connect">เชื่อมต่อ Wallet</span>';
+        btn.classList.toggle('connected', !!walletAddress);
+        if (walletAddress) btn.style.background = '#10B981'; else btn.style.background = '';
+      }
+    }
     updateVotingPowerUI();
   });
 }
+
+// ── Listen for wallet.js walletConnected event ──
+window.addEventListener('walletConnected', (e) => {
+  if (e.detail?.address) {
+    walletAddress = e.detail.address;
+    updateVotingPowerUI();
+  }
+});
+window.addEventListener('walletUIUpdated', (e) => {
+  if (e.detail?.address) walletAddress = e.detail.address;
+});
 
 // ── Init ──
 (async function init() {
@@ -590,39 +652,9 @@ if (window.ethereum) {
   countUniqueVoters();
 })();
 </script>
-  <script src="src/js/wallet-hub.js"></script>
-  <script>
-    function hydrateWalletFromHub() {
-      const session = window.MeeWalletHub?.getSession?.();
-      walletAddress = session?.connected ? session.address : null;
-      const btn = document.getElementById('wallet-btn');
-      if (btn) {
-        btn.textContent = walletAddress
-          ? '✅ ' + walletAddress.slice(0, 6) + '...' + walletAddress.slice(-4)
-          : '👛 เชื่อมต่อ Wallet';
-        btn.classList.toggle('connected', !!walletAddress);
-      }
-      updateVotingPowerUI();
-      if (walletAddress && !jwtToken) {
-        getSIWEToken().catch(() => {});
-      }
-    }
-
-    connectWallet = async function() {
-      if (!window.MeeWalletHub) {
-        showToast('Wallet Hub ยังไม่พร้อมใช้งาน', 'error');
-        return;
-      }
-      window.MeeWalletHub.openHub({ returnTo: '/dao.html' });
-    };
-
-    window.addEventListener('meechain:wallet-changed', hydrateWalletFromHub);
-    window.addEventListener('focus', () => {
-      window.MeeWalletHub?.syncInjectedAccount?.().then(hydrateWalletFromHub);
-    });
-
-    window.MeeWalletHub?.syncInjectedAccount?.().then(hydrateWalletFromHub);
-  </script>
+  <!-- Ethers.js + Wallet Integration -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+  <script src="src/js/wallet.js"></script>
   <!-- Shared Components -->
   <script src="src/js/chat-widget.js"></script>
   <script src="src/js/i18n.js"></script>
