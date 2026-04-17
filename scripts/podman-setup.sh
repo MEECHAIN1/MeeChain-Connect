@@ -157,11 +157,11 @@ install_fedora() {
 }
 
 # install_arch ติดตั้ง Podman และ podman-compose บนระบบ Arch Linux
-# ฟังก์ชันจะใช้ `pacman` เพื่อติดตั้ง `podman` และ `pip3` เพื่อติดตั้ง `podman-compose` แล้วพิมพ์เวอร์ชันของ Podman ที่ติดตั้งแล้ว
+# ฟังก์ชันจะใช้ `pacman` เพื่อติดตั้ง `podman` และใช้ ensure_podman_compose เพื่อติดตั้ง `podman-compose` ผ่าน pipx
 install_arch() {
   title "📦 Installing Podman on Arch"
-  pacman -Syu --noconfirm podman
-  pip3 install podman-compose
+  pacman -Sy --noconfirm podman
+  ensure_podman_compose
   log "Podman installed: $(podman --version)"
 }
 
@@ -179,11 +179,66 @@ install_macos() {
   log "Podman installed: $(podman --version)"
 }
 
-# ensure_podman_compose ติดตั้ง `podman-compose` ผ่าน `pip3` (หรือ `pip`) ถ้า `podman-compose` ยังไม่ถูกติดตั้ง และจะแจ้งเตือนเมื่อไม่พบตัวจัดการแพ็กเกจ `pip`
+# ensure_podman_compose ติดตั้ง `podman-compose` ผ่าน `pipx` (แนะนำสำหรับ Debian 12+/Ubuntu 23.04+) หรือ `pip3`/`pip` เป็น fallback และจะแจ้งเตือนเมื่อการติดตั้งล้มเหลว
 ensure_podman_compose() {
   if ! command -v podman-compose &>/dev/null; then
-    info "Installing podman-compose via pip3..."
-    pip3 install podman-compose 2>/dev/null || pip install podman-compose 2>/dev/null || warn "pip not available; skipping podman-compose"
+    # Try pipx first (recommended for modern systems to avoid PEP 668 issues)
+    if command -v pipx &>/dev/null; then
+      info "Installing podman-compose via pipx..."
+      if pipx install podman-compose 2>/dev/null; then
+        log "podman-compose installed successfully via pipx"
+        return 0
+      else
+        warn "pipx installation failed, trying fallback methods..."
+      fi
+    else
+      info "pipx not found, attempting to install pipx..."
+      # Try to install pipx via package manager first
+      if command -v apt-get &>/dev/null; then
+        if apt-get install -y python3-pipx 2>/dev/null; then
+          info "pipx installed via apt-get"
+          # Ensure pipx path is available
+          export PATH="$HOME/.local/bin:$PATH"
+          if pipx install podman-compose 2>/dev/null; then
+            log "podman-compose installed successfully via pipx"
+            return 0
+          else
+            warn "pipx installation of podman-compose failed after installing pipx"
+          fi
+        else
+          info "apt-get install python3-pipx failed, trying pip bootstrap..."
+        fi
+      fi
+
+      # Fallback: bootstrap pipx with pip --user
+      if command -v python3 &>/dev/null; then
+        info "Attempting to bootstrap pipx via python3 -m pip..."
+        if python3 -m pip install --user pipx 2>/dev/null; then
+          info "pipx bootstrapped successfully"
+          export PATH="$HOME/.local/bin:$PATH"
+          python3 -m pipx ensurepath 2>/dev/null || true
+          if command -v pipx &>/dev/null && pipx install podman-compose 2>/dev/null; then
+            log "podman-compose installed successfully via bootstrapped pipx"
+            return 0
+          else
+            warn "Failed to install podman-compose even after bootstrapping pipx"
+          fi
+        else
+          warn "Failed to bootstrap pipx via pip"
+        fi
+      fi
+    fi
+
+    # Final fallback: try pip3/pip directly (may fail on modern systems due to PEP 668)
+    info "Attempting legacy pip3/pip installation (may fail on modern systems)..."
+    if pip3 install podman-compose 2>/dev/null; then
+      log "podman-compose installed via pip3"
+    elif pip install podman-compose 2>/dev/null; then
+      log "podman-compose installed via pip"
+    else
+      warn "All installation methods failed for podman-compose"
+      warn "Manual install: pipx install podman-compose (or use system package manager)"
+    fi
   fi
 }
 

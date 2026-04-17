@@ -86,16 +86,16 @@ stop_node() {
 # จะเรียกฟังก์ชันหยุดที่เหมาะสมเมื่อพบการรัน และจะแสดงข้อความเตือนหากไม่พบสิ่งที่ต้องหยุดหรือยืนยันเมื่อหยุดสำเร็จ
 stop_auto() {
   STOPPED=0
-  # PM2
-  if command -v pm2 &>/dev/null && pm2 list 2>/dev/null | grep -q "$APP_NAME"; then
+  # PM2 - use exact name lookup with pm2 describe
+  if command -v pm2 &>/dev/null && pm2 describe "$APP_NAME" &>/dev/null; then
     stop_pm2; STOPPED=1
   fi
-  # Podman
-  if command -v podman &>/dev/null && podman ps -a --format '{{.Names}}' 2>/dev/null | grep -q "$APP_NAME"; then
+  # Podman - use exact line match
+  if command -v podman &>/dev/null && podman ps -a --format '{{.Names}}' 2>/dev/null | grep -qx "$APP_NAME"; then
     stop_podman; STOPPED=1
   fi
-  # Docker
-  if command -v docker &>/dev/null && docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "$APP_NAME"; then
+  # Docker - use exact line match
+  if command -v docker &>/dev/null && docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx "$APP_NAME"; then
     stop_docker; STOPPED=1
   fi
   # Bare node
