@@ -52,6 +52,9 @@
     @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(1.4)} }
     .back-btn   { background: none; border: 1px solid var(--border); color: var(--text-primary); border-radius: 8px; padding: 6px 14px; cursor: pointer; font-size: 13px; transition: background .2s; }
     .back-btn:hover { background: var(--bg-card); }
+    .wallet-btn { background: #7C3AED; color: #fff; border: none; border-radius: 8px; padding: 7px 16px; cursor: pointer; font-size: 13px; font-weight: 600; transition: .2s; }
+    .wallet-btn:hover { opacity: .85; }
+    .wallet-btn.connected { background: #10B981; }
 
     /* ── Hero Search ────────────────────────────────── */
     .hero-search {
@@ -243,6 +246,7 @@
       <span class="pulse-dot" id="live-dot"></span>
       <span id="live-label">Chain ID 13390</span>
     </div>
+    <button class="wallet-btn" id="wallet-btn" onclick="window.connectWallet ? window.connectWallet() : alert('กรุณาติดตั้ง MetaMask')">👛 เชื่อมต่อ Wallet</button>
   </div>
 </nav>
 
@@ -647,6 +651,9 @@ function scheduleWsReconnect() {
   }, 15000);
 })();
 </script>
+  <!-- Ethers.js + Wallet Integration -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+  <script src="src/js/wallet.js"></script>
   <!-- Shared Components -->
   <script src="src/js/chat-widget.js"></script>
   <script src="src/js/i18n.js"></script>

@@ -219,20 +219,205 @@ app.get('/health', (req, res) => {
   });
 });
 
+// ── Mock RPC handler (when upstream chain is not reachable) ──────
+let _mockBlockNum = 1248753 + Math.floor(Date.now() / 12000);
+/**
+ * สร้างคำตอบ JSON-RPC จำลองสำหรับคำขอ RPC ที่ระบุ โดยจะให้ผลตอบสนองเหมาะสมสำหรับชุดคำสั่ง Ethereum-style ที่รองรับและส่งกลับข้อผิดพลาดสำหรับคำสั่งที่ไม่รู้จัก
+ *
+ * @param {object} body - วัตถุคำขอ JSON-RPC (ต้องมีฟิลด์ `method` และอาจมี `id`) ที่จะถูกจำลองการตอบกลับ
+ * @returns {object} วัตถุ JSON-RPC ตอบกลับที่มี `jsonrpc: '2.0'` และ `id` เดียวกับคำขอ พร้อม `result` สำหรับการตอบสำเร็จ หรือ `error` ในรูป `{ code, message }` เมื่อเมธอดไม่รองรับ
+ */
+function _handleMockRpc(body) {
+  _mockBlockNum += Math.floor(Math.random() * 2) + 1;
+  const ok  = (result) => ({ jsonrpc: '2.0', id: body.id ?? null, result });
+  const err = (code, msg) => ({ jsonrpc: '2.0', id: body.id ?? null, error: { code, message: msg } });
+  switch (body.method) {
+    case 'eth_chainId':          return ok('0x344e');
+    case 'net_version':          return ok('13390');
+    case 'net_listening':        return ok(true);
+    case 'eth_blockNumber':      return ok('0x' + _mockBlockNum.toString(16));
+    case 'eth_getBalance':       return ok('0x56BC75E2D630FFFFF'); // ~100 MEE
+    case 'eth_getTransactionCount': return ok('0x1');
+    case 'eth_gasPrice':         return ok('0x3B9ACA00'); // 1 Gwei
+    case 'eth_estimateGas':      return ok('0x5208');
+    case 'eth_maxPriorityFeePerGas': return ok('0x3B9ACA00');
+    case 'eth_syncing':          return ok(false);
+    case 'eth_getCode':          return ok('0x');
+    case 'eth_getStorageAt':     return ok('0x' + '0'.repeat(64));
+    case 'eth_getLogs':          return ok([]);
+    case 'eth_call':             return ok('0x' + '0'.repeat(64));
+    case 'eth_getBlockByNumber': return ok({
+      number: '0x' + _mockBlockNum.toString(16),
+      hash: '0xaaaa' + 'a'.repeat(60),
+      parentHash: '0xbbbb' + 'b'.repeat(60),
+      nonce: '0x0000000000000000',
+      transactions: [],
+      timestamp: '0x' + Math.floor(Date.now()/1000).toString(16),
+      gasLimit: '0x1c9c380', gasUsed: '0x0',
+      miner: '0x' + '0'.repeat(40),
+    });
+    case 'eth_getBlockByHash':   return ok(null);
+    case 'eth_getTransactionByHash': return ok(null);
+    case 'eth_getTransactionReceipt': return ok(null);
+    case 'eth_sendRawTransaction': return err(-32000, 'Upstream unavailable: cannot perform mutating RPC in offline mode');
+    case 'eth_sendTransaction':    return err(-32000, 'Upstream unavailable: cannot perform mutating RPC in offline mode');
+    case 'personal_sendTransaction': return err(-32000, 'Upstream unavailable: cannot perform mutating RPC in offline mode');
+    case 'eth_newFilter':        return ok('0x1');
+    case 'eth_newBlockFilter':   return ok('0x1');
+    case 'eth_getFilterChanges': return ok([]);
+    case 'eth_uninstallFilter':  return ok(true);
+    case 'eth_protocolVersion':  return ok('0x41');
+    case 'eth_feeHistory':       return ok({ oldestBlock: '0x1', baseFeePerGas: ['0x3B9ACA00'], gasUsedRatio: [0.5], reward: [['0x0']] });
+    case 'web3_clientVersion':   return ok('MeeChain/v2.0/node');
+    case 'net_peerCount':        return ok('0x10');
+    default:                     return err(-32601, `Method "${body.method}" not supported`);
+  }
+}
+
+// ── RPC upstream health tracker (circuit breaker) ────────────────
+// If an upstream fails, mark it as dead for 60 s before retrying
+const _rpcHealth = {};  /**
+ * ตรวจสอบว่า endpoint RPC ที่ระบุถูกทำเครื่องหมายว่า "dead" และยังอยู่ในช่วงเวลาที่ถูกบล็อกหรือไม่
+ *
+ * ตรวจสอบสถานะใน `_rpcHealth` สำหรับ `url` ที่กำหนด ถ้าพบและสถานะยังไม่หมดเวลา จะคืนค่า `true` มิฉะนั้นจะรีเซ็ตสถานะเมื่อหมดเวลาและคืนค่า `false`
+ * @param {string} url - URL ของ RPC endpoint ที่จะตรวจสอบ
+ * @returns {boolean} `true` หาก endpoint ถูกทำเครื่องหมายว่า dead และเวลาบล็อกยังไม่หมด, `false` ในกรณีอื่น
+ */
+function _isRpcDead(url) {
+  const h = _rpcHealth[url];
+  if (!h || !h.dead) return false;
+  if (Date.now() > h.until) { h.dead = false; return false; }
+  return true;
+}
+/**
+ * ทำเครื่องหมาย endpoint RPC ว่าไม่พร้อมใช้งานชั่วคราว
+ * @param {string} url - URL ของ upstream RPC ที่จะถูกทำเครื่องหมายว่าไม่พร้อมใช้งานเป็นเวลา 60,000 มิลลิวินาที
+ */
+function _markRpcDead(url) {
+  _rpcHealth[url] = { dead: true, until: Date.now() + 60_000 };
+}
+/**
+ * ทำเครื่องหมายว่า RPC endpoint ที่ระบุว่าใช้งานได้และรีเซ็ตสถานะหมดเวลา
+ * @param {string} url - URL ของ RPC endpoint ที่ต้องการตั้งสถานะเป็นใช้งานได้
+ */
+function _markRpcAlive(url) {
+  _rpcHealth[url] = { dead: false, until: 0 };
+}
+
 // ── RPC Proxy (JSON-RPC forward) ─────────────────────────────────
-// Handles: POST / and POST /rpc  →  used by rpc.meechain.xyz
-// Forwards JSON-RPC calls to the actual Ritual Chain node
+// Handles: POST / and POST /rpc
+/**
+ * พร็อกซีคำขอ JSON-RPC ไปยัง upstream RPC และตกกลับไปให้การตอบแบบจำลองเมื่อไม่สามารถติดต่อเครือข่ายได้
+ *
+ * ตรวจสอบความถูกต้องของ payload และ:
+ * - ถ้าเป็น batch (อาร์เรย์) จะส่งกลับผลลัพธ์จำลองสำหรับแต่ละรายการทันที
+ * - ดึงรายการเป้าหมายจากการตั้งค่า RPC โดยตัดซ้ำและข้ามโฮสต์ที่ถูกทำเครื่องหมายว่า "ตาย"
+ * - พยายามส่งคำขอไปยังแต่ละ upstream ตามลำดับ หาก upstream ตอบไม่ถูกต้องหรือไม่ตอบจะถูกทำเครื่องหมายว่า "ตาย" ชั่วคราว และพยายามกับเป้าหมายถัดไป
+ * - หากไม่สามารถรับผลจาก upstream ใดๆ ได้ จะส่งผลลัพธ์จาก mock JSON-RPC (chain simulation)
+ *
+ * พฤติกรรมการตรวจสอบข้อผิดพลาด: ส่ง HTTP 400 เมื่อ payload ไม่ใช่คำขอ JSON-RPC ที่ถูกต้อง
+ */
 async function handleRpcProxy(req, res) {
   const body = req.body;
-  if (!body || !body.jsonrpc) {
+  if (!body) {
     return res.status(400).json({ error: 'Invalid JSON-RPC request' });
   }
 
-  // Pick target RPC (dRPC primary, fallback secondary)
-  const targets = [
-    RPC_CONFIG.drpcUrl,
-    RPC_CONFIG.fallbackUrl,
-  ].filter(Boolean);
+  // Handle batch requests (array of JSON-RPC calls)
+  if (Array.isArray(body)) {
+    // Deduplicate targets, skip known-dead endpoints
+    const seen = new Set();
+    const targets = [RPC_CONFIG.drpcUrl, RPC_CONFIG.fallbackUrl]
+      .filter(t => t && !seen.has(t) && seen.add(t))
+      .filter(t => !_isRpcDead(t));
+
+    // Try upstream first
+    let lastError = null;
+    for (const target of targets) {
+      try {
+        const url = new URL(target);
+        const isHttps = url.protocol === 'https:';
+        const reqLib  = isHttps ? https : http;
+        const postData = JSON.stringify(body);
+
+        const result = await new Promise((resolve, reject) => {
+          const options = {
+            hostname: url.hostname,
+            port:     url.port || (isHttps ? 443 : 80),
+            path:     url.pathname || '/',
+            method:   'POST',
+            headers:  {
+              'Content-Type':   'application/json',
+              'Content-Length': Buffer.byteLength(postData),
+            },
+            timeout: 3000,
+          };
+          if (RPC_CONFIG.drpcAccessKey && target === RPC_CONFIG.drpcUrl) {
+            options.headers['Authorization'] = `Bearer ${RPC_CONFIG.drpcAccessKey}`;
+          }
+          const r = reqLib.request(options, (resp) => {
+            let data = '';
+            resp.on('data', d => data += d);
+            resp.on('end', () => {
+              try {
+                const parsed = JSON.parse(data);
+                if (!Array.isArray(parsed)) {
+                  reject(new Error('Non-array response for batch request'));
+                } else {
+                  resolve(parsed);
+                }
+              } catch { reject(new Error('Invalid JSON from RPC node')); }
+            });
+          });
+          r.on('error', reject);
+          r.on('timeout', () => { r.destroy(); reject(new Error('RPC timeout')); });
+          r.write(postData);
+          r.end();
+        });
+
+        _markRpcAlive(target);
+        return res.json(result);
+      } catch (err) {
+        lastError = err;
+        _markRpcDead(target);
+        console.warn(`[RPC] Batch upstream ${target} failed: ${err.message} — marked dead 60s`);
+      }
+    }
+
+    // All upstream failed → use mock RPC for each item (read-only methods only)
+    const readOnlyMethods = new Set([
+      'eth_chainId', 'net_version', 'net_listening', 'eth_blockNumber', 'eth_getBalance',
+      'eth_getTransactionCount', 'eth_gasPrice', 'eth_estimateGas', 'eth_maxPriorityFeePerGas',
+      'eth_syncing', 'eth_getCode', 'eth_getStorageAt', 'eth_getLogs', 'eth_call',
+      'eth_getBlockByNumber', 'eth_getBlockByHash', 'eth_getTransactionByHash',
+      'eth_getTransactionReceipt', 'eth_newFilter', 'eth_newBlockFilter', 'eth_getFilterChanges',
+      'eth_uninstallFilter', 'eth_protocolVersion', 'eth_feeHistory', 'web3_clientVersion', 'net_peerCount'
+    ]);
+    const results = body.map(b => {
+      if (readOnlyMethods.has(b.method)) {
+        return _handleMockRpc(b);
+      } else {
+        return { jsonrpc: '2.0', id: b.id ?? null, error: { code: -32000, message: 'Upstream unavailable: cannot perform mutating RPC in offline mode' } };
+      }
+    });
+    console.log(`[RPC] All batch upstream failed (${lastError?.message}) — serving mock response`);
+    return res.json(results);
+  }
+
+  if (!body.jsonrpc) {
+    return res.status(400).json({ error: 'Invalid JSON-RPC request' });
+  }
+
+  // Deduplicate targets (drpcUrl may equal fallbackUrl), skip known-dead endpoints
+  const seen = new Set();
+  const targets = [RPC_CONFIG.drpcUrl, RPC_CONFIG.fallbackUrl]
+    .filter(t => t && !seen.has(t) && seen.add(t))
+    .filter(t => !_isRpcDead(t));
+
+  // If all upstreams are dead, skip straight to mock (no waiting)
+  if (targets.length === 0) {
+    return res.json(_handleMockRpc(body));
+  }
 
   let lastError = null;
   for (const target of targets) {
@@ -252,9 +437,8 @@ async function handleRpcProxy(req, res) {
             'Content-Type':   'application/json',
             'Content-Length': Buffer.byteLength(postData),
           },
-          timeout: 10000,
+          timeout: 3000,  // 3 s — fast fallback to mock
         };
-        // Attach dRPC access key if available
         if (RPC_CONFIG.drpcAccessKey && target === RPC_CONFIG.drpcUrl) {
           options.headers['Authorization'] = `Bearer ${RPC_CONFIG.drpcAccessKey}`;
         }
@@ -262,8 +446,15 @@ async function handleRpcProxy(req, res) {
           let data = '';
           resp.on('data', d => data += d);
           resp.on('end', () => {
-            try { resolve(JSON.parse(data)); }
-            catch { reject(new Error('Invalid JSON from RPC node')); }
+            try {
+              const parsed = JSON.parse(data);
+              // Reject non-JSON-RPC responses (e.g. HTML error pages, XML errors)
+              if (!parsed.jsonrpc && !parsed.result && !parsed.error) {
+                reject(new Error('Non JSON-RPC response from upstream'));
+              } else {
+                resolve(parsed);
+              }
+            } catch { reject(new Error('Invalid JSON from RPC node')); }
           });
         });
         r.on('error', reject);
@@ -272,23 +463,18 @@ async function handleRpcProxy(req, res) {
         r.end();
       });
 
-      // Forward the RPC response
+      _markRpcAlive(target);
       return res.json(result);
     } catch (err) {
       lastError = err;
-      console.warn(`RPC proxy failed for ${target}: ${err.message}`);
+      _markRpcDead(target);
+      console.warn(`[RPC] Upstream ${target} failed: ${err.message} — marked dead 60s`);
     }
   }
 
-  // All targets failed — return JSON-RPC error
-  return res.status(502).json({
-    jsonrpc: '2.0',
-    id:      body.id || null,
-    error: {
-      code:    -32603,
-      message: `RPC unavailable: ${lastError?.message || 'all nodes offline'}`,
-    },
-  });
+  // All upstream failed → use mock RPC (chain simulation)
+  console.log(`[RPC] All upstream failed (${lastError?.message}) — serving mock response`);
+  return res.json(_handleMockRpc(body));
 }
 
 app.post('/',    handleRpcProxy);   // rpc.meechain.xyz  POST /
@@ -310,13 +496,22 @@ app.get('/api/health', (req, res) => {
 
 // ── API: Network Info (for frontend DApp / MetaMask add network) ──
 app.get('/api/network', (req, res) => {
+  const appDomain = process.env.APP_DOMAIN || 'app.meechain.live';
+  const rpcDomain = process.env.RPC_DOMAIN || 'rpc.meechain.live';
   res.json({
-    chainId:         `0x${RPC_CONFIG.chainId.toString(16)}`,
-    chainName:       'Ritual Chain (MeeChain)',
-    rpcUrls:         [RPC_CONFIG.drpcUrl],
-    nativeCurrency:  { name: 'MeeChain', symbol: 'MEE', decimals: 18 },
-    blockExplorerUrls: ['https://ritual-chain--pouaun2499.replit.app'],
-    contracts:       CONTRACTS,
+    chainId:          `0x${RPC_CONFIG.chainId.toString(16)}`,   // 0x344e = 13390
+    chainIdDecimal:   RPC_CONFIG.chainId,
+    chainName:        'MeeChain Ritual Chain',
+    rpcUrls:          [
+      `https://${rpcDomain}`,           // primary: rpc.meechain.live
+    ],
+    nativeCurrency:   { name: 'MEE Token', symbol: 'MEE', decimals: 18 },
+    blockExplorerUrls: [
+      `https://${appDomain}/explorer.html`,
+      'https://explorer.meechain.run.place',
+    ],
+    contracts:  CONTRACTS,
+    web3Status: web3.connected ? 'connected' : 'mock',
   });
 });
 

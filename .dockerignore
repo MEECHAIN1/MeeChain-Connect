@@ -1,0 +1,53 @@
+# ── Node.js ──────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── Environment & Secrets ────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Git ──────────────────────────────────────────────────────
+.git/
+.gitignore
+.github/
+
+# ── Logs ─────────────────────────────────────────────────────
+logs/
+*.log
+
+# ── OS Files ─────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Editor ───────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+
+# ── Hardhat / Blockchain build artifacts ─────────────────────
+blockchain/cache/
+blockchain/artifacts/
+ignition/deployments/
+
+# ── Test files ───────────────────────────────────────────────
+test/
+*.test.js
+*.spec.js
+
+# ── Documentation ────────────────────────────────────────────
+docs/
+jsdoc.json
+
+# ── PM2 ──────────────────────────────────────────────────────
+.pm2/
+
+# ── Compiled output ──────────────────────────────────────────
+compiled/
+
+# ── Replit / cloud IDE ───────────────────────────────────────
+.replit
+.local/
+.cloudflared/

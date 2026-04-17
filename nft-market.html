@@ -421,6 +421,21 @@ function switchTab(tab, btn){
 
 // ── Wallet Connect ──
 async function connectWallet(){
+  // Use wallet.js if available (handles chain-switch, updateWalletUI, events)
+  if(typeof window.connectMetaMask === 'function'){
+    const ok = await window.connectMetaMask();
+    if(ok && window.WalletState?.address){
+      walletAddress = window.WalletState.address;
+      // Apply same local state updates as fallback path
+      loadMyNFTs();
+      const btn = document.getElementById('wallet-btn');
+      if(btn){ btn.textContent = '🦊✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4); btn.classList.add('connected'); btn.style.background='#10B981'; }
+      const myBtn = document.getElementById('my-connect-btn');
+      if(myBtn){ myBtn.textContent = '🦊✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4); }
+    }
+    return;
+  }
+  // Fallback inline connect
   if(!window.ethereum){ toast('❌ MetaMask ไม่พบ กรุณาติดตั้ง','error'); return; }
   try{
     const accounts = await window.ethereum.request({method:'eth_requestAccounts'});
@@ -432,28 +447,50 @@ async function connectWallet(){
         params: [{chainId:'0x' + CHAIN_ID.toString(16)}]
       });
     }catch(e){
-      if(e.code===4902){
+      if(e.code===4902 || e.code===-32603){
         await window.ethereum.request({
           method: 'wallet_addEthereumChain',
           params:[{
             chainId: '0x' + CHAIN_ID.toString(16),
             chainName: 'MeeChain Ritual Chain',
-            rpcUrls: ['https://rpc.meechain.live'],
-            nativeCurrency:{name:'MeeChain',symbol:'MEE',decimals:18},
-            blockExplorerUrls:['https://app.meechain.live/explorer']
+            rpcUrls: ['https://rpc.meechain.live','https://rpc.meechain.run.place'],
+            nativeCurrency:{name:'MEE Token',symbol:'MEE',decimals:18},
+            blockExplorerUrls:['https://app.meechain.live/explorer.html']
           }]
         });
       }
     }
     const btn = document.getElementById('wallet-btn');
-    btn.textContent = '✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4);
-    btn.classList.add('connected');
-    document.getElementById('my-connect-btn').textContent = '✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4);
-    toast('✅ เชื่อมต่อ Wallet สำเร็จ!','success');
+    if(btn){ btn.textContent = '🦊✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4); btn.classList.add('connected'); btn.style.background='#10B981'; }
+    const myBtn = document.getElementById('my-connect-btn');
+    if(myBtn){ myBtn.textContent = '🦊✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4); }
+    toast('✅ เชื่อมต่อ MeeChain สำเร็จ!','success');
   }catch(e){
     if(e.code!==4001) toast('❌ '+e.message?.slice(0,60),'error');
   }
 }
+
+// ── Sync with wallet.js events ──
+window.addEventListener('walletConnected', (e) => {
+  if(e.detail?.address){
+    walletAddress = e.detail.address;
+    loadMyNFTs();
+    const btn = document.getElementById('wallet-btn');
+    if(btn){ btn.textContent = '🦊✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4); btn.classList.add('connected'); btn.style.background='#10B981'; }
+    const myBtn = document.getElementById('my-connect-btn');
+    if(myBtn){ myBtn.textContent = '🦊✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4); }
+  }
+});
+window.addEventListener('walletUIUpdated', (e) => {
+  if(e.detail?.address){
+    walletAddress = e.detail.address;
+    loadMyNFTs();
+    const btn = document.getElementById('wallet-btn');
+    if(btn){ btn.textContent = '🦊✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4); btn.classList.add('connected'); btn.style.background='#10B981'; }
+    const myBtn = document.getElementById('my-connect-btn');
+    if(myBtn){ myBtn.textContent = '🦊✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4); }
+  }
+});
 
 // ── Load NFTs from API ──
 async function loadNFTs(page=1){
@@ -793,53 +830,36 @@ async function loadMyNFTs(){
     window.ethereum.request({method:'eth_accounts'}).then(accounts=>{
       if(accounts[0]){
         walletAddress=accounts[0];
-        const btn=document.getElementById('wallet-btn');
-        btn.textContent='✅ '+walletAddress.slice(0,6)+'...'+walletAddress.slice(-4);
-        btn.classList.add('connected');
+        // wallet.js updateWalletUI will handle UI if loaded, else fallback
+        if(typeof updateWalletUI==='function' && window.WalletState){
+          window.WalletState.connected=true; window.WalletState.address=accounts[0];
+          updateWalletUI();
+        } else {
+          const btn=document.getElementById('wallet-btn');
+          if(btn){btn.textContent='🦊✅ '+walletAddress.slice(0,6)+'...'+walletAddress.slice(-4);btn.classList.add('connected');btn.style.background='#10B981';}
+        }
       }
     });
     window.ethereum.on('accountsChanged',accounts=>{
       walletAddress=accounts[0]||null;
-      const btn=document.getElementById('wallet-btn');
-      btn.textContent=walletAddress?'✅ '+walletAddress.slice(0,6)+'...'+walletAddress.slice(-4):'👛 <span data-i18n="wallet.connect">เชื่อมต่อ Wallet</span>';
-      btn.classList.toggle('connected',!!walletAddress);
+      if(typeof updateWalletUI==='function' && window.WalletState){
+        window.WalletState.connected=!!walletAddress; window.WalletState.address=walletAddress;
+        updateWalletUI();
+      } else {
+        const btn=document.getElementById('wallet-btn');
+        if(btn){
+          btn.innerHTML=walletAddress?'🦊✅ '+walletAddress.slice(0,6)+'...'+walletAddress.slice(-4):'👛 <span data-i18n="wallet.connect">เชื่อมต่อ Wallet</span>';
+          btn.classList.toggle('connected',!!walletAddress);
+          btn.style.background=walletAddress?'#10B981':'';
+        }
+      }
     });
   }
 })();
 </script>
-  <script src="src/js/wallet-hub.js"></script>
-  <script>
-    function hydrateWalletFromHub() {
-      const session = window.MeeWalletHub?.getSession?.();
-      walletAddress = session?.connected ? session.address : null;
-      const short = walletAddress ? '✅ ' + walletAddress.slice(0, 6) + '...' + walletAddress.slice(-4) : '👛 เชื่อมต่อ Wallet';
-      const btn = document.getElementById('wallet-btn');
-      const myBtn = document.getElementById('my-connect-btn');
-      if (btn) {
-        btn.textContent = short;
-        btn.classList.toggle('connected', !!walletAddress);
-      }
-      if (myBtn) {
-        myBtn.textContent = short;
-        myBtn.classList.toggle('connected', !!walletAddress);
-      }
-    }
-
-    connectWallet = async function() {
-      if (!window.MeeWalletHub) {
-        toast('Wallet Hub ยังไม่พร้อมใช้งาน', 'error');
-        return;
-      }
-      window.MeeWalletHub.openHub({ returnTo: '/nft-market.html' });
-    };
-
-    window.addEventListener('meechain:wallet-changed', hydrateWalletFromHub);
-    window.addEventListener('focus', () => {
-      window.MeeWalletHub?.syncInjectedAccount?.().then(hydrateWalletFromHub);
-    });
-
-    window.MeeWalletHub?.syncInjectedAccount?.().then(hydrateWalletFromHub);
-  </script>
+  <!-- Ethers.js + Wallet Integration -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+  <script src="src/js/wallet.js"></script>
   <!-- Shared Components -->
   <script src="src/js/chat-widget.js"></script>
   <script src="src/js/i18n.js"></script>

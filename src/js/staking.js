@@ -295,7 +295,16 @@ function unlockDate(lockDays) {
   return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-// ── Execute Stake via MetaMask → NeonovaPortal.enterPortal ──────────
+/**
+ * ส่งคำสั่ง Stake ไปยังสัญญา Portal ผ่าน MetaMask และบันทึกกิจกรรมการสเตก
+ *
+ * จะตรวจสอบค่าที่ผู้ใช้ป้อนและการเชื่อมต่อกระเป๋า, เรียกตัวช่วยสลับเครือข่ายเมื่อมี, คำนวณค่าใช้จ่าย (รวมค่าธรรมเนียมพอร์ทัล), สร้าง calldata สำหรับฟังก์ชัน `enterPortal(uint8,string)` และเรียก `eth_sendTransaction` เพื่อส่งธุรกรรม
+ *
+ * พฤติกรรมสังเกตได้:
+ * - ถ้ายอดไม่ถึงขั้นต่ำหรือไม่มี MetaMask จะยกเลิกและแสดง toast ข้อความที่เหมาะสม
+ * - เมื่อผู้ใช้ปฏิเสธธุรกรรมจะแสดง toast ยกเลิก; เมื่อเกิดข้อผิดพลาดอื่นจะแสดง toast ข้อความข้อผิดพลาดย่อ
+ * - เมื่อสำเร็จ จะปิดโมดัล, เพิ่มรายการกิจกรรม staking ลงใน localStorage และเริ่มรีเฟรชข้อมูลการสเตกของผู้ใช้
+ */
 async function executeStake() {
   const pool   = StakingState.selectedPool;
   if (!pool) return;
@@ -318,6 +327,17 @@ async function executeStake() {
   try {
     const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
     const address  = accounts[0];
+
+    // Ensure user is on MeeChain Ritual Chain before transacting
+    if (typeof window.ensureMeeChainNetwork === 'function') {
+      await window.ensureMeeChainNetwork();
+    }
+
+    // Verify chain ID after network switch
+    const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
+    if (currentChainId !== '0x344e') {
+      throw new Error('Failed to switch to MeeChain Ritual Chain (Chain ID: 13390). Please switch manually.');
+    }
 
     // Portal fee = 0.001 MEE = 1e15 wei (fetched from contract or hardcoded)
     const PORTAL_FEE_WEI = BigInt('1000000000000000');   // 0.001 MEE
