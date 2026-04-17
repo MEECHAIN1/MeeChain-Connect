@@ -160,7 +160,7 @@ install_fedora() {
 # ฟังก์ชันจะใช้ `pacman` เพื่อติดตั้ง `podman` และ `pip3` เพื่อติดตั้ง `podman-compose` แล้วพิมพ์เวอร์ชันของ Podman ที่ติดตั้งแล้ว
 install_arch() {
   title "📦 Installing Podman on Arch"
-  pacman -Sy --noconfirm podman
+  pacman -Syu --noconfirm podman
   pip3 install podman-compose
   log "Podman installed: $(podman --version)"
 }
