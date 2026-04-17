@@ -71,7 +71,11 @@ stop_compose() {
 stop_node() {
   if [ -f /tmp/meechain.pid ]; then
     PID=$(cat /tmp/meechain.pid)
-    kill "$PID" 2>/dev/null && log "Killed node process PID $PID" || warn "Process $PID not found."
+    if kill -0 "$PID" 2>/dev/null && ps -p "$PID" -o comm= 2>/dev/null | grep -q '^node'; then
+      kill "$PID" && log "Killed node process PID $PID"
+    else
+      warn "PID $PID not a live node process (stale PID file?)."
+    fi
     rm -f /tmp/meechain.pid
   else
     warn "No PID file found at /tmp/meechain.pid"
