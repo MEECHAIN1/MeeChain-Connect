@@ -30,6 +30,10 @@ err()  { echo -e "${RED}[error]${NC} $*" >&2; }
 
 # detect_runtime ตรวจสอบ runtime ที่ติดตั้งบนระบบ และพิมพ์ค่าเดียวจากชุด {podman, docker, pm2, node, none} เพื่อระบุสิ่งที่ใช้ได้.
 detect_runtime() {
+  # Prefer whichever runtime is already hosting APP_NAME
+  if command -v pm2 &>/dev/null && pm2 list 2>/dev/null | grep -q "$APP_NAME"; then echo "pm2"; return; fi
+  if command -v podman &>/dev/null && podman ps --format '{{.Names}}' 2>/dev/null | grep -qx "$APP_NAME"; then echo "podman"; return; fi
+  if command -v docker &>/dev/null && docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$APP_NAME"; then echo "docker"; return; fi
   if   command -v podman       &>/dev/null; then echo "podman"
   elif command -v docker       &>/dev/null; then echo "docker"
   elif command -v pm2          &>/dev/null; then echo "pm2"
