@@ -24,6 +24,7 @@
     "infra:stop:podman": "bash scripts/stop.sh podman",
     "infra:stop:docker": "bash scripts/stop.sh docker",
     "infra:stop:compose": "bash scripts/stop.sh compose",
+    "infra:stop:pm2": "bash scripts/stop.sh pm2",
     "container:build": "podman build -t meechain-dashboard:latest . || docker build -t meechain-dashboard:latest .",
     "container:build:podman": "podman build -t meechain-dashboard:latest .",
     "container:build:docker": "docker build -t meechain-dashboard:latest .",
