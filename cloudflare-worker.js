@@ -210,13 +210,16 @@ function handleMockRpc(body) {
 // CORS HELPERS
 // ══════════════════════════════════════════════════════════════════
 function getCorsHeaders(origin) {
-  const allowed = CONFIG.ALLOWED_ORIGINS.includes(origin) ? origin : '*';
-  return {
-    'Access-Control-Allow-Origin':  allowed,
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Accept',
-    'Access-Control-Max-Age':       '86400',
-  };
+  if (CONFIG.ALLOWED_ORIGINS.includes(origin)) {
+    return {
+      'Access-Control-Allow-Origin':  origin,
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Accept',
+      'Access-Control-Max-Age':       '86400',
+    };
+  }
+  // Non-allowed origins: return headers without CORS
+  return {};
 }
 
 function jsonResponse(data, status = 200, extraHeaders = {}) {

@@ -42,6 +42,7 @@ window.WalletState = {
   address:     null,
   balance:     '0',
   balanceMEE:  '0',
+  chainId:     null,
   provider:    null,
   signer:      null,
   tokenContract: null,
@@ -151,6 +152,8 @@ async function connectMetaMask() {
     const provider = new ethers.BrowserProvider(window.ethereum);
     const signer   = await provider.getSigner();
     const address  = await signer.getAddress();
+    const network  = await provider.getNetwork();
+    const chainId  = Number(network.chainId);
 
     // Get native balance
     const rawBalance = await provider.getBalance(address);
@@ -166,7 +169,7 @@ async function connectMetaMask() {
 
     // Update state
     Object.assign(window.WalletState, {
-      connected: true, address, balance, balanceMEE,
+      connected: true, address, balance, balanceMEE, chainId,
       provider, signer, tokenContract, isDemo: false,
     });
 
@@ -269,7 +272,7 @@ async function refreshBalance() {
 // ── Disconnect wallet ────────────────────────────────────────────────
 function disconnectWallet() {
   Object.assign(window.WalletState, {
-    connected: false, address: null, balance: '0', balanceMEE: '0',
+    connected: false, address: null, balance: '0', balanceMEE: '0', chainId: null,
     provider: null, signer: null, tokenContract: null, isDemo: false,
   });
   updateWalletUI();
@@ -519,6 +522,8 @@ async function connectMetaMask(options = {}) {
     const provider = new ethers.BrowserProvider(window.ethereum);
     const signer = await provider.getSigner();
     const address = await signer.getAddress();
+    const network = await provider.getNetwork();
+    const chainId = Number(network.chainId);
     const rawBalance = await provider.getBalance(address);
     const tokenContract = new ethers.Contract(TOKEN_ADDRESS, MEE_TOKEN_ABI, signer);
     let balanceMEE = '0';
@@ -533,6 +538,7 @@ async function connectMetaMask(options = {}) {
       address,
       balance: ethers.formatEther(rawBalance),
       balanceMEE,
+      chainId,
       provider,
       signer,
       tokenContract,
@@ -673,6 +679,7 @@ function disconnectWallet() {
     address: null,
     balance: '0',
     balanceMEE: '0',
+    chainId: null,
     provider: null,
     signer: null,
     tokenContract: null,

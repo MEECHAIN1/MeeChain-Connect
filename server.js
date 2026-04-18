@@ -56,8 +56,7 @@ app.use(cors({
       /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
       /^https:\/\/[\w.-]+\.meechain\.live$/.test(origin) ||
       /^https:\/\/[\w.-]+\.meechain\.xyz$/.test(origin)  ||
-      /^https:\/\/[\w.-]+\.meechain\.run\.place$/.test(origin) ||
-      /^https?:\/\/[\w.-]+\.run\.place$/.test(origin)    ||
+      /^https:\/\/[\w-]+\.meechain\.run\.place$/.test(origin) ||
       /^https:\/\/[\w.-]+\.meebot\.io$/.test(origin)     ||
       /^https:\/\/[\w.-]+\.pages\.dev$/.test(origin)     ||
       /^https:\/\/[\w.-]+\.novita\.ai$/.test(origin)     ||
@@ -1504,8 +1503,8 @@ app.get('/api/stats', (req, res) => {
     blockNumber:    (1248753 + Math.floor(Date.now() / 12000)),
     tvl:            tvl,
     volume24h:      vol,
-    meePrice:       priceCache.price,
-    meePriceChange: priceCache.change24h,
+    meePrice:       priceCache?.price ?? 0.089,
+    meePriceChange: priceCache?.change24h ?? -1.88,
     totalProposals: daoProposals.length,
     activeProposals: daoProposals.filter(p => p.status === 'active').length,
     contracts:      CONTRACTS,
