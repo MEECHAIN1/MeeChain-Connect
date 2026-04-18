@@ -100,7 +100,7 @@ function handleMockRpc(body) {
         miner:            '0x' + 'f'.repeat(40),
         difficulty:       '0x1',
         totalDifficulty:  '0x1',
-        extraData:        '0x4d656543686169n',
+        extraData:        '0x4d6565436861696e',
         size:             '0x1000',
         gasLimit:         '0x1c9c380',
         gasUsed:          '0x5208',
