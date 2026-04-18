@@ -155,10 +155,7 @@ function handleMockRpc(body) {
 
     // ── Transaction ───────────────────────────────────────────
     case 'eth_sendRawTransaction':
-      // Return a fake tx hash — in real deploy this would go to chain
-      return ok('0x' + Array.from({ length: 64 }, () =>
-        '0123456789abcdef'[Math.floor(Math.random() * 16)]
-      ).join(''));
+      return err(-32000, 'Upstream unavailable: cannot perform mutating RPC in offline mode');
 
     case 'eth_getTransactionByHash':
       return ok(null);
