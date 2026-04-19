@@ -54,10 +54,17 @@ app.use(cors({
     if (
       allowedOrigins.includes(origin) ||
       /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
-      /^https:\/\/[\w-]+\.meechain\.live$/.test(origin) ||
-      /^https:\/\/[\w-]+\.meechain\.xyz$/.test(origin)  ||
-      /^https:\/\/[\w-]+\.meebot\.io$/.test(origin)     ||
-      /^https:\/\/[\w-]+\.pages\.dev$/.test(origin)
+      /^https:\/\/[\w.-]+\.meechain\.live$/.test(origin) ||
+      /^https:\/\/[\w.-]+\.meechain\.xyz$/.test(origin)  ||
+      /^https:\/\/[\w.-]+\.meechain\.run\.place$/.test(origin) ||
+      /^https?:\/\/[\w.-]+\.run\.place$/.test(origin)    ||
+      /^https:\/\/[\w.-]+\.meebot\.io$/.test(origin)     ||
+      /^https:\/\/[\w.-]+\.pages\.dev$/.test(origin)     ||
+      /^https:\/\/[\w.-]+\.novita\.ai$/.test(origin)     ||
+      /^https:\/\/[\w.-]+\.e2b\.dev$/.test(origin)       ||
+      /^https:\/\/[\w.-]+\.replit\.dev$/.test(origin)    ||
+      /^https:\/\/[\w.-]+\.replit\.app$/.test(origin)    ||
+      /^https:\/\/[\w.-]+\.sandbox\.novita\.ai$/.test(origin)
     ) return cb(null, true);
     return cb(new Error('CORS blocked'));
   },
@@ -1459,6 +1466,51 @@ app.get('/api/dao/stats', (req, res) => {
       quorum: '100,000 MEE',
       votingPeriod: '7 days',
     },
+  });
+});
+
+// GET /api/dao/config — DAO contract configuration
+app.get('/api/dao/config', (req, res) => {
+  res.json({
+    contractAddress: CONTRACTS.staking,
+    daoContractAddress: '0x0165878A594ca255338adfa4d48449f69242Eb8F',
+    chainId: RPC_CONFIG.chainId,
+    quorum: 100000,
+    minVotes: 50000,
+    votingPeriodDays: 7,
+    proposalDelay: '24h',
+    votingToken: CONTRACTS.token,
+    votingPower: 'MEE token balance',
+  });
+});
+
+// GET /api/stats — overall platform stats (alias for analytics overview)
+app.get('/api/stats', (req, res) => {
+  // Use lazy accessor to avoid reference before declaration
+  let tvl = 45000000;
+  let vol = 1200000;
+  try {
+    // analytics is declared later in this file; safe to eval at request time
+    // eslint-disable-next-line no-undef
+    if (typeof analytics !== 'undefined' && analytics.tvlHistory) {
+      tvl = analytics.tvlHistory.at(-1)?.tvl || tvl;
+    }
+    if (typeof analytics !== 'undefined' && analytics.volumeHistory) {
+      vol = analytics.volumeHistory.at(-1)?.volume || vol;
+    }
+  } catch (_) {}
+  res.json({
+    chainId:        RPC_CONFIG.chainId,
+    blockNumber:    (1248753 + Math.floor(Date.now() / 12000)),
+    tvl:            tvl,
+    volume24h:      vol,
+    meePrice:       priceCache.price,
+    meePriceChange: priceCache.change24h,
+    totalProposals: daoProposals.length,
+    activeProposals: daoProposals.filter(p => p.status === 'active').length,
+    contracts:      CONTRACTS,
+    web3Status:     web3.connected ? 'connected' : 'mock',
+    uptime:         process.uptime(),
   });
 });
 
