@@ -27,6 +27,9 @@
     .nav-links{display:flex;gap:8px;flex-wrap:wrap}
     .nav-link{background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px;text-decoration:none;transition:.2s}
     .nav-link:hover,.nav-link.active{border-color:var(--purple);color:var(--text);background:rgba(124,58,237,.1)}
+    .wallet-btn{background:var(--purple);color:#fff;border:none;border-radius:8px;padding:7px 16px;cursor:pointer;font-size:13px;font-weight:600;transition:.2s}
+    .wallet-btn:hover{opacity:.85}
+    .wallet-btn.connected{background:#10B981}
 
     /* Hero */
     .hero{background:linear-gradient(135deg,#0f0a25 0%,#0a1830 60%,#0D1525 100%);padding:40px 24px 28px;text-align:center}
@@ -129,6 +132,7 @@
   <div style="display:flex;align-items:center;gap:10px">
     <span id="last-updated">กำลังโหลด...</span>
     <button class="refresh-btn" onclick="loadAll()">🔄 รีเฟรช</button>
+    <button class="wallet-btn" id="wallet-btn" onclick="window.connectWallet ? window.connectWallet() : alert('กรุณาติดตั้ง MetaMask')">👛 เชื่อมต่อ Wallet</button>
   </div>
 </nav>
 
@@ -613,6 +617,9 @@ async function loadAll() {
 loadAll();
 setInterval(loadAll, 30_000);
 </script>
+  <!-- Ethers.js + Wallet Integration -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+  <script src="src/js/wallet.js"></script>
   <!-- Shared Components -->
   <script src="src/js/chat-widget.js"></script>
   <script src="src/js/i18n.js"></script>
