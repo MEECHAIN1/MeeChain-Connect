@@ -505,12 +505,24 @@ app.get('/api/health', (req, res) => {
 app.get('/api/network', (req, res) => {
   const appDomain = process.env.APP_DOMAIN || 'app.meechain.live';
   const rpcDomain = process.env.RPC_DOMAIN || 'rpc.meechain.live';
+
+  // Build the local proxy RPC URL so MetaMask can use it as primary RPC
+  // This ensures MetaMask connects through THIS server's /rpc proxy (always reachable)
+  // even when external rpc.meechain.live is offline.
+  const origin = req.headers.origin || req.headers.referer?.replace(/\/$/, '') || '';
+  const localRpcUrls = [];
+  if (origin && (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('.novita.ai') || origin.includes('.meechain.live') || origin.includes('.meechain.xyz'))) {
+    localRpcUrls.push(`${origin}/rpc`);
+  }
+
   res.json({
     chainId:          `0x${RPC_CONFIG.chainId.toString(16)}`,   // 0x344e = 13390
     chainIdDecimal:   RPC_CONFIG.chainId,
     chainName:        'MeeChain Ritual Chain',
-    rpcUrls:          [
-      `https://${rpcDomain}`,           // primary: rpc.meechain.live
+    rpcUrls: [
+      ...localRpcUrls,                    // local proxy first (always online)
+      `https://${rpcDomain}`,             // primary: rpc.meechain.live
+      'https://rpc.meechain.run.place',   // fallback
     ],
     nativeCurrency:   { name: 'MEE Token', symbol: 'MEE', decimals: 18 },
     blockExplorerUrls: [
