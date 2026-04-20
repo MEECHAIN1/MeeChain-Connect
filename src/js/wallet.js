@@ -216,9 +216,10 @@ async function ensureMeeChainNetwork() {
         const networkConfig = {
           ...MEECHAIN_NETWORK,
           rpcUrls: [
-            `${location.origin}/rpc`,         // always-online local proxy
-            'https://rpc.meechain.live',
-            'https://rpc.meechain.run.place',
+            ...new Set([
+              `${location.origin}/rpc`,       // always-online local proxy
+              ...MEECHAIN_NETWORK.rpcUrls,
+            ]),
           ],
         };
         await window.ethereum.request({
