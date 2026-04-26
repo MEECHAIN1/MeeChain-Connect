@@ -9,13 +9,22 @@
  */
 
 // ── Chain & Contract Config ──────────────────────────────────────────
+// Primary RPC: rpc.meechain.live (Cloudflare proxied)
+// Fallback RPC: rpc.meechain.run.place
+// Note: RUNTIME_RPC_URL kept as same-origin proxy for internal requests only
 const RUNTIME_RPC_URL = `${location.origin}/rpc`;
 const MEECHAIN_NETWORK = {
   chainId:        '0x344e',   // 13390 decimal
   chainName:      'MeeChain Ritual Chain',
-  rpcUrls:        [RUNTIME_RPC_URL],
+  // Local proxy is FIRST — always reachable regardless of external RPC status
+  // MetaMask will use the first working URL in this list
+  rpcUrls:        [
+    `${location.origin}/rpc`,          // same-origin proxy (always online)
+    'https://rpc.meechain.live',       // primary external
+    'https://rpc.meechain.run.place',  // fallback external
+  ],
   nativeCurrency: { name: 'MEE Token', symbol: 'MEE', decimals: 18 },
-  blockExplorerUrls: ['http://explorer.meechain.run.place', 'https://app.meechain.live/explorer'],
+  blockExplorerUrls: ['https://app.meechain.live/explorer.html', 'https://explorer.meechain.run.place'],
 };
 
 // Minimal ERC-20 ABI for transfer + balanceOf
@@ -28,10 +37,10 @@ const MEE_TOKEN_ABI = [
   'event Transfer(address indexed from, address indexed to, uint256 value)',
 ];
 
-// Will be populated from /api/network or fallback
-let TOKEN_ADDRESS   = '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9';
-let NFT_ADDRESS     = '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707';
-let PORTAL_ADDRESS  = '0xa513E6E4b8f2a923D98304ec87F64353C4D5C853';
+// Will be populated from /api/network on init; these are MeeChain Ritual Chain mainnet addresses
+let TOKEN_ADDRESS   = '0x5FbDB2315678afecb367f032d93F642f64180aa3'; // MEE Token
+let NFT_ADDRESS     = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512'; // MeeBotNFT
+let PORTAL_ADDRESS  = '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0'; // NeonovaPortal (staking)
 
 // ── Wallet State ─────────────────────────────────────────────────────
 window.WalletState = {
@@ -115,15 +124,21 @@ async function loadContractAddresses() {
   try {
     const resp = await fetch('/api/network');
     const data = await resp.json();
-    if (Array.isArray(data.rpcUrls) && data.rpcUrls[0]) {
-      MEECHAIN_NETWORK.rpcUrls = data.rpcUrls;
+    if (Array.isArray(data.rpcUrls) && data.rpcUrls.length > 0) {
+      // Always keep local proxy as first option — server already prepends it
+      // but ensure it's present in case server didn't add it
+      const localProxy = `${location.origin}/rpc`;
+      const merged = [localProxy, ...data.rpcUrls.filter(u => u !== localProxy)];
+      MEECHAIN_NETWORK.rpcUrls = merged;
     }
     if (data.contracts) {
       TOKEN_ADDRESS  = data.contracts.token   || TOKEN_ADDRESS;
       NFT_ADDRESS    = data.contracts.nft     || NFT_ADDRESS;
       PORTAL_ADDRESS = data.contracts.portal  || data.contracts.staking || PORTAL_ADDRESS;
     }
-  } catch (_) {}
+  } catch (_) {
+    // Keep defaults including local proxy
+  }
 }
 
 // ── Connect MetaMask ─────────────────────────────────────────────────
@@ -184,31 +199,56 @@ async function connectMetaMask() {
 
 // ── Ensure MeeChain network is added/active ──────────────────────────
 async function ensureMeeChainNetwork() {
+  const targetChainId = MEECHAIN_NETWORK.chainId; // '0x344e'
   try {
+    // Try switch first
     await window.ethereum.request({
       method: 'wallet_switchEthereumChain',
-      params: [{ chainId: MEECHAIN_NETWORK.chainId }],
+      params: [{ chainId: targetChainId }],
     });
   } catch (switchErr) {
-    // 4902: chain missing, -32603: wallet internal error, 4200: method not supported in some wallets
-    if (switchErr.code === 4902 || switchErr.code === -32603 || switchErr.code === 4200) {
-      console.info(`[Wallet] switchChain fallback triggered (code=${switchErr.code}) -> wallet_addEthereumChain`);
+    const code = switchErr.code;
+    // 4902 = chain not in MetaMask, -32603 = internal MetaMask error (also means not added)
+    // 4200 = unsupported method (some mobile wallets) — try addEthereumChain anyway
+    if (code === 4902 || code === -32603 || code === 4200) {
+      console.info(`[Wallet] switchChain fallback triggered (code=${code}) -> wallet_addEthereumChain`);
       try {
+        // Build network config with local proxy as first RPC so MetaMask can reach it
+        const networkConfig = {
+          ...MEECHAIN_NETWORK,
+          rpcUrls: [
+            ...new Set([
+              `${location.origin}/rpc`,       // always-online local proxy
+              ...MEECHAIN_NETWORK.rpcUrls,
+            ]),
+          ],
+        };
         await window.ethereum.request({
           method: 'wallet_addEthereumChain',
-          params: [MEECHAIN_NETWORK],
+          params: [networkConfig],
         });
         walletToast('✅ เพิ่ม MeeChain Ritual Chain ใน MetaMask แล้ว', 'success');
       } catch (addErr) {
         console.warn('[Wallet] Could not add chain:', addErr.message);
-        if (switchErr.code === 4200) {
+        // Still continue — user might already be on correct chain
+        // Check if current chain matches
+        try {
+          const currentChain = await window.ethereum.request({ method: 'eth_chainId' });
+          if (currentChain.toLowerCase() === targetChainId.toLowerCase()) {
+            return; // Already on the right chain
+          }
+        } catch (_) {}
+        // Non-blocking warning for code 4200 (unsupported method)
+        if (code === 4200) {
           console.warn('[Wallet] wallet_switchEthereumChain is not supported by this wallet (code 4200)');
           walletToast('MetaMask/Wallet นี้ไม่รองรับการ switch chain อัตโนมัติ กรุณาเพิ่มเครือข่ายด้วยตนเองจาก Network settings', 'warning');
+        } else {
+          walletToast('⚠️ กรุณาเปลี่ยน network เป็น MeeChain Ritual Chain ใน MetaMask', 'warning');
         }
       }
-    } else {
-      console.error('[Wallet] wallet_switchEthereumChain failed without fallback path', switchErr);
-      throw switchErr;
+    } else if (code !== 4001) {
+      // 4001 = user rejected — don't show warning
+      console.warn('[Wallet] switchEthereumChain error:', switchErr.message);
     }
   }
 }
@@ -655,23 +695,52 @@ function updateWalletPageUI() {
 }
 
 function updateWalletUI() {
-  const btn = document.getElementById('connect-wallet-btn');
+  const btn  = document.getElementById('connect-wallet-btn');
   const text = document.getElementById('wallet-btn-text');
-  const { connected, address, balanceMEE, isDemo } = window.WalletState;
+  const { connected, address, balanceMEE, isDemo, chainId } = window.WalletState;
 
+  const short = address ? walletShortHash(address, 6, 4) : '';
+  const bal   = parseFloat(balanceMEE || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
+  const icon  = isDemo ? '🤖' : (chainId === 13390 ? '🦊✅' : '🦊');
+
+  // ── index.html: #connect-wallet-btn ──────────────────────────────
   if (connected && address) {
-    const shortAddr = walletShortHash(address, 6, 4);
-    const bal = parseFloat(balanceMEE).toLocaleString('th-TH', { maximumFractionDigits: 2 });
-    if (text) text.textContent = `${isDemo ? '🤖' : '🦊'} ${shortAddr} (${bal} MEE)`;
-    if (btn) btn.style.cssText = 'background:linear-gradient(135deg,#10B981,#059669);color:#fff;';
+    if (text) text.textContent = `${icon} ${short} (${bal} MEE)`;
+    if (btn)  btn.style.cssText = 'background:linear-gradient(135deg,#10B981,#059669);color:#fff;';
     updateWalletPageUI();
     window.dispatchEvent(new CustomEvent('walletConnected', { detail: window.WalletState }));
   } else {
     if (text) text.textContent = 'เชื่อมต่อกระเป๋า';
-    if (btn) btn.style.cssText = '';
+    if (btn)  btn.style.cssText = '';
     clearWalletPageUI();
     updateWalletHubPanel();
   }
+
+  // ── dao.html / nft-market.html / analytics.html / explorer.html ──
+  // These pages use id="wallet-btn" in the nav bar
+  const navBtn = document.getElementById('wallet-btn');
+  if (navBtn) {
+    if (connected && address) {
+      navBtn.innerHTML = `${icon} ${short}`;
+      navBtn.classList.add('connected');
+      navBtn.style.background = isDemo ? '#F97316' : '#10B981';
+    } else {
+      navBtn.innerHTML = '👛 <span data-i18n="wallet.connect">เชื่อมต่อ Wallet</span>';
+      navBtn.classList.remove('connected');
+      navBtn.style.background = '';
+    }
+  }
+
+  // ── nft-market.html: #my-connect-btn ─────────────────────────────
+  const myBtn = document.getElementById('my-connect-btn');
+  if (myBtn) {
+    myBtn.textContent = connected && address ? `${icon} ${short}` : '🔌 เชื่อมต่อ Wallet';
+  }
+
+  // ── Emit update event for other modules ──────────────────────────
+  window.dispatchEvent(new CustomEvent('walletUIUpdated', {
+    detail: { connected, address, chainId, isDemo, balanceMEE }
+  }));
 }
 
 function disconnectWallet() {
