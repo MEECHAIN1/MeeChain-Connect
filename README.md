@@ -1,5 +1,7 @@
 # MeeChain Dashboard
 
+[![🚀 Deploy MeeChain to Cloudflare Pages (meechain)](https://github.com/MEECHAIN1/MeeChain-Connect/actions/workflows/deploy.yml/badge.svg)](https://github.com/MEECHAIN1/MeeChain-Connect/actions/workflows/deploy.yml)
+
 แดชบอร์ด Web Application สำหรับ MeeChain Blockchain Platform
 
 ## Prerequisites
