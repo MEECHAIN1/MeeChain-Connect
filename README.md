@@ -5,6 +5,8 @@
 แดชบอร์ด Web Application สำหรับ MeeChain Blockchain Platform
 
 ## Prerequisites
+ - Modern web browser (Chrome, Firefox, Safari, Edge)
+ - Local web server (e.g., `python3 -m http.server` or `npx serve`)
 - Modern web browser (Chrome, Firefox, Safari, Edge)
 - Local web server (เช่น `python3 -m http.server` หรือ `npx serve`)
 - Local web server (e.g., `python3 -m http.server` or `npx serve`)
