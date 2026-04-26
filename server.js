@@ -1214,9 +1214,7 @@ app.get('/api/token/price', (req, res) => {
 });
 
 // GET /api/token/history — price history for chart (48 candles × 30 min)
-app.get('/api/token/history', (req, res) => {
-  const points = parseInt(req.query.points) || 48;
-  const interval = parseInt(req.query.interval) || 1800_000; // 30 min default
+function buildTokenHistory(points = 48, interval = 1800_000) {
   const base  = priceCache.price;
   const now   = Date.now();
   const hist  = [];
@@ -1228,7 +1226,13 @@ app.get('/api/token/history', (req, res) => {
       vol:   Math.floor(10000 + Math.random() * 50000),
     });
   }
-  res.json({ symbol: 'MEE', currency: 'USDT', interval, data: hist });
+  return { symbol: 'MEE', currency: 'USDT', interval, data: hist };
+}
+
+app.get('/api/token/history', (req, res) => {
+  const points = parseInt(req.query.points) || 48;
+  const interval = parseInt(req.query.interval) || 1800_000; // 30 min default
+  res.json(buildTokenHistory(points, interval));
 });
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1565,13 +1569,12 @@ const analytics = {
   counters: { mints: 8432, stakes: 3214, unstakes: 1120, swaps: 5640, bridges: 892 },
 };
 
-// GET /api/analytics/overview — main KPIs
-app.get('/api/analytics/overview', (req, res) => {
+function buildAnalyticsOverview() {
   const tvl     = analytics.tvlHistory.at(-1).tvl;
   const tvlPrev = analytics.tvlHistory.at(-2).tvl;
   const vol24h  = analytics.volumeHistory.at(-1).volume;
   const volPrev = analytics.volumeHistory.at(-2).volume;
-  res.json({
+  return {
     tvl:               { value: tvl,   change: (((tvl - tvlPrev) / tvlPrev) * 100).toFixed(2) + '%' },
     volume24h:         { value: vol24h, change: (((vol24h - volPrev) / volPrev) * 100).toFixed(2) + '%' },
     activeUsers24h:    { value: analytics.hourlyUsers.reduce((s,h) => s + h.users, 0), change: '+5.3%' },
@@ -1583,43 +1586,37 @@ app.get('/api/analytics/overview', (req, res) => {
     meePrice:          { value: priceCache.price, change: priceCache.change24h + '%' },
     marketCap:         { value: (priceCache.price * 100_000_000).toFixed(0), change: priceCache.change24h + '%' },
     timestamp: Date.now(),
-  });
-});
+  };
+}
 
-// GET /api/analytics/tvl — TVL history
-app.get('/api/analytics/tvl', (req, res) => {
-  const days = parseInt(req.query.days) || 30;
-  res.json({
+function buildAnalyticsTvl(days = 30) {
+  return {
     data:     analytics.tvlHistory.slice(-days),
     current:  analytics.tvlHistory.at(-1).tvl,
     currency: 'MEE',
-  });
-});
+  };
+}
 
-// GET /api/analytics/volume — trading volume history
-app.get('/api/analytics/volume', (req, res) => {
-  const days = parseInt(req.query.days) || 30;
-  res.json({
+function buildAnalyticsVolume(days = 30) {
+  return {
     data:    analytics.volumeHistory.slice(-days),
     total:   analytics.volumeHistory.reduce((s, d) => s + d.volume, 0),
     avg24h:  analytics.volumeHistory.at(-1).volume,
-  });
-});
+  };
+}
 
-// GET /api/analytics/users — active users
-app.get('/api/analytics/users', (req, res) => {
-  res.json({
+function buildAnalyticsUsers() {
+  return {
     hourly:       analytics.hourlyUsers,
     daily:        25_614,
     weekly:       58_320,
     monthly:      142_800,
     retention:    '34.2%',
     avgSession:   '8m 42s',
-  });
-});
+  };
+}
 
-// GET /api/analytics/transactions — tx breakdown
-app.get('/api/analytics/transactions', (req, res) => {
+function buildAnalyticsTransactions() {
   const types = ['Transfer', 'NFT Mint', 'Stake', 'Unstake', 'Swap', 'Bridge', 'Claim'];
   const counts = types.map(t => ({
     type: t,
@@ -1628,12 +1625,11 @@ app.get('/api/analytics/transactions', (req, res) => {
   }));
   const total = counts.reduce((s, c) => s + c.count, 0);
   counts.forEach(c => { c.pct = ((c.count / total) * 100).toFixed(1); });
-  res.json({ types: counts, total, period: '24h' });
-});
+  return { types: counts, total, period: '24h' };
+}
 
-// GET /api/analytics/gas — gas price & usage
-app.get('/api/analytics/gas', (req, res) => {
-  res.json({
+function buildAnalyticsGas() {
+  return {
     gasPrice:   { current: '0.0001', unit: 'MEE', trend: 'stable' },
     avgGasUsed: 21000 + Math.floor(Math.random() * 80000),
     totalGasBurned: (4821.5 + Math.random()).toFixed(2),
@@ -1641,12 +1637,10 @@ app.get('/api/analytics/gas', (req, res) => {
       hour: new Date(Date.now() - (23-i) * 3600000).toISOString().slice(0,13),
       gasPrice: (0.00008 + Math.random() * 0.00004).toFixed(6),
     })),
-  });
-});
+  };
+}
 
-// GET /api/analytics/leaderboard — top holders & stakers
-app.get('/api/analytics/leaderboard', (req, res) => {
-  const type = req.query.type || 'holders'; // holders | stakers | nft
+function buildAnalyticsLeaderboard(type = 'holders') {
   const make = (n) => Array.from({ length: 10 }, (_, i) => ({
     rank:    i + 1,
     address: '0x' + randomHex(40),
@@ -1658,14 +1652,13 @@ app.get('/api/analytics/leaderboard', (req, res) => {
     stakers: make(2_000_000),
     nft:     make(500),
   };
-  res.json({ type, leaderboard: data[type] || data.holders, updatedAt: Date.now() });
-});
+  return { type, leaderboard: data[type] || data.holders, updatedAt: Date.now() };
+}
 
-// GET /api/analytics/events — activity feed (last N events)
-app.get('/api/analytics/events', (req, res) => {
-  const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+function buildAnalyticsEvents(limit = 20) {
+  const safeLimit = Math.min(parseInt(limit) || 20, 50);
   const types = ['Transfer', 'NFT Mint', 'Stake', 'Unstake', 'Swap', 'DAO Vote', 'Reward Claim'];
-  const events = Array.from({ length: limit }, (_, i) => ({
+  const events = Array.from({ length: safeLimit }, (_, i) => ({
     id:        randomHex(16),
     type:      types[Math.floor(Math.random() * types.length)],
     from:      '0x' + randomHex(40),
@@ -1675,7 +1668,72 @@ app.get('/api/analytics/events', (req, res) => {
     blockNum:  1_248_753 + Math.floor(Math.random() * 100) - i,
     timestamp: Date.now() - i * Math.round(5000 + Math.random() * 30000),
   }));
-  res.json({ events, total: 485231, limit });
+  return { events, total: 485231, limit: safeLimit };
+}
+
+// GET /api/analytics/overview — main KPIs
+app.get('/api/analytics/overview', (req, res) => {
+  res.json(buildAnalyticsOverview());
+});
+
+// GET /api/analytics/tvl — TVL history
+app.get('/api/analytics/tvl', (req, res) => {
+  const days = parseInt(req.query.days) || 30;
+  res.json(buildAnalyticsTvl(days));
+});
+
+// GET /api/analytics/volume — trading volume history
+app.get('/api/analytics/volume', (req, res) => {
+  const days = parseInt(req.query.days) || 30;
+  res.json(buildAnalyticsVolume(days));
+});
+
+// GET /api/analytics/users — active users
+app.get('/api/analytics/users', (req, res) => {
+  res.json(buildAnalyticsUsers());
+});
+
+// GET /api/analytics/transactions — tx breakdown
+app.get('/api/analytics/transactions', (req, res) => {
+  res.json(buildAnalyticsTransactions());
+});
+
+// GET /api/analytics/gas — gas price & usage
+app.get('/api/analytics/gas', (req, res) => {
+  res.json(buildAnalyticsGas());
+});
+
+// GET /api/analytics/leaderboard — top holders & stakers
+app.get('/api/analytics/leaderboard', (req, res) => {
+  const type = req.query.type || 'holders'; // holders | stakers | nft
+  res.json(buildAnalyticsLeaderboard(type));
+});
+
+// GET /api/analytics/events — activity feed (last N events)
+app.get('/api/analytics/events', (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+  res.json(buildAnalyticsEvents(limit));
+});
+
+// GET /api/analytics/snapshot — consolidated payload to minimize frontend API calls
+app.get('/api/analytics/snapshot', (req, res) => {
+  const tvlDays = parseInt(req.query.tvlDays) || 7;
+  const volDays = parseInt(req.query.volDays) || 7;
+  const points = parseInt(req.query.points) || 48;
+  const leaderboardType = req.query.leaderboardType || 'holders';
+  const eventLimit = parseInt(req.query.eventLimit) || 20;
+  res.json({
+    timestamp: Date.now(),
+    overview: buildAnalyticsOverview(),
+    tvl: buildAnalyticsTvl(tvlDays),
+    volume: buildAnalyticsVolume(volDays),
+    price: buildTokenHistory(points),
+    users: buildAnalyticsUsers(),
+    transactions: buildAnalyticsTransactions(),
+    gas: buildAnalyticsGas(),
+    leaderboard: buildAnalyticsLeaderboard(leaderboardType),
+    events: buildAnalyticsEvents(eventLimit),
+  });
 });
 
 // ── Start Server ──────────────────────────────────────────────────

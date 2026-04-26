@@ -93,8 +93,8 @@ cloudflared tunnel create meechain-rpc
 
 # 4. สร้าง config
 cat > config.yml << 'EOF'
-tunnel: <TUNNEL_ID>
-credentials-file: ~/.cloudflared/<TUNNEL_ID>.json
+tunnel: 66b8d43c-39f8-4ee1-97db-13cb718825cd
+credentials-file: ~/.cloudflared/66b8d43c-39f8-4ee1-97db-13cb718825cd.json
 ingress:
   - hostname: rpc.meechain.live
     service: http://localhost:8080
@@ -104,11 +104,15 @@ ingress:
 EOF
 
 # 5. Route DNS
-cloudflared tunnel route dns meechain-rpc rpc.meechain.live
+cloudflared tunnel route dns 66b8d43c-39f8-4ee1-97db-13cb718825cd rpc.meechain.live
+cloudflared tunnel route dns 66b8d43c-39f8-4ee1-97db-13cb718825cd app.meechain.live
 
 # 6. Run tunnel
-cloudflared tunnel run meechain-rpc
+cloudflared tunnel run 66b8d43c-39f8-4ee1-97db-13cb718825cd
 ```
+
+> หมายเหตุ: ในหน้า **Connector diagnostics** ค่า `Connector ID` จะต่างจาก `Tunnel ID` ซึ่งเป็นเรื่องปกติ
+> (เช่น Connector ID ในรูปคือ `12b8991d-08ca-4050-8318-d1bac7dad5e2` แต่ Tunnel ID ที่ใช้งานคือ `66b8d43c-39f8-4ee1-97db-13cb718825cd`).
 
 ---
 
