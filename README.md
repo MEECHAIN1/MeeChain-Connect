@@ -40,3 +40,12 @@ Open your browser and navigate to `http://localhost:8000`
 - Modern web browser (Chrome, Firefox, Safari, Edge)
 - Local web server (e.g., `python3 -m http.server` or `npx serve`)
 
+
+## CPAN Ritual Onboarding (Termux)
+สำหรับ contributor ที่ต้องการยืนยันว่า CPAN พร้อมใช้งานใน Termux สามารถใช้สคริปต์นี้ได้:
+
+```bash
+./scripts/test_cpan.sh
+```
+
+หากแสดงข้อความ `🎉 CPAN พร้อมใช้งานแล้ว → Badge Claimed!` ถือว่าผ่าน milestone.
