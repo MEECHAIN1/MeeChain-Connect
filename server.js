@@ -84,6 +84,11 @@ const RPC_CONFIG = {
   // Fallback: original Ritual Chain endpoint
   fallbackUrl:    process.env.VITE_RPC_URL           || 'https://rpc.meechain.live',
   chainId:        parseInt(process.env.CHAIN_ID)     || 13390,
+  rpcMode:        process.env.RPC_MODE               || 'auto', // auto | upstream-only | mock-only
+  requestTimeoutMs: Math.max(parseInt(process.env.RPC_TIMEOUT_MS || '3000', 10), 500),
+  breakerCooldownMs: Math.max(parseInt(process.env.RPC_BREAKER_COOLDOWN_MS || '60000', 10), 5000),
+  breakerFailureThreshold: Math.max(parseInt(process.env.RPC_BREAKER_FAILURE_THRESHOLD || '2', 10), 1),
+  allowMockFallback: (process.env.RPC_ALLOW_MOCK_FALLBACK || 'true').toLowerCase() !== 'false',
 };
 
 // ── Contract Addresses ───────────────────────────────────────────
@@ -202,21 +207,47 @@ async function fetchNodeCloudStats() {
   });
 }
 
-// ── Health Check (root level — for rpc.meechain.live/health & app.meechain.live/health) ──
-app.get('/health', (req, res) => {
+// ── Health Check (root level + RPC preflight) ──
+function buildHealthPayload(req, serviceOverride) {
   const host = req.hostname || '';
-  const isRpcHost = host.includes('rpc.');
-  res.json({
+  const isRpcHost = host.includes('rpc.') || req.path.startsWith('/rpc');
+  const upstreams = [RPC_CONFIG.drpcUrl, RPC_CONFIG.fallbackUrl]
+    .filter(Boolean)
+    .map((url) => {
+      const h = _rpcHealth[url] || {};
+      return {
+        url,
+        dead: !!h.dead,
+        consecutiveFails: h.consecutiveFails || 0,
+      };
+    });
+
+  return {
     status:   'ok',
-    service:  isRpcHost ? 'MeeChain RPC Gateway' : 'MeeChain App Server',
-    host:     host,
+    service:  serviceOverride || (isRpcHost ? 'MeeChain RPC Gateway' : 'MeeChain App Server'),
+    host,
     chainId:  RPC_CONFIG.chainId,
     rpc:      RPC_CONFIG.drpcUrl,
     web3:     web3.connected,
+    mode:     RPC_CONFIG.rpcMode,
+    rpcState: {
+      allowMockFallback: RPC_CONFIG.allowMockFallback,
+      breakerFailureThreshold: RPC_CONFIG.breakerFailureThreshold,
+      breakerCooldownMs: RPC_CONFIG.breakerCooldownMs,
+      upstreams,
+    },
     uptime:   Math.floor(process.uptime()),
-    version:  '2.0.0',
+    version:  '2.1.1',
     ts:       new Date().toISOString(),
-  });
+  };
+}
+
+app.get('/health', (req, res) => {
+  res.json(buildHealthPayload(req));
+});
+
+app.get('/rpc/health', (req, res) => {
+  res.json(buildHealthPayload(req, 'MeeChain RPC Gateway'));
 });
 
 // ── Mock RPC handler (when upstream chain is not reachable) ──────
@@ -268,18 +299,96 @@ function _handleMockRpc(body) {
 
 // ── RPC upstream health tracker (circuit breaker) ────────────────
 // If an upstream fails, mark it as dead for 60 s before retrying
-const _rpcHealth = {};  // { url: { dead: bool, until: timestamp } }
+const _rpcHealth = {};  // { url: { dead, until, consecutiveFails, lastFailure, lastSuccess } }
 function _isRpcDead(url) {
   const h = _rpcHealth[url];
   if (!h || !h.dead) return false;
   if (Date.now() > h.until) { h.dead = false; return false; }
   return true;
 }
-function _markRpcDead(url) {
-  _rpcHealth[url] = { dead: true, until: Date.now() + 60_000 };
+function _markRpcFailure(url) {
+  const now = Date.now();
+  const prev = _rpcHealth[url] || {};
+  const consecutiveFails = (prev.consecutiveFails || 0) + 1;
+  const isDead = consecutiveFails >= RPC_CONFIG.breakerFailureThreshold;
+  _rpcHealth[url] = {
+    dead: isDead,
+    until: isDead ? now + RPC_CONFIG.breakerCooldownMs : 0,
+    consecutiveFails,
+    lastFailure: now,
+    lastSuccess: prev.lastSuccess || 0,
+  };
 }
 function _markRpcAlive(url) {
-  _rpcHealth[url] = { dead: false, until: 0 };
+  _rpcHealth[url] = {
+    dead: false,
+    until: 0,
+    consecutiveFails: 0,
+    lastFailure: _rpcHealth[url]?.lastFailure || 0,
+    lastSuccess: Date.now(),
+  };
+}
+function _validateJsonRpcResponse(parsed) {
+  if (Array.isArray(parsed)) {
+    return parsed.every(item => item && item.jsonrpc === '2.0' && (Object.prototype.hasOwnProperty.call(item, 'result') || Object.prototype.hasOwnProperty.call(item, 'error')));
+  }
+  if (!parsed || parsed.jsonrpc !== '2.0') return false;
+  return Object.prototype.hasOwnProperty.call(parsed, 'result') || Object.prototype.hasOwnProperty.call(parsed, 'error');
+}
+function _buildRpcTargets() {
+  if (RPC_CONFIG.rpcMode === 'mock-only') return [];
+  const seen = new Set();
+  return [RPC_CONFIG.drpcUrl, RPC_CONFIG.fallbackUrl]
+    .filter(t => t && !seen.has(t) && seen.add(t))
+    .filter(t => !_isRpcDead(t));
+}
+async function _forwardRpcToUpstream(target, payload) {
+  const url = new URL(target);
+  const isHttps = url.protocol === 'https:';
+  const reqLib = isHttps ? https : http;
+  const postData = JSON.stringify(payload);
+
+  const result = await new Promise((resolve, reject) => {
+    const options = {
+      hostname: url.hostname,
+      port:     url.port || (isHttps ? 443 : 80),
+      path:     url.pathname || '/',
+      method:   'POST',
+      headers:  {
+        'Content-Type':   'application/json',
+        'Content-Length': Buffer.byteLength(postData),
+      },
+      timeout: RPC_CONFIG.requestTimeoutMs,
+      lookup: dnsLookup4,
+    };
+    if (RPC_CONFIG.drpcAccessKey && target === RPC_CONFIG.drpcUrl) {
+      options.headers['Authorization'] = `Bearer ${RPC_CONFIG.drpcAccessKey}`;
+    }
+    const r = reqLib.request(options, (resp) => {
+      let data = '';
+      resp.on('data', d => data += d);
+      resp.on('end', () => {
+        if (resp.statusCode >= 500) {
+          return reject(new Error(`RPC upstream HTTP ${resp.statusCode}`));
+        }
+        try {
+          const parsed = JSON.parse(data);
+          if (!_validateJsonRpcResponse(parsed)) {
+            reject(new Error('Non JSON-RPC response from upstream'));
+          } else {
+            resolve(parsed);
+          }
+        } catch {
+          reject(new Error('Invalid JSON from RPC node'));
+        }
+      });
+    });
+    r.on('error', reject);
+    r.on('timeout', () => { r.destroy(); reject(new Error('RPC timeout')); });
+    r.write(postData);
+    r.end();
+  });
+  return result;
 }
 
 // ── RPC Proxy (JSON-RPC forward) ─────────────────────────────────
@@ -291,87 +400,88 @@ async function handleRpcProxy(req, res) {
     return res.status(400).json({ error: 'Invalid JSON-RPC request' });
   }
 
-  // Handle batch requests (array of JSON-RPC calls)
-  if (Array.isArray(body)) {
-    const results = body.map(b => _handleMockRpc(b));
-    return res.json(results);
+  if (Array.isArray(body) && body.length === 0) {
+    return res.status(400).json({ error: 'Invalid JSON-RPC batch request' });
   }
-
-  if (!body.jsonrpc) {
+  const isBatch = Array.isArray(body);
+  const invalidSingle = !isBatch && !body.jsonrpc;
+  const invalidBatch = isBatch && body.some(item => !item || item.jsonrpc !== '2.0' || !item.method);
+  if (invalidSingle || invalidBatch) {
     return res.status(400).json({ error: 'Invalid JSON-RPC request' });
   }
 
-  // Deduplicate targets (drpcUrl may equal fallbackUrl), skip known-dead endpoints
-  const seen = new Set();
-  const targets = [RPC_CONFIG.drpcUrl, RPC_CONFIG.fallbackUrl]
-    .filter(t => t && !seen.has(t) && seen.add(t))
-    .filter(t => !_isRpcDead(t));
+  // mock-only mode always returns deterministic local mock
+  if (RPC_CONFIG.rpcMode === 'mock-only') {
+    return res.json(isBatch ? body.map(b => _handleMockRpc(b)) : _handleMockRpc(body));
+  }
 
-  // If all upstreams are dead, skip straight to mock (no waiting)
+  const targets = _buildRpcTargets();
+  const payload = body;
+
+  // If all upstreams are dead, skip straight to mock (or fail hard when disabled)
   if (targets.length === 0) {
-    return res.json(_handleMockRpc(body));
+    if (!RPC_CONFIG.allowMockFallback || RPC_CONFIG.rpcMode === 'upstream-only') {
+      return res.status(503).json({
+        jsonrpc: '2.0',
+        id: isBatch ? null : body.id ?? null,
+        error: { code: -32098, message: 'All upstream RPC endpoints are unavailable' },
+      });
+    }
+    return res.json(isBatch ? body.map(b => _handleMockRpc(b)) : _handleMockRpc(body));
   }
 
   let lastError = null;
   for (const target of targets) {
     try {
-      const url = new URL(target);
-      const isHttps = url.protocol === 'https:';
-      const reqLib  = isHttps ? https : http;
-      const postData = JSON.stringify(body);
-
-      const result = await new Promise((resolve, reject) => {
-        const options = {
-          hostname: url.hostname,
-          port:     url.port || (isHttps ? 443 : 80),
-          path:     url.pathname || '/',
-          method:   'POST',
-          headers:  {
-            'Content-Type':   'application/json',
-            'Content-Length': Buffer.byteLength(postData),
-          },
-          timeout: 3000,  // 3 s — fast fallback to mock
-        };
-        if (RPC_CONFIG.drpcAccessKey && target === RPC_CONFIG.drpcUrl) {
-          options.headers['Authorization'] = `Bearer ${RPC_CONFIG.drpcAccessKey}`;
-        }
-        const r = reqLib.request(options, (resp) => {
-          let data = '';
-          resp.on('data', d => data += d);
-          resp.on('end', () => {
-            try {
-              const parsed = JSON.parse(data);
-              // Reject non-JSON-RPC responses (e.g. HTML error pages, XML errors)
-              if (!parsed.jsonrpc && !parsed.result && !parsed.error) {
-                reject(new Error('Non JSON-RPC response from upstream'));
-              } else {
-                resolve(parsed);
-              }
-            } catch { reject(new Error('Invalid JSON from RPC node')); }
-          });
-        });
-        r.on('error', reject);
-        r.on('timeout', () => { r.destroy(); reject(new Error('RPC timeout')); });
-        r.write(postData);
-        r.end();
-      });
-
+      const result = await _forwardRpcToUpstream(target, payload);
       _markRpcAlive(target);
       return res.json(result);
     } catch (err) {
       lastError = err;
-      _markRpcDead(target);
-      console.warn(`[RPC] Upstream ${target} failed: ${err.message} — marked dead 60s`);
+      _markRpcFailure(target);
+      const state = _rpcHealth[target] || {};
+      console.warn(`[RPC] Upstream ${target} failed: ${err.message} — failures=${state.consecutiveFails || 0}, dead=${!!state.dead}`);
     }
   }
 
-  // All upstream failed → use mock RPC (chain simulation)
+  // All upstream failed
+  if (!RPC_CONFIG.allowMockFallback || RPC_CONFIG.rpcMode === 'upstream-only') {
+    return res.status(503).json({
+      jsonrpc: '2.0',
+      id: isBatch ? null : body.id ?? null,
+      error: { code: -32097, message: `RPC upstream unavailable: ${lastError?.message || 'unknown error'}` },
+    });
+  }
   console.log(`[RPC] All upstream failed (${lastError?.message}) — serving mock response`);
-  return res.json(_handleMockRpc(body));
+  return res.json(isBatch ? body.map(b => _handleMockRpc(b)) : _handleMockRpc(body));
 }
 
 app.post('/',    handleRpcProxy);   // rpc.meechain.xyz  POST /
 app.post('/rpc', handleRpcProxy);   // rpc.meechain.xyz  POST /rpc
+
+app.get('/api/rpc/status', (req, res) => {
+  const upstreams = [RPC_CONFIG.drpcUrl, RPC_CONFIG.fallbackUrl]
+    .filter(Boolean)
+    .map((url) => {
+      const h = _rpcHealth[url] || {};
+      return {
+        url,
+        dead: !!h.dead,
+        deadUntil: h.until || 0,
+        consecutiveFails: h.consecutiveFails || 0,
+        lastFailure: h.lastFailure || 0,
+        lastSuccess: h.lastSuccess || 0,
+      };
+    });
+  res.json({
+    mode: RPC_CONFIG.rpcMode,
+    allowMockFallback: RPC_CONFIG.allowMockFallback,
+    timeoutMs: RPC_CONFIG.requestTimeoutMs,
+    breakerCooldownMs: RPC_CONFIG.breakerCooldownMs,
+    breakerFailureThreshold: RPC_CONFIG.breakerFailureThreshold,
+    upstreams,
+  });
+});
 
 // ── API: Health Check ─────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
@@ -391,13 +501,17 @@ app.get('/api/health', (req, res) => {
 app.get('/api/network', (req, res) => {
   const appDomain = process.env.APP_DOMAIN || 'app.meechain.live';
   const rpcDomain = process.env.RPC_DOMAIN || 'rpc.meechain.live';
+  const proto = req.get('x-forwarded-proto') || req.protocol || 'https';
+  const host = req.get('x-forwarded-host') || req.get('host') || rpcDomain;
+  const localProxyRpc = `${proto}://${host}/rpc`;
   res.json({
     chainId:          `0x${RPC_CONFIG.chainId.toString(16)}`,   // 0x344e = 13390
     chainIdDecimal:   RPC_CONFIG.chainId,
     chainName:        'MeeChain Ritual Chain',
     rpcUrls:          [
-      `https://${rpcDomain}`,           // primary: rpc.meechain.live
-      'https://rpc.meechain.run.place', // fallback
+      localProxyRpc,
+      `https://${rpcDomain}`,
+      'https://rpc.meechain.run.place',
     ],
     nativeCurrency:   { name: 'MEE Token', symbol: 'MEE', decimals: 18 },
     blockExplorerUrls: [

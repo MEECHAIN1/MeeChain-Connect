@@ -1,0 +1,7 @@
+tunnel: 60a5d6bd-e959-4def-8ee3-6a6bef780589
+credentials-file: ~/.cloudflared/60a5d6bd-e959-4def-8ee3-6a6bef780589.json
+
+ingress:
+  - hostname: rpc.meechain.live
+    service: http://127.0.0.1:3000
+  - service: http_status:404
