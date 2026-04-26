@@ -352,7 +352,7 @@ async function _forwardRpcToUpstream(target, payload) {
     const options = {
       hostname: url.hostname,
       port:     url.port || (isHttps ? 443 : 80),
-      path:     url.pathname || '/',
+      path:     `${url.pathname || '/'}${url.search || ''}`,
       method:   'POST',
       headers:  {
         'Content-Type':   'application/json',
