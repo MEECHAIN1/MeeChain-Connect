@@ -576,8 +576,11 @@ async function connectMetaMask(options = {}) {
       showConnectionCelebration(address);
     }
 
-    window.ethereum.on('accountsChanged', handleAccountsChanged);
-    window.ethereum.on('chainChanged', () => window.location.reload());
+    if (!window.__meeWalletListenersBound) {
+      window.ethereum.on('accountsChanged', handleAccountsChanged);
+      window.ethereum.on('chainChanged', () => window.location.reload());
+      window.__meeWalletListenersBound = true;
+    }
     return true;
   } catch (err) {
     console.error('[Wallet] MetaMask error:', err);
