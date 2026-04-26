@@ -1,5 +1,5 @@
-tunnel: 60a5d6bd-e959-4def-8ee3-6a6bef780589
-credentials-file: ~/.cloudflared/60a5d6bd-e959-4def-8ee3-6a6bef780589.json
+tunnel: <YOUR_TUNNEL_ID>
+credentials-file: ~/.cloudflared/<YOUR_TUNNEL_ID>.json
 
 ingress:
   - hostname: rpc.meechain.live
