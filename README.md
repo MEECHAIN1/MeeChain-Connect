@@ -5,7 +5,7 @@
 ## Prerequisites
 - Modern web browser (Chrome, Firefox, Safari, Edge)
 - Node.js 18+
-- Local web server (`python3 -m http.server`, `npx serve`) หรือรันผ่าน `node server.js`
+- Run via `node server.js` (a static web server is **not** sufficient — `/api/*` and `/rpc/*` are required)
 
 ## Installation
 ```bash
