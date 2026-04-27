@@ -91,6 +91,11 @@ const RPC_CONFIG = {
   // Fallback: original Ritual Chain endpoint
   fallbackUrl:    process.env.VITE_RPC_URL           || 'https://rpc.meechain.live',
   chainId:        parseInt(process.env.CHAIN_ID)     || 13390,
+  rpcMode:        process.env.RPC_MODE               || 'auto', // auto | upstream-only | mock-only
+  requestTimeoutMs: Math.max(parseInt(process.env.RPC_TIMEOUT_MS || '3000', 10), 500),
+  breakerCooldownMs: Math.max(parseInt(process.env.RPC_BREAKER_COOLDOWN_MS || '60000', 10), 5000),
+  breakerFailureThreshold: Math.max(parseInt(process.env.RPC_BREAKER_FAILURE_THRESHOLD || '2', 10), 1),
+  allowMockFallback: (process.env.RPC_ALLOW_MOCK_FALLBACK || 'true').toLowerCase() !== 'false',
 };
 
 // ── Contract Addresses ───────────────────────────────────────────
@@ -221,21 +226,43 @@ async function fetchNodeCloudStats() {
   });
 }
 
-// ── Health Check (root level — for rpc.meechain.live/health & app.meechain.live/health) ──
-app.get('/health', (req, res) => {
+// ── Health Check (root level + RPC preflight) ──
+function buildHealthPayload(req, serviceOverride) {
   const host = req.hostname || '';
-  const isRpcHost = host.includes('rpc.');
-  res.json({
+  const isRpcHost = host.includes('rpc.') || req.path.startsWith('/rpc');
+  const upstreams = [RPC_CONFIG.drpcUrl, RPC_CONFIG.fallbackUrl]
+    .filter(Boolean)
+    .map((url) => {
+      const h = _rpcHealth[url] || {};
+      return {
+        url,
+        dead: !!h.dead,
+        consecutiveFails: h.consecutiveFails || 0,
+      };
+    });
+
+  return {
     status:   'ok',
-    service:  isRpcHost ? 'MeeChain RPC Gateway' : 'MeeChain App Server',
-    host:     host,
+    service:  serviceOverride || (isRpcHost ? 'MeeChain RPC Gateway' : 'MeeChain App Server'),
+    host,
     chainId:  RPC_CONFIG.chainId,
     rpc:      RPC_CONFIG.drpcUrl,
     web3:     web3.connected,
+    mode:     RPC_CONFIG.rpcMode,
+    rpcState: {
+      allowMockFallback: RPC_CONFIG.allowMockFallback,
+      breakerFailureThreshold: RPC_CONFIG.breakerFailureThreshold,
+      breakerCooldownMs: RPC_CONFIG.breakerCooldownMs,
+      upstreams,
+    },
     uptime:   Math.floor(process.uptime()),
-    version:  '2.0.0',
+    version:  '2.1.1',
     ts:       new Date().toISOString(),
-  });
+  };
+}
+
+app.get('/health', (req, res) => {
+  res.json(buildHealthPayload(req));
 });
 
 // ── Mock RPC handler (when upstream chain is not reachable) ──────
@@ -499,6 +526,30 @@ async function handleRpcProxy(req, res) {
 app.post('/',    handleRpcProxy);   // rpc.meechain.xyz  POST /
 app.post('/rpc', handleRpcProxy);   // rpc.meechain.xyz  POST /rpc
 
+app.get('/api/rpc/status', (req, res) => {
+  const upstreams = [RPC_CONFIG.drpcUrl, RPC_CONFIG.fallbackUrl]
+    .filter(Boolean)
+    .map((url) => {
+      const h = _rpcHealth[url] || {};
+      return {
+        url,
+        dead: !!h.dead,
+        deadUntil: h.until || 0,
+        consecutiveFails: h.consecutiveFails || 0,
+        lastFailure: h.lastFailure || 0,
+        lastSuccess: h.lastSuccess || 0,
+      };
+    });
+  res.json({
+    mode: RPC_CONFIG.rpcMode,
+    allowMockFallback: RPC_CONFIG.allowMockFallback,
+    timeoutMs: RPC_CONFIG.requestTimeoutMs,
+    breakerCooldownMs: RPC_CONFIG.breakerCooldownMs,
+    breakerFailureThreshold: RPC_CONFIG.breakerFailureThreshold,
+    upstreams,
+  });
+});
+
 // ── API: Health Check ─────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
   res.json({
@@ -541,6 +592,7 @@ app.get('/api/network', (req, res) => {
   if (origin && (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('.novita.ai') || origin.includes('.meechain.live') || origin.includes('.meechain.xyz'))) {
     localRpcUrls.push(`${origin}/rpc`);
   }
+
 
   res.json({
     chainId:          `0x${RPC_CONFIG.chainId.toString(16)}`,   // 0x344e = 13390
