@@ -11,13 +11,17 @@
 
 ## Installation
 ```bash
-# Clone the repository
 git clone https://github.com/MEECHAIN1/MeeChain-Connect.git
 cd MeeChain-Connect
+```
 
-# Start local server
+Run one of the following commands to start a local server:
+
+```bash
 python3 -m http.server 8000
-# OR
+```
+
+```bash
 npx serve
 ```
 
