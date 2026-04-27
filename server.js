@@ -124,7 +124,6 @@ web3.connect().then(ok => {
 });
 
 // ── Load OpenAI credentials ──────────────────────────────────────
-// ── Load OpenAI credentials ──────────────────────────────────────
 let apiKey = process.env.OPENAI_API_KEY || '';
 let baseURL = process.env.OPENAI_BASE_URL || '';
 
@@ -504,13 +503,28 @@ app.post('/rpc', handleRpcProxy);   // rpc.meechain.xyz  POST /rpc
 app.get('/api/health', (req, res) => {
   res.json({
     status:    'ok',
-    model:     'gpt-5-mini',
+    model:     'gpt-4o-mini',
     bot:       'MeeBot AI',
     web3:      web3.connected,
     chainId:   RPC_CONFIG.chainId,
     rpc:       RPC_CONFIG.drpcUrl,
     contracts: CONTRACTS,
     uptime:    Math.floor(process.uptime()),
+  });
+});
+
+// api config ------
+app.get('/api/config', (req, res) => {
+  res.json({
+    ok: true,
+    chainId: RPC_CONFIG.chainId,
+    rpcUrl: RPC_CONFIG.drpcUrl,
+    contracts: CONTRACTS,
+    features: {
+      openai: Boolean(openai),
+      web3: Boolean(web3?.connected),
+      nodecloudStats: Boolean(RPC_CONFIG.nodecloudStats),
+    },
   });
 });
 
