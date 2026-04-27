@@ -174,6 +174,15 @@ MeeChain contributors สามารถ deploy Cloudflare Tunnel ได้ส�
 ### 📱 Deploy ผ่าน Termux (Mobile)
 เหมาะกับ: Contributor ที่ต้องการความยืดหยุ่นและ portable environment
 
+
+## CPAN Ritual Onboarding (Termux)
+สำหรับ contributor ที่ต้องการยืนยันว่า CPAN พร้อมใช้งานใน Termux สามารถใช้สคริปต์นี้ได้:
+
+```bash
+./scripts/test_cpan.sh
+```
+
+หากแสดงข้อความ `🎉 CPAN พร้อมใช้งานแล้ว → Badge Claimed!` ถือว่าผ่าน milestone.
 #### Flow
 1. เปิด Termux แล้วติดตั้ง `cloudflared` และ dependencies.
 2. รันคำสั่งตรง ๆ:
