@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="360" viewBox="0 0 980 360" role="img" aria-label="Docker to Podman compose failover demo">
+  <rect width="980" height="360" fill="#0B1020"/>
+  <text x="28" y="38" fill="#A78BFA" font-family="monospace" font-size="22" font-weight="700">Compose Failover Demo: Docker → Podman</text>
+
+  <rect x="28" y="64" width="924" height="260" rx="12" fill="#05070F" stroke="#1F2E47"/>
+
+  <text x="44" y="96" fill="#9CA3AF" font-family="monospace" font-size="16">$ PRIMARY_CONTEXT=default FALLBACK_CONTEXT=podman bash scripts/compose-failover.sh ps</text>
+
+  <text x="44" y="132" fill="#60A5FA" font-family="monospace" font-size="16">🔧 docker --context default compose ps</text>
+  <text x="44" y="156" fill="#F87171" font-family="monospace" font-size="15">Cannot connect to the Docker daemon...</text>
+  <text x="44" y="182" fill="#F59E0B" font-family="monospace" font-size="15">⚠️ Compose failed on docker context 'default'.</text>
+
+  <text x="44" y="214" fill="#34D399" font-family="monospace" font-size="16">🔧 docker --context podman compose ps</text>
+  <text x="44" y="240" fill="#E5E7EB" font-family="monospace" font-size="14">NAME                     STATUS                     PORTS</text>
+  <text x="44" y="262" fill="#E5E7EB" font-family="monospace" font-size="14">meechain-connect-1       Up (healthy)               0.0.0.0:3000-&gt;3000/tcp</text>
+
+  <circle cx="888" cy="254" r="7" fill="#10B981">
+    <animate attributeName="opacity" values="0.3;1;0.3" dur="1.4s" repeatCount="indefinite"/>
+  </circle>
+  <text x="904" y="259" fill="#10B981" font-family="monospace" font-size="13">healthy</text>
+</svg>
