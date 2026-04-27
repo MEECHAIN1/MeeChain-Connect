@@ -13,7 +13,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
-    image: meechain-dashboard:latest
+    image: meechainv02-meechainv2:latest
     container_name: meechain-dashboard
 
     # ── Ports ──────────────────────────────────────────────
@@ -37,8 +37,9 @@ services:
 
     # ── Restart Policy ──────────────────────────────────────
     restart: unless-stopped
-
-    # ── Health Check ────────────────────────────────────────
+  # ── Restart Policy ──────────────────────────────────────
+    restart: unless-stopped
+  # ── Health Check ────────────────────────────────────────
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
       interval: 30s
@@ -46,7 +47,7 @@ services:
       retries: 3
       start_period: 15s
 
-    # ── Resource Limits (optional — comment out if not needed)
+ # ── Resource Limits (optional — comment out if not needed)
     deploy:
       resources:
         limits:
@@ -54,5 +55,4 @@ services:
           cpus: "1.0"
 
 volumes:
-  meechain_logs:
-    driver: local
+  meechain:logs

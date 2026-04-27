@@ -124,17 +124,30 @@ web3.connect().then(ok => {
 });
 
 // ── Load OpenAI credentials ──────────────────────────────────────
-let apiKey = process.env.OPENAI_API_KEY;
-let baseURL = process.env.OPENAI_BASE_URL;
+// ── Load OpenAI credentials ──────────────────────────────────────
+let apiKey = process.env.OPENAI_API_KEY || '';
+let baseURL = process.env.OPENAI_BASE_URL || '';
 
 const configPath = path.join(os.homedir(), '.genspark_llm.yaml');
 if (fs.existsSync(configPath)) {
-  const cfg = yaml.load(fs.readFileSync(configPath, 'utf8'));
-  apiKey  = apiKey  || cfg?.openai?.api_key;
-  baseURL = baseURL || cfg?.openai?.base_url;
+  try {
+    const cfg = yaml.load(fs.readFileSync(configPath, 'utf8'));
+    apiKey = apiKey || cfg?.openai?.api_key || '';
+    baseURL = baseURL || cfg?.openai?.base_url || '';
+  } catch (error) {
+    console.warn(`⚠️ Failed to read ${configPath}: ${error.message}`);
+  }
 }
 
-const openai = new OpenAI({ apiKey, baseURL });
+let openai = null;
+if (apiKey) {
+  openai = new OpenAI({
+    apiKey,
+    baseURL: baseURL || undefined,
+  });
+} else {
+  console.warn('⚠️ OPENAI_API_KEY not found, MeeBot AI routes will be disabled');
+}
 
 // ── MeeBot System Prompt ─────────────────────────────────────────
 const MEEBOT_SYSTEM_PROMPT = `คุณคือ "MeeBot" — AI Assistant ผู้ช่วยอัจฉริยะของแพลตฟอร์ม MeeChain
