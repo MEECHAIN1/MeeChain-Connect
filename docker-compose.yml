@@ -8,11 +8,13 @@
 version: "3.9"
 
 services:
-  meechain-connect:
-    image: node:22-bullseye
-    working_dir: /app
-    command: bash -lc "npm install --no-audit --no-fund && node server.js"
-    container_name: meechain-connect
+  meechain-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: meechainv02-meechainv2:latest
+    container_name: meechain-dashboard
 
     # ── Ports ──────────────────────────────────────────────
     ports:
@@ -35,8 +37,9 @@ services:
 
     # ── Restart Policy ──────────────────────────────────────
     restart: unless-stopped
-
-    # ── Health Check ────────────────────────────────────────
+  # ── Restart Policy ──────────────────────────────────────
+    restart: unless-stopped
+  # ── Health Check ────────────────────────────────────────
     healthcheck:
       test:
         [
@@ -50,7 +53,7 @@ services:
       retries: 5
       start_period: 25s
 
-    # ── Resource Limits (optional — comment out if not needed)
+ # ── Resource Limits (optional — comment out if not needed)
     deploy:
       resources:
         limits:
@@ -58,5 +61,4 @@ services:
           cpus: "1.0"
 
 volumes:
-  meechain_logs:
-    driver: local
+  meechain:logs

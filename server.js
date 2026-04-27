@@ -129,17 +129,29 @@ web3.connect().then(ok => {
 });
 
 // ── Load OpenAI credentials ──────────────────────────────────────
-let apiKey = process.env.OPENAI_API_KEY;
-let baseURL = process.env.OPENAI_BASE_URL;
+let apiKey = process.env.OPENAI_API_KEY || '';
+let baseURL = process.env.OPENAI_BASE_URL || '';
 
 const configPath = path.join(os.homedir(), '.genspark_llm.yaml');
 if (fs.existsSync(configPath)) {
-  const cfg = yaml.load(fs.readFileSync(configPath, 'utf8'));
-  apiKey  = apiKey  || cfg?.openai?.api_key;
-  baseURL = baseURL || cfg?.openai?.base_url;
+  try {
+    const cfg = yaml.load(fs.readFileSync(configPath, 'utf8'));
+    apiKey = apiKey || cfg?.openai?.api_key || '';
+    baseURL = baseURL || cfg?.openai?.base_url || '';
+  } catch (error) {
+    console.warn(`⚠️ Failed to read ${configPath}: ${error.message}`);
+  }
 }
 
-const openai = new OpenAI({ apiKey, baseURL });
+let openai = null;
+if (apiKey) {
+  openai = new OpenAI({
+    apiKey,
+    baseURL: baseURL || undefined,
+  });
+} else {
+  console.warn('⚠️ OPENAI_API_KEY not found, MeeBot AI routes will be disabled');
+}
 
 // ── MeeBot System Prompt ─────────────────────────────────────────
 const MEEBOT_SYSTEM_PROMPT = `คุณคือ "MeeBot" — AI Assistant ผู้ช่วยอัจฉริยะของแพลตฟอร์ม MeeChain
@@ -542,13 +554,28 @@ app.get('/api/rpc/status', (req, res) => {
 app.get('/api/health', (req, res) => {
   res.json({
     status:    'ok',
-    model:     'gpt-5-mini',
+    model:     'gpt-4o-mini',
     bot:       'MeeBot AI',
     web3:      web3.connected,
     chainId:   RPC_CONFIG.chainId,
     rpc:       RPC_CONFIG.drpcUrl,
     contracts: CONTRACTS,
     uptime:    Math.floor(process.uptime()),
+  });
+});
+
+// api config ------
+app.get('/api/config', (req, res) => {
+  res.json({
+    ok: true,
+    chainId: RPC_CONFIG.chainId,
+    rpcUrl: RPC_CONFIG.drpcUrl,
+    contracts: CONTRACTS,
+    features: {
+      openai: Boolean(openai),
+      web3: Boolean(web3?.connected),
+      nodecloudStats: Boolean(RPC_CONFIG.nodecloudStats),
+    },
   });
 });
 
