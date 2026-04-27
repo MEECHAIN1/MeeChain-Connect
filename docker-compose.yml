@@ -13,7 +13,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
-    image: meechain-dashboard:latest
+    image: meechainv02-meechainv2:latest
     container_name: meechain-dashboard
 
     # ── Ports ──────────────────────────────────────────────
@@ -24,29 +24,36 @@ services:
     env_file:
       - .env
     environment:
-      NODE_ENV: production
-      PORT: 3000
+      PORT: "3000"
+      OPENAI_API_KEY: "local-dev-placeholder"
+      RPC_MODE: "auto"
+      RPC_ALLOW_MOCK_FALLBACK: "true"
       CHAIN_ID: ${CHAIN_ID:-13390}
 
     # ── Volumes ─────────────────────────────────────────────
     volumes:
-      # Persist PM2 / app logs
+      - ./:/app
       - meechain_logs:/app/logs
-      # Mount .env at runtime (optional; remove if using env_file only)
-      # - ./.env:/app/.env:ro
 
     # ── Restart Policy ──────────────────────────────────────
     restart: unless-stopped
-
-    # ── Health Check ────────────────────────────────────────
+  # ── Restart Policy ──────────────────────────────────────
+    restart: unless-stopped
+  # ── Health Check ────────────────────────────────────────
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:3000/rpc/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
 
-    # ── Resource Limits (optional — comment out if not needed)
+ # ── Resource Limits (optional — comment out if not needed)
     deploy:
       resources:
         limits:
@@ -54,5 +61,4 @@ services:
           cpus: "1.0"
 
 volumes:
-  meechain_logs:
-    driver: local
+  meechain:logs

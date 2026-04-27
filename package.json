@@ -1,5 +1,5 @@
 {
-  "name": "webapp",
+  "name": "meechain",
   "version": "1.0.0",
   "description": "แดชบอร์ด Web Application สำหรับ MeeChain Blockchain Platform",
   "main": "server.js",
@@ -31,8 +31,16 @@
     "container:status": "podman ps -a 2>/dev/null || docker ps -a",
     "podman:setup": "bash scripts/podman-setup.sh",
     "podman:check": "bash scripts/podman-setup.sh check",
+    "compose": "bash scripts/compose-failover.sh",
+    "compose:auto": "bash scripts/compose-failover.sh",
+    "compose:up": "bash scripts/compose-failover.sh up -d",
+    "compose:down": "bash scripts/compose-failover.sh down",
+    "compose:ps": "bash scripts/compose-failover.sh ps",
+    "docker:failover:windows": "powershell -ExecutionPolicy Bypass -File scripts/docker-failover.ps1",
     "docs": "jsdoc -c jsdoc.json",
-    "docs:watch": "nodemon --watch src --watch server.js --exec \"npm run docs\""
+    "docs:watch": "nodemon --watch src --watch server.js --exec \"npm run docs\"",
+    "test:rpc:integration": "node --test tests/rpc-health.integration.test.mjs",
+    "verify:rpc": "bash scripts/verify-rpc-endpoint.sh"
   },
   "keywords": [
     "MeeChain",
@@ -48,7 +56,7 @@
     "ethers": "^6.16.0",
     "express": "^4.22.1",
     "js-yaml": "^4.1.1",
-    "openai": "^6.33.0",
+    "openai": "^6.34.0",
     "ws": "^8.20.0"
   },
   "devDependencies": {
@@ -62,5 +70,8 @@
     "playwright": "^1.59.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
-  }
+  },
+  "engines": {
+    "node": "20.x"
+ }
 }

@@ -91,6 +91,11 @@ const RPC_CONFIG = {
   // Fallback: original Ritual Chain endpoint
   fallbackUrl:    process.env.VITE_RPC_URL           || 'https://rpc.meechain.live',
   chainId:        parseInt(process.env.CHAIN_ID)     || 13390,
+  rpcMode:        process.env.RPC_MODE               || 'auto', // auto | upstream-only | mock-only
+  requestTimeoutMs: Math.max(parseInt(process.env.RPC_TIMEOUT_MS || '3000', 10), 500),
+  breakerCooldownMs: Math.max(parseInt(process.env.RPC_BREAKER_COOLDOWN_MS || '60000', 10), 5000),
+  breakerFailureThreshold: Math.max(parseInt(process.env.RPC_BREAKER_FAILURE_THRESHOLD || '2', 10), 1),
+  allowMockFallback: (process.env.RPC_ALLOW_MOCK_FALLBACK || 'true').toLowerCase() !== 'false',
 };
 
 // ── Contract Addresses ───────────────────────────────────────────
@@ -124,17 +129,29 @@ web3.connect().then(ok => {
 });
 
 // ── Load OpenAI credentials ──────────────────────────────────────
-let apiKey = process.env.OPENAI_API_KEY;
-let baseURL = process.env.OPENAI_BASE_URL;
+let apiKey = process.env.OPENAI_API_KEY || '';
+let baseURL = process.env.OPENAI_BASE_URL || '';
 
 const configPath = path.join(os.homedir(), '.genspark_llm.yaml');
 if (fs.existsSync(configPath)) {
-  const cfg = yaml.load(fs.readFileSync(configPath, 'utf8'));
-  apiKey  = apiKey  || cfg?.openai?.api_key;
-  baseURL = baseURL || cfg?.openai?.base_url;
+  try {
+    const cfg = yaml.load(fs.readFileSync(configPath, 'utf8'));
+    apiKey = apiKey || cfg?.openai?.api_key || '';
+    baseURL = baseURL || cfg?.openai?.base_url || '';
+  } catch (error) {
+    console.warn(`⚠️ Failed to read ${configPath}: ${error.message}`);
+  }
 }
 
-const openai = new OpenAI({ apiKey, baseURL });
+let openai = null;
+if (apiKey) {
+  openai = new OpenAI({
+    apiKey,
+    baseURL: baseURL || undefined,
+  });
+} else {
+  console.warn('⚠️ OPENAI_API_KEY not found, MeeBot AI routes will be disabled');
+}
 
 // ── MeeBot System Prompt ─────────────────────────────────────────
 const MEEBOT_SYSTEM_PROMPT = `คุณคือ "MeeBot" — AI Assistant ผู้ช่วยอัจฉริยะของแพลตฟอร์ม MeeChain
@@ -209,21 +226,43 @@ async function fetchNodeCloudStats() {
   });
 }
 
-// ── Health Check (root level — for rpc.meechain.live/health & app.meechain.live/health) ──
-app.get('/health', (req, res) => {
+// ── Health Check (root level + RPC preflight) ──
+function buildHealthPayload(req, serviceOverride) {
   const host = req.hostname || '';
-  const isRpcHost = host.includes('rpc.');
-  res.json({
+  const isRpcHost = host.includes('rpc.') || req.path.startsWith('/rpc');
+  const upstreams = [RPC_CONFIG.drpcUrl, RPC_CONFIG.fallbackUrl]
+    .filter(Boolean)
+    .map((url) => {
+      const h = _rpcHealth[url] || {};
+      return {
+        url,
+        dead: !!h.dead,
+        consecutiveFails: h.consecutiveFails || 0,
+      };
+    });
+
+  return {
     status:   'ok',
-    service:  isRpcHost ? 'MeeChain RPC Gateway' : 'MeeChain App Server',
-    host:     host,
+    service:  serviceOverride || (isRpcHost ? 'MeeChain RPC Gateway' : 'MeeChain App Server'),
+    host,
     chainId:  RPC_CONFIG.chainId,
     rpc:      RPC_CONFIG.drpcUrl,
     web3:     web3.connected,
+    mode:     RPC_CONFIG.rpcMode,
+    rpcState: {
+      allowMockFallback: RPC_CONFIG.allowMockFallback,
+      breakerFailureThreshold: RPC_CONFIG.breakerFailureThreshold,
+      breakerCooldownMs: RPC_CONFIG.breakerCooldownMs,
+      upstreams,
+    },
     uptime:   Math.floor(process.uptime()),
-    version:  '2.0.0',
+    version:  '2.1.1',
     ts:       new Date().toISOString(),
-  });
+  };
+}
+
+app.get('/health', (req, res) => {
+  res.json(buildHealthPayload(req));
 });
 
 // ── Mock RPC handler (when upstream chain is not reachable) ──────
@@ -487,11 +526,35 @@ async function handleRpcProxy(req, res) {
 app.post('/',    handleRpcProxy);   // rpc.meechain.xyz  POST /
 app.post('/rpc', handleRpcProxy);   // rpc.meechain.xyz  POST /rpc
 
+app.get('/api/rpc/status', (req, res) => {
+  const upstreams = [RPC_CONFIG.drpcUrl, RPC_CONFIG.fallbackUrl]
+    .filter(Boolean)
+    .map((url) => {
+      const h = _rpcHealth[url] || {};
+      return {
+        url,
+        dead: !!h.dead,
+        deadUntil: h.until || 0,
+        consecutiveFails: h.consecutiveFails || 0,
+        lastFailure: h.lastFailure || 0,
+        lastSuccess: h.lastSuccess || 0,
+      };
+    });
+  res.json({
+    mode: RPC_CONFIG.rpcMode,
+    allowMockFallback: RPC_CONFIG.allowMockFallback,
+    timeoutMs: RPC_CONFIG.requestTimeoutMs,
+    breakerCooldownMs: RPC_CONFIG.breakerCooldownMs,
+    breakerFailureThreshold: RPC_CONFIG.breakerFailureThreshold,
+    upstreams,
+  });
+});
+
 // ── API: Health Check ─────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
   res.json({
     status:    'ok',
-    model:     'gpt-5-mini',
+    model:     'gpt-4o-mini',
     bot:       'MeeBot AI',
     web3:      web3.connected,
     chainId:   RPC_CONFIG.chainId,
@@ -501,16 +564,44 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// api config ------
+app.get('/api/config', (req, res) => {
+  res.json({
+    ok: true,
+    chainId: RPC_CONFIG.chainId,
+    rpcUrl: RPC_CONFIG.drpcUrl,
+    contracts: CONTRACTS,
+    features: {
+      openai: Boolean(openai),
+      web3: Boolean(web3?.connected),
+      nodecloudStats: Boolean(RPC_CONFIG.nodecloudStats),
+    },
+  });
+});
+
 // ── API: Network Info (for frontend DApp / MetaMask add network) ──
 app.get('/api/network', (req, res) => {
   const appDomain = process.env.APP_DOMAIN || 'app.meechain.live';
   const rpcDomain = process.env.RPC_DOMAIN || 'rpc.meechain.live';
+
+  // Build the local proxy RPC URL so MetaMask can use it as primary RPC
+  // This ensures MetaMask connects through THIS server's /rpc proxy (always reachable)
+  // even when external rpc.meechain.live is offline.
+  const origin = req.headers.origin || req.headers.referer?.replace(/\/$/, '') || '';
+  const localRpcUrls = [];
+  if (origin && (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('.novita.ai') || origin.includes('.meechain.live') || origin.includes('.meechain.xyz'))) {
+    localRpcUrls.push(`${origin}/rpc`);
+  }
+
+
   res.json({
     chainId:          `0x${RPC_CONFIG.chainId.toString(16)}`,   // 0x344e = 13390
     chainIdDecimal:   RPC_CONFIG.chainId,
     chainName:        'MeeChain Ritual Chain',
-    rpcUrls:          [
-      `https://${rpcDomain}`,           // primary: rpc.meechain.live
+    rpcUrls: [
+      ...localRpcUrls,                    // local proxy first (always online)
+      `https://${rpcDomain}`,             // primary: rpc.meechain.live
+      'https://rpc.meechain.run.place',   // fallback
     ],
     nativeCurrency:   { name: 'MEE Token', symbol: 'MEE', decimals: 18 },
     blockExplorerUrls: [
@@ -1202,9 +1293,7 @@ app.get('/api/token/price', (req, res) => {
 });
 
 // GET /api/token/history — price history for chart (48 candles × 30 min)
-app.get('/api/token/history', (req, res) => {
-  const points = parseInt(req.query.points) || 48;
-  const interval = parseInt(req.query.interval) || 1800_000; // 30 min default
+function buildTokenHistory(points = 48, interval = 1800_000) {
   const base  = priceCache.price;
   const now   = Date.now();
   const hist  = [];
@@ -1216,7 +1305,13 @@ app.get('/api/token/history', (req, res) => {
       vol:   Math.floor(10000 + Math.random() * 50000),
     });
   }
-  res.json({ symbol: 'MEE', currency: 'USDT', interval, data: hist });
+  return { symbol: 'MEE', currency: 'USDT', interval, data: hist };
+}
+
+app.get('/api/token/history', (req, res) => {
+  const points = parseInt(req.query.points) || 48;
+  const interval = parseInt(req.query.interval) || 1800_000; // 30 min default
+  res.json(buildTokenHistory(points, interval));
 });
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1553,13 +1648,12 @@ const analytics = {
   counters: { mints: 8432, stakes: 3214, unstakes: 1120, swaps: 5640, bridges: 892 },
 };
 
-// GET /api/analytics/overview — main KPIs
-app.get('/api/analytics/overview', (req, res) => {
+function buildAnalyticsOverview() {
   const tvl     = analytics.tvlHistory.at(-1).tvl;
   const tvlPrev = analytics.tvlHistory.at(-2).tvl;
   const vol24h  = analytics.volumeHistory.at(-1).volume;
   const volPrev = analytics.volumeHistory.at(-2).volume;
-  res.json({
+  return {
     tvl:               { value: tvl,   change: (((tvl - tvlPrev) / tvlPrev) * 100).toFixed(2) + '%' },
     volume24h:         { value: vol24h, change: (((vol24h - volPrev) / volPrev) * 100).toFixed(2) + '%' },
     activeUsers24h:    { value: analytics.hourlyUsers.reduce((s,h) => s + h.users, 0), change: '+5.3%' },
@@ -1571,43 +1665,37 @@ app.get('/api/analytics/overview', (req, res) => {
     meePrice:          { value: priceCache.price, change: priceCache.change24h + '%' },
     marketCap:         { value: (priceCache.price * 100_000_000).toFixed(0), change: priceCache.change24h + '%' },
     timestamp: Date.now(),
-  });
-});
+  };
+}
 
-// GET /api/analytics/tvl — TVL history
-app.get('/api/analytics/tvl', (req, res) => {
-  const days = parseInt(req.query.days) || 30;
-  res.json({
+function buildAnalyticsTvl(days = 30) {
+  return {
     data:     analytics.tvlHistory.slice(-days),
     current:  analytics.tvlHistory.at(-1).tvl,
     currency: 'MEE',
-  });
-});
+  };
+}
 
-// GET /api/analytics/volume — trading volume history
-app.get('/api/analytics/volume', (req, res) => {
-  const days = parseInt(req.query.days) || 30;
-  res.json({
+function buildAnalyticsVolume(days = 30) {
+  return {
     data:    analytics.volumeHistory.slice(-days),
     total:   analytics.volumeHistory.reduce((s, d) => s + d.volume, 0),
     avg24h:  analytics.volumeHistory.at(-1).volume,
-  });
-});
+  };
+}
 
-// GET /api/analytics/users — active users
-app.get('/api/analytics/users', (req, res) => {
-  res.json({
+function buildAnalyticsUsers() {
+  return {
     hourly:       analytics.hourlyUsers,
     daily:        25_614,
     weekly:       58_320,
     monthly:      142_800,
     retention:    '34.2%',
     avgSession:   '8m 42s',
-  });
-});
+  };
+}
 
-// GET /api/analytics/transactions — tx breakdown
-app.get('/api/analytics/transactions', (req, res) => {
+function buildAnalyticsTransactions() {
   const types = ['Transfer', 'NFT Mint', 'Stake', 'Unstake', 'Swap', 'Bridge', 'Claim'];
   const counts = types.map(t => ({
     type: t,
@@ -1616,12 +1704,11 @@ app.get('/api/analytics/transactions', (req, res) => {
   }));
   const total = counts.reduce((s, c) => s + c.count, 0);
   counts.forEach(c => { c.pct = ((c.count / total) * 100).toFixed(1); });
-  res.json({ types: counts, total, period: '24h' });
-});
+  return { types: counts, total, period: '24h' };
+}
 
-// GET /api/analytics/gas — gas price & usage
-app.get('/api/analytics/gas', (req, res) => {
-  res.json({
+function buildAnalyticsGas() {
+  return {
     gasPrice:   { current: '0.0001', unit: 'MEE', trend: 'stable' },
     avgGasUsed: 21000 + Math.floor(Math.random() * 80000),
     totalGasBurned: (4821.5 + Math.random()).toFixed(2),
@@ -1629,12 +1716,10 @@ app.get('/api/analytics/gas', (req, res) => {
       hour: new Date(Date.now() - (23-i) * 3600000).toISOString().slice(0,13),
       gasPrice: (0.00008 + Math.random() * 0.00004).toFixed(6),
     })),
-  });
-});
+  };
+}
 
-// GET /api/analytics/leaderboard — top holders & stakers
-app.get('/api/analytics/leaderboard', (req, res) => {
-  const type = req.query.type || 'holders'; // holders | stakers | nft
+function buildAnalyticsLeaderboard(type = 'holders') {
   const make = (n) => Array.from({ length: 10 }, (_, i) => ({
     rank:    i + 1,
     address: '0x' + randomHex(40),
@@ -1646,14 +1731,13 @@ app.get('/api/analytics/leaderboard', (req, res) => {
     stakers: make(2_000_000),
     nft:     make(500),
   };
-  res.json({ type, leaderboard: data[type] || data.holders, updatedAt: Date.now() });
-});
+  return { type, leaderboard: data[type] || data.holders, updatedAt: Date.now() };
+}
 
-// GET /api/analytics/events — activity feed (last N events)
-app.get('/api/analytics/events', (req, res) => {
-  const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+function buildAnalyticsEvents(limit = 20) {
+  const safeLimit = Math.min(parseInt(limit) || 20, 50);
   const types = ['Transfer', 'NFT Mint', 'Stake', 'Unstake', 'Swap', 'DAO Vote', 'Reward Claim'];
-  const events = Array.from({ length: limit }, (_, i) => ({
+  const events = Array.from({ length: safeLimit }, (_, i) => ({
     id:        randomHex(16),
     type:      types[Math.floor(Math.random() * types.length)],
     from:      '0x' + randomHex(40),
@@ -1663,7 +1747,72 @@ app.get('/api/analytics/events', (req, res) => {
     blockNum:  1_248_753 + Math.floor(Math.random() * 100) - i,
     timestamp: Date.now() - i * Math.round(5000 + Math.random() * 30000),
   }));
-  res.json({ events, total: 485231, limit });
+  return { events, total: 485231, limit: safeLimit };
+}
+
+// GET /api/analytics/overview — main KPIs
+app.get('/api/analytics/overview', (req, res) => {
+  res.json(buildAnalyticsOverview());
+});
+
+// GET /api/analytics/tvl — TVL history
+app.get('/api/analytics/tvl', (req, res) => {
+  const days = parseInt(req.query.days) || 30;
+  res.json(buildAnalyticsTvl(days));
+});
+
+// GET /api/analytics/volume — trading volume history
+app.get('/api/analytics/volume', (req, res) => {
+  const days = parseInt(req.query.days) || 30;
+  res.json(buildAnalyticsVolume(days));
+});
+
+// GET /api/analytics/users — active users
+app.get('/api/analytics/users', (req, res) => {
+  res.json(buildAnalyticsUsers());
+});
+
+// GET /api/analytics/transactions — tx breakdown
+app.get('/api/analytics/transactions', (req, res) => {
+  res.json(buildAnalyticsTransactions());
+});
+
+// GET /api/analytics/gas — gas price & usage
+app.get('/api/analytics/gas', (req, res) => {
+  res.json(buildAnalyticsGas());
+});
+
+// GET /api/analytics/leaderboard — top holders & stakers
+app.get('/api/analytics/leaderboard', (req, res) => {
+  const type = req.query.type || 'holders'; // holders | stakers | nft
+  res.json(buildAnalyticsLeaderboard(type));
+});
+
+// GET /api/analytics/events — activity feed (last N events)
+app.get('/api/analytics/events', (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+  res.json(buildAnalyticsEvents(limit));
+});
+
+// GET /api/analytics/snapshot — consolidated payload to minimize frontend API calls
+app.get('/api/analytics/snapshot', (req, res) => {
+  const tvlDays = parseInt(req.query.tvlDays) || 7;
+  const volDays = parseInt(req.query.volDays) || 7;
+  const points = parseInt(req.query.points) || 48;
+  const leaderboardType = req.query.leaderboardType || 'holders';
+  const eventLimit = parseInt(req.query.eventLimit) || 20;
+  res.json({
+    timestamp: Date.now(),
+    overview: buildAnalyticsOverview(),
+    tvl: buildAnalyticsTvl(tvlDays),
+    volume: buildAnalyticsVolume(volDays),
+    price: buildTokenHistory(points),
+    users: buildAnalyticsUsers(),
+    transactions: buildAnalyticsTransactions(),
+    gas: buildAnalyticsGas(),
+    leaderboard: buildAnalyticsLeaderboard(leaderboardType),
+    events: buildAnalyticsEvents(eventLimit),
+  });
 });
 
 // ── Start Server ──────────────────────────────────────────────────

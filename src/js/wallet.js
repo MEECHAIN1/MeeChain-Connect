@@ -16,7 +16,13 @@ const RUNTIME_RPC_URL = `${location.origin}/rpc`;
 const MEECHAIN_NETWORK = {
   chainId:        '0x344e',   // 13390 decimal
   chainName:      'MeeChain Ritual Chain',
-  rpcUrls:        ['https://rpc.meechain.live', 'https://rpc.meechain.run.place'],
+  // Local proxy is FIRST — always reachable regardless of external RPC status
+  // MetaMask will use the first working URL in this list
+  rpcUrls:        [
+    `${location.origin}/rpc`,          // same-origin proxy (always online)
+    'https://rpc.meechain.live',       // primary external
+    'https://rpc.meechain.run.place',  // fallback external
+  ],
   nativeCurrency: { name: 'MEE Token', symbol: 'MEE', decimals: 18 },
   blockExplorerUrls: ['https://app.meechain.live/explorer.html', 'https://explorer.meechain.run.place'],
 };
@@ -118,15 +124,21 @@ async function loadContractAddresses() {
   try {
     const resp = await fetch('/api/network');
     const data = await resp.json();
-    if (Array.isArray(data.rpcUrls) && data.rpcUrls[0]) {
-      MEECHAIN_NETWORK.rpcUrls = data.rpcUrls;
+    if (Array.isArray(data.rpcUrls) && data.rpcUrls.length > 0) {
+      // Always keep local proxy as first option — server already prepends it
+      // but ensure it's present in case server didn't add it
+      const localProxy = `${location.origin}/rpc`;
+      const merged = [localProxy, ...data.rpcUrls.filter(u => u !== localProxy)];
+      MEECHAIN_NETWORK.rpcUrls = merged;
     }
     if (data.contracts) {
       TOKEN_ADDRESS  = data.contracts.token   || TOKEN_ADDRESS;
       NFT_ADDRESS    = data.contracts.nft     || NFT_ADDRESS;
       PORTAL_ADDRESS = data.contracts.portal  || data.contracts.staking || PORTAL_ADDRESS;
     }
-  } catch (_) {}
+  } catch (_) {
+    // Keep defaults including local proxy
+  }
 }
 
 // ── Connect MetaMask ─────────────────────────────────────────────────
@@ -187,27 +199,60 @@ async function connectMetaMask() {
 
 // ── Ensure MeeChain network is added/active ──────────────────────────
 async function ensureMeeChainNetwork() {
+  const targetChainId = MEECHAIN_NETWORK.chainId; // '0x344e'
   try {
+    // Try switch first
     await window.ethereum.request({
       method: 'wallet_switchEthereumChain',
-      params: [{ chainId: MEECHAIN_NETWORK.chainId }],
+      params: [{ chainId: targetChainId }],
     });
   } catch (switchErr) {
-    // Chain not added — add it
-    if (switchErr.code === 4902 || switchErr.code === -32603) {
+    const code = switchErr.code;
+    // 4902 = chain not in MetaMask, -32603 = internal MetaMask error (also means not added)
+    // 4200 = unsupported method (some mobile wallets) — try addEthereumChain anyway
+    if (code === 4902 || code === -32603 || code === 4200) {
+      console.info(`[Wallet] switchChain fallback triggered (code=${code}) -> wallet_addEthereumChain`);
       try {
+        // Build network config with local proxy as first RPC so MetaMask can reach it
+        const networkConfig = {
+          ...MEECHAIN_NETWORK,
+          rpcUrls: [
+            ...new Set([
+              `${location.origin}/rpc`,       // always-online local proxy
+              ...MEECHAIN_NETWORK.rpcUrls,
+            ]),
+          ],
+        };
         await window.ethereum.request({
           method: 'wallet_addEthereumChain',
-          params: [MEECHAIN_NETWORK],
+          params: [networkConfig],
         });
-        showToast('✅ เพิ่ม MeeChain Ritual Chain ใน MetaMask แล้ว', 'success');
+        walletToast('✅ เพิ่ม MeeChain Ritual Chain ใน MetaMask แล้ว', 'success');
       } catch (addErr) {
         console.warn('[Wallet] Could not add chain:', addErr.message);
-        // Continue anyway — user may be on wrong chain
+        // Still continue — user might already be on correct chain
+        // Check if current chain matches
+        try {
+          const currentChain = await window.ethereum.request({ method: 'eth_chainId' });
+          if (currentChain.toLowerCase() === targetChainId.toLowerCase()) {
+            return; // Already on the right chain
+          }
+        } catch (_) {}
+        // Non-blocking warning for code 4200 (unsupported method)
+        if (code === 4200) {
+          console.warn('[Wallet] wallet_switchEthereumChain is not supported by this wallet (code 4200)');
+          walletToast('MetaMask/Wallet นี้ไม่รองรับการ switch chain อัตโนมัติ กรุณาเพิ่มเครือข่ายด้วยตนเองจาก Network settings', 'warning');
+        } else {
+          walletToast('⚠️ กรุณาเปลี่ยน network เป็น MeeChain Ritual Chain ใน MetaMask', 'warning');
+        }
       }
+    } else if (code !== 4001) {
+      // 4001 = user rejected — don't show warning
+      console.warn('[Wallet] switchEthereumChain error:', switchErr.message);
     }
   }
 }
+
 
 // ── Connect Demo Wallet ──────────────────────────────────────────────
 function connectDemoWallet() {
@@ -494,6 +539,31 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // Shared wallet hub override layer
+function showConnectionCelebration(address) {
+  if (document.getElementById('rpc-connected-overlay')) return;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'rpc-connected-overlay';
+  overlay.className = 'rpc-connected-overlay';
+  overlay.innerHTML = `
+    <div class="rpc-connected-overlay-card">
+      <div class="rpc-connected-overlay-title">✅ RPC Connected</div>
+      <div class="rpc-connected-overlay-subtitle">🎉 Badge Claimed</div>
+      <div class="rpc-connected-overlay-address">${walletShortHash(address, 10, 6)}</div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('show'));
+
+  const close = () => {
+    overlay.classList.remove('show');
+    setTimeout(() => overlay.remove(), 260);
+  };
+  setTimeout(close, 2400);
+  overlay.addEventListener('click', close, { once: true });
+}
+
 async function connectMetaMask(options = {}) {
   const silent = Boolean(options.silent);
   if (typeof window.ethereum === 'undefined') {
@@ -541,10 +611,16 @@ async function connectMetaMask(options = {}) {
 
     syncWalletSession();
     updateWalletUI();
-    if (!silent) walletToast(`เชื่อมต่อสำเร็จ: ${walletShortHash(address)}`, 'success');
+    if (!silent) {
+      walletToast(`เชื่อมต่อสำเร็จ: ${walletShortHash(address)}`, 'success');
+      showConnectionCelebration(address);
+    }
 
-    window.ethereum.on('accountsChanged', handleAccountsChanged);
-    window.ethereum.on('chainChanged', () => window.location.reload());
+    if (!window.__meeWalletListenersBound) {
+      window.ethereum.on('accountsChanged', handleAccountsChanged);
+      window.ethereum.on('chainChanged', () => window.location.reload());
+      window.__meeWalletListenersBound = true;
+    }
     return true;
   } catch (err) {
     console.error('[Wallet] MetaMask error:', err);
@@ -765,6 +841,7 @@ function connectDemoWallet() {
   syncWalletSession();
   updateWalletUI();
   walletToast(`Demo Wallet เชื่อมต่อแล้ว — ${demoBal} MEE`, 'success');
+  showConnectionCelebration(demoAddr);
   document.getElementById('wallet-modal')?.classList.add('hidden');
 }
 
