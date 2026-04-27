@@ -63,36 +63,17 @@ The script runs these checks:
 Passing all checks earns the contributor the **RPC Ready Badge** as part of the ritualized onboarding flow.
 
 ## Project Structure
-```
+```text
 ├── index.html          # Main dashboard page
 ├── explorer.html       # Mee Ritual Chain Explorer
 ├── dao.html            # Governance / DAO dashboard
 ├── analytics.html      # Analytics dashboard
 ├── nft-market.html     # NFT Marketplace
-├── scripts/
-│   ├── start.sh        # Service start helper
-│   ├── stop.sh         # Service stop helper
-│   └── rpc-check.sh    # RPC ritual health check
-├── src/
-│   ├── css/            # Stylesheets
-│   ├── js/             # JavaScript files
-│   └── assets/         # Images and resources
+├── scripts/            # Operational helper scripts
+├── src/                # Frontend source assets (css/js/images)
 ├── contracts/          # Smart contracts
 ├── functions/          # Serverless API functions
 └── test/               # Test files
-```
-## Project Structure
-```text
-├── index.html          # Main dashboard page
-├── nft-market.html     # NFT Marketplace
-├── block-explorer.html # Mee Ritual Chain Explorer
-├── staking.html        # Staking & Mining
-├── wallet.html         # Wallet Management
-├── meebot.html         # MeeBot NFT Collection
-├── settings.html       # Settings page
-├── css/                # Stylesheets
-├── js/                 # JavaScript files
-└── assets/             # Images and resources
 ```
 
 ## Deployment Options
