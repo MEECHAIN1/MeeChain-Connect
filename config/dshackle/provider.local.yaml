@@ -1,0 +1,35 @@
+# Local development Dshackle config (no TLS/auth)
+version: v1
+port: 12448
+host: 0.0.0.0
+
+tls:
+  enabled: false
+
+auth:
+  enabled: false
+
+cluster:
+  upstreams:
+    - id: localrpc
+      chain: ethereum
+      role: primary
+      connection:
+        generic:
+          rpc:
+            url: "http://host.docker.internal:8545"
+
+    - id: drpcnode
+      chain: ethereum
+      role: fallback
+      connection:
+        generic:
+          rpc:
+            url: "https://provider.drpc.org/<your-provider-endpoint>"
+
+routing:
+  methods:
+    - name: trace_*
+      preferredUpstream: drpcnode
+    - name: "*"
+      preferredUpstream: localrpc
