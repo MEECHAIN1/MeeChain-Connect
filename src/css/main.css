@@ -1102,3 +1102,39 @@ a { text-decoration: none; color: inherit; }
 
 .price-up   { color:#10b981; font-size:11px; }
 .price-down { color:#f87171; font-size:11px; }
+
+/* ===== RPC CONNECTED CELEBRATION OVERLAY ===== */
+.rpc-connected-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: rgba(10, 14, 26, 0.28);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.rpc-connected-overlay.show { opacity: 1; }
+
+.rpc-connected-overlay-card {
+  pointer-events: auto;
+  min-width: 280px;
+  max-width: 92vw;
+  border: 1px solid rgba(124, 58, 237, 0.45);
+  border-radius: 16px;
+  padding: 18px 20px;
+  text-align: center;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.95), rgba(16, 185, 129, 0.92));
+  color: #fff;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  transform: translateY(14px) scale(0.96);
+  transition: transform 0.25s ease;
+}
+
+.rpc-connected-overlay.show .rpc-connected-overlay-card { transform: translateY(0) scale(1); }
+.rpc-connected-overlay-title { font-size: 1.1rem; font-weight: 700; }
+.rpc-connected-overlay-subtitle { margin-top: 4px; font-size: 1rem; font-weight: 600; }
+.rpc-connected-overlay-address { margin-top: 8px; font-size: 0.82rem; opacity: 0.92; }
