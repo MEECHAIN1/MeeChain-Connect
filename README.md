@@ -13,6 +13,16 @@
 ```bash
 git clone https://github.com/MEECHAIN1/MeeChain-Connect.git
 cd MeeChain-Connect
+```
+
+Run one of the following commands to start a local server:
+
+```bash
+python3 -m http.server 8000
+```
+
+```bash
+npx serve
 npm install
 ```
 
