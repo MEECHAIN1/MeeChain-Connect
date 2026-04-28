@@ -141,20 +141,14 @@ PRIMARY_CONTEXT=default FALLBACK_CONTEXT=podman npm run compose:ps
 - สรุป: external endpoint ยังไม่พร้อมสำหรับ wallet client จนกว่า POST จะตอบ JSON-RPC ปกติ
 
 ## Project Structure
-```
+```text
 ├── index.html          # Main dashboard page
 ├── explorer.html       # Mee Ritual Chain Explorer
 ├── dao.html            # Governance / DAO dashboard
 ├── analytics.html      # Analytics dashboard
 ├── nft-market.html     # NFT Marketplace
-├── scripts/
-│   ├── start.sh        # Service start helper
-│   ├── stop.sh         # Service stop helper
-│   └── rpc-check.sh    # RPC ritual health check
-├── src/
-│   ├── css/            # Stylesheets
-│   ├── js/             # JavaScript files
-│   └── assets/         # Images and resources
+├── scripts/            # Operational helper scripts
+├── src/                # Frontend source assets (css/js/images)
 ├── contracts/          # Smart contracts
 ├── functions/          # Serverless API functions
 └── test/               # Test files
