@@ -1004,7 +1004,7 @@ async function checkWeb3Status() {
     const healthRes = await fetch('/rpc/health', { cache: 'no-store' });
     if (healthRes.ok) {
       const health = await healthRes.json();
-      syncContractChips(null, health.chainId || 13390);
+      syncContractChips(health.contracts || {}, health.chainId || 13390);
       applyDisconnected('🟡 Server online แต่ RPC upstream ยังไม่พร้อม', '🟡 Upstream: Health endpoint reachable');
       return;
     }

@@ -417,15 +417,26 @@ async function handleRpcProxy(req, res) {
 
   const targets = _buildRpcTargets();
   const payload = body;
+  const buildUnavailableError = (code, message) => (
+    isBatch
+      ? body.map((item) => ({
+          jsonrpc: '2.0',
+          id: item?.id ?? null,
+          error: { code, message },
+        }))
+      : {
+          jsonrpc: '2.0',
+          id: body.id ?? null,
+          error: { code, message },
+        }
+  );
 
   // If all upstreams are dead, skip straight to mock (or fail hard when disabled)
   if (targets.length === 0) {
     if (!RPC_CONFIG.allowMockFallback || RPC_CONFIG.rpcMode === 'upstream-only') {
-      return res.status(503).json({
-        jsonrpc: '2.0',
-        id: isBatch ? null : body.id ?? null,
-        error: { code: -32098, message: 'All upstream RPC endpoints are unavailable' },
-      });
+      return res.status(503).json(
+        buildUnavailableError(-32098, 'All upstream RPC endpoints are unavailable'),
+      );
     }
     return res.json(isBatch ? body.map(b => _handleMockRpc(b)) : _handleMockRpc(body));
   }
@@ -446,11 +457,9 @@ async function handleRpcProxy(req, res) {
 
   // All upstream failed
   if (!RPC_CONFIG.allowMockFallback || RPC_CONFIG.rpcMode === 'upstream-only') {
-    return res.status(503).json({
-      jsonrpc: '2.0',
-      id: isBatch ? null : body.id ?? null,
-      error: { code: -32097, message: `RPC upstream unavailable: ${lastError?.message || 'unknown error'}` },
-    });
+    return res.status(503).json(
+      buildUnavailableError(-32097, `RPC upstream unavailable: ${lastError?.message || 'unknown error'}`),
+    );
   }
   console.log(`[RPC] All upstream failed (${lastError?.message}) — serving mock response`);
   return res.json(isBatch ? body.map(b => _handleMockRpc(b)) : _handleMockRpc(body));
