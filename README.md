@@ -1,37 +1,7 @@
 # MeeChain Dashboard
 
 [![🚀 Deploy MeeChain to Cloudflare Pages (meechain)](https://github.com/MEECHAIN1/MeeChain-Connect/actions/workflows/deploy.yml/badge.svg)](https://github.com/MEECHAIN1/MeeChain-Connect/actions/workflows/deploy.yml)
-
-แดชบอร์ด Web Application สำหรับ MeeChain Blockchain Platform
-
-## Prerequisites
-- Modern web browser (Chrome, Firefox, Safari, Edge)
-- Node.js 18+
-- Run via `node server.js` (a static web server is **not** sufficient — `/api/*` and `/rpc/*` are required)
-
-## Installation
-```bash
-git clone https://github.com/MEECHAIN1/MeeChain-Connect.git
-cd MeeChain-Connect
-```
-
-Run one of the following commands to start a local server:
-
-```bash
-python3 -m http.server 8000
-```
-
-```bash
-npx serve
-npm install
-```
-
-## Usage
-```bash
-node server.js
-```
-
-เปิดเว็บที่ `http://localhost:3000`
+`
 
 ## Contributor onboarding checklist
 เอกสาร checklist ฉบับ ritualized สำหรับ contributors:
