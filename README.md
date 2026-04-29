@@ -1,27 +1,7 @@
 # MeeChain Dashboard
 
 [![🚀 Deploy MeeChain to Cloudflare Pages (meechain)](https://github.com/MEECHAIN1/MeeChain-Connect/actions/workflows/deploy.yml/badge.svg)](https://github.com/MEECHAIN1/MeeChain-Connect/actions/workflows/deploy.yml)
-
-แดชบอร์ด Web Application สำหรับ MeeChain Blockchain Platform
-
-## Prerequisites
-- Modern web browser (Chrome, Firefox, Safari, Edge)
-- Node.js 18+
-- Run via `node server.js` (a static web server is **not** sufficient — `/api/*` and `/rpc/*` are required)
-
-## Installation
-```bash
-git clone https://github.com/MEECHAIN1/MeeChain-Connect.git
-cd MeeChain-Connect
-npm install
-```
-
-## Usage
-```bash
-node server.js
-```
-
-เปิดเว็บที่ `http://localhost:3000`
+`
 
 ## Contributor onboarding checklist
 เอกสาร checklist ฉบับ ritualized สำหรับ contributors:
@@ -131,20 +111,14 @@ PRIMARY_CONTEXT=default FALLBACK_CONTEXT=podman npm run compose:ps
 - สรุป: external endpoint ยังไม่พร้อมสำหรับ wallet client จนกว่า POST จะตอบ JSON-RPC ปกติ
 
 ## Project Structure
-```
+```text
 ├── index.html          # Main dashboard page
 ├── explorer.html       # Mee Ritual Chain Explorer
 ├── dao.html            # Governance / DAO dashboard
 ├── analytics.html      # Analytics dashboard
 ├── nft-market.html     # NFT Marketplace
-├── scripts/
-│   ├── start.sh        # Service start helper
-│   ├── stop.sh         # Service stop helper
-│   └── rpc-check.sh    # RPC ritual health check
-├── src/
-│   ├── css/            # Stylesheets
-│   ├── js/             # JavaScript files
-│   └── assets/         # Images and resources
+├── scripts/            # Operational helper scripts
+├── src/                # Frontend source assets (css/js/images)
 ├── contracts/          # Smart contracts
 ├── functions/          # Serverless API functions
 └── test/               # Test files

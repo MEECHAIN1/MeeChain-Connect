@@ -4,7 +4,7 @@
   "description": "แดชบอร์ด Web Application สำหรับ MeeChain Blockchain Platform",
   "main": "server.js",
   "scripts": {
-    "build": "node scripts/build-pages.mjs",
+    "build": "node build-pages.mjs",
     "deploy:worker": "wrangler deploy -c wrangler.worker.toml --keep-vars",
     "start": "node server.js",
     "dev": "nodemon server.js",
@@ -73,5 +73,5 @@
   },
   "engines": {
     "node": "20.x"
- }
+  }
 }
