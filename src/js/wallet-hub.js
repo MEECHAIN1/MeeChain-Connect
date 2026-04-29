@@ -121,9 +121,9 @@
           params: [{
             chainId: CHAIN_ID,
             chainName: 'MeeChain Ritual Chain',
-            rpcUrls: [`${location.origin}/rpc`],
+            rpcUrls: ['https://rpc.meechain.live', 'https://rpc.meechain.run.place'],
             nativeCurrency: { name: 'MEE Token', symbol: 'MEE', decimals: 18 },
-            blockExplorerUrls: ['https://app.meechain.live/explorer'],
+            blockExplorerUrls: ['https://app.meechain.live/explorer.html'],
           }],
         });
         return true;
