@@ -137,17 +137,17 @@ PRIMARY_CONTEXT=default FALLBACK_CONTEXT=podman npm run compose:ps
 ├── dao.html            # Governance / DAO dashboard
 ├── analytics.html      # Analytics dashboard
 ├── nft-market.html     # NFT Marketplace
-├── scripts/
-│   ├── start.sh        # Service start helper
-│   ├── stop.sh         # Service stop helper
-│   └── rpc-check.sh    # RPC ritual health check
+├── server.js           # Local API/server entrypoint
+├── worker.js           # Cloudflare Worker entrypoint
+├── scripts/            # Ops and deployment scripts
 ├── src/
 │   ├── css/            # Stylesheets
-│   ├── js/             # JavaScript files
+│   ├── js/             # Front-end JavaScript modules
 │   └── assets/         # Images and resources
 ├── contracts/          # Smart contracts
 ├── functions/          # Serverless API functions
-└── test/               # Test files
+├── test/               # Unit/integration tests (legacy set)
+└── tests/              # Additional test suites
 ```
 
 ## Deployment Options
