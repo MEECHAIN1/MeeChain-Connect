@@ -1,5 +1,5 @@
-tunnel: meechain-tunnel
-credentials-file: ~/.cloudflared/tunnel-credentials.json
+tunnel: <YOUR_TUNNEL_ID>
+credentials-file: ~/.cloudflared/<YOUR_TUNNEL_ID>.json
 
 ingress:
   - hostname: rpc.meechain.live
