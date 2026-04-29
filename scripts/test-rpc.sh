@@ -7,7 +7,7 @@ set -euo pipefail
 #   bash scripts/test-rpc.sh https://rpc.meechain.live/rpc https://rpc.meechain.live/health
 
 RPC_URL="${1:-https://rpc.meechain.live/rpc}"
-HEALTH_URL="${2:-https://rpc.meechain.live/health}"
+HEALTH_URL="${2:-https://rpc.meechain.live/rpc/health}"
 TIMEOUT="${RPC_TEST_TIMEOUT:-10}"
 CF_ACCESS_CLIENT_ID="${CF_ACCESS_CLIENT_ID:-}"
 CF_ACCESS_CLIENT_SECRET="${CF_ACCESS_CLIENT_SECRET:-}"
