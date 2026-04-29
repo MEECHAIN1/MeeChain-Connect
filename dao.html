@@ -136,7 +136,7 @@
 
 <!-- Navbar -->
 <nav class="navbar">
-  <a class="nav-logo" href="/">
+  <a class="nav-logo" href="index.html">
     <img src="src/assets/images/meechain_logo.png" alt="MeeChain"/>
     <div>
       <div class="nav-logo-text">MeeChain</div>
@@ -648,8 +648,10 @@ window.addEventListener('walletUIUpdated', (e) => {
 
 // ── Init ──
 (async function init() {
+  console.log('🏛️ DAO init: loading proposals...');
   await Promise.all([loadProposals(), loadStats()]);
   countUniqueVoters();
+  console.log('✅ DAO init: complete, proposals loaded:', proposals.length);
 })();
 </script>
   <!-- Ethers.js + Wallet Integration -->

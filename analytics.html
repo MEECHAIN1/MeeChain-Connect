@@ -118,7 +118,7 @@
 <body>
 
 <nav class="navbar">
-  <a class="nav-logo" href="/">
+  <a class="nav-logo" href="index.html">
     <img src="src/assets/images/meechain_logo.png" alt="MeeChain"/>
     <div><div class="nav-logo-text">MeeChain</div><div class="nav-logo-sub">Analytics</div></div>
   </a>
@@ -410,9 +410,8 @@ function makeDonut(id, labels, data) {
 }
 
 // ── KPI Loader ──
-async function loadOverview() {
-  const r = await fetch('/api/analytics/overview');
-  const d = await r.json();
+async function loadOverview(data) {
+  const d = data || await (await fetch('/api/analytics/overview')).json();
 
   const set = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
 
@@ -441,10 +440,9 @@ async function loadOverview() {
 
 // ── TVL Chart ──
 let tvlDays = 7;
-async function loadTvl(days) {
+async function loadTvl(days, data) {
   tvlDays = days || tvlDays;
-  const r = await fetch(`/api/analytics/tvl?days=${tvlDays}`);
-  const d = await r.json();
+  const d = data || await (await fetch(`/api/analytics/tvl?days=${tvlDays}`)).json();
   tvlData = d.data;
   tvlChart = makeLineChart('tvl-chart',
     tvlData.map(p => p.date.slice(5)),
@@ -461,10 +459,9 @@ function setTvlDays(d, btn) {
 
 // ── Volume Chart ──
 let volDays = 7;
-async function loadVolume(days) {
+async function loadVolume(days, data) {
   volDays = days || volDays;
-  const r = await fetch(`/api/analytics/volume?days=${volDays}`);
-  const d = await r.json();
+  const d = data || await (await fetch(`/api/analytics/volume?days=${volDays}`)).json();
   volData = d.data;
   makeBarChart('vol-chart', volData.map(p => p.date.slice(5)), volData.map(p => p.volume), '#7C3AED');
 }
@@ -475,9 +472,8 @@ function setVolDays(d, btn) {
 }
 
 // ── Price Chart ──
-async function loadPrice() {
-  const r = await fetch('/api/token/history?points=48');
-  const d = await r.json();
+async function loadPrice(data) {
+  const d = data || await (await fetch('/api/token/history?points=48')).json();
   priceData = d.data;
   makeLineChart('price-chart',
     priceData.map(p => new Date(p.time).toLocaleTimeString('th-TH', {hour:'2-digit',minute:'2-digit'})),
@@ -487,9 +483,8 @@ async function loadPrice() {
 }
 
 // ── Users chart ──
-async function loadUsers() {
-  const r = await fetch('/api/analytics/users');
-  const d = await r.json();
+async function loadUsers(data) {
+  const d = data || await (await fetch('/api/analytics/users')).json();
   usersData = d.hourly;
   makeBarChart('users-chart',
     usersData.map(p => p.hour.slice(11)+'h'),
@@ -503,9 +498,8 @@ async function loadUsers() {
 }
 
 // ── Tx Donut ──
-async function loadTxBreakdown() {
-  const r = await fetch('/api/analytics/transactions');
-  const d = await r.json();
+async function loadTxBreakdown(data) {
+  const d = data || await (await fetch('/api/analytics/transactions')).json();
   txDonut = makeDonut('tx-donut',
     d.types.map(t => t.type),
     d.types.map(t => t.count)
@@ -521,9 +515,8 @@ async function loadTxBreakdown() {
 }
 
 // ── Gas ──
-async function loadGas() {
-  const r = await fetch('/api/analytics/gas');
-  const d = await r.json();
+async function loadGas(data) {
+  const d = data || await (await fetch('/api/analytics/gas')).json();
   document.getElementById('gas-price').textContent  = d.gasPrice.current + ' MEE';
   document.getElementById('gas-avg').textContent    = Number(d.avgGasUsed).toLocaleString();
   document.getElementById('gas-burned').textContent = d.totalGasBurned + ' MEE';
@@ -544,13 +537,12 @@ function loadPageViews() {
 }
 
 // ── Leaderboard ──
-async function loadLeaderboard(type, btn) {
+async function loadLeaderboard(type, btn, data) {
   if (btn) {
     btn.closest('.leaderboard-tabs').querySelectorAll('.chart-tab').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
   }
-  const r = await fetch(`/api/analytics/leaderboard?type=${type||'holders'}`);
-  const d = await r.json();
+  const d = data || await (await fetch(`/api/analytics/leaderboard?type=${type||'holders'}`)).json();
   const tbody = document.getElementById('leaderboard-body');
   const unit = type === 'nft' ? 'NFTs' : 'MEE';
   tbody.innerHTML = d.leaderboard.map(row =>
@@ -573,9 +565,8 @@ const FEED_COLORS = {
   'DAO Vote':'rgba(124,58,237,.2)','Reward Claim':'rgba(16,185,129,.2)'
 };
 
-async function loadFeed() {
-  const r = await fetch('/api/analytics/events?limit=20');
-  const d = await r.json();
+async function loadFeed(data) {
+  const d = data || await (await fetch('/api/analytics/events?limit=20')).json();
   const feed = document.getElementById('activity-feed');
   feed.innerHTML = d.events.map(ev =>
     `<div class="feed-item">
@@ -597,17 +588,35 @@ async function loadFeed() {
 // ── Load all ──
 async function loadAll() {
   document.getElementById('last-updated').textContent = '⏳ กำลังโหลด...';
-  await Promise.all([
-    loadOverview(),
-    loadTvl(),
-    loadVolume(),
-    loadPrice(),
-    loadUsers(),
-    loadTxBreakdown(),
-    loadGas(),
-    loadLeaderboard('holders'),
-    loadFeed(),
-  ]);
+  try {
+    const snapshotRes = await fetch(`/api/analytics/snapshot?tvlDays=${tvlDays}&volDays=${volDays}&points=48&leaderboardType=holders&eventLimit=20`);
+    const snapshot = await snapshotRes.json();
+
+    await Promise.all([
+      loadOverview(snapshot.overview),
+      loadTvl(tvlDays, snapshot.tvl),
+      loadVolume(volDays, snapshot.volume),
+      loadPrice(snapshot.price),
+      loadUsers(snapshot.users),
+      loadTxBreakdown(snapshot.transactions),
+      loadGas(snapshot.gas),
+      loadLeaderboard('holders', null, snapshot.leaderboard),
+      loadFeed(snapshot.events),
+    ]);
+  } catch (_) {
+    // Fallback: legacy multi-endpoint mode
+    await Promise.all([
+      loadOverview(),
+      loadTvl(),
+      loadVolume(),
+      loadPrice(),
+      loadUsers(),
+      loadTxBreakdown(),
+      loadGas(),
+      loadLeaderboard('holders'),
+      loadFeed(),
+    ]);
+  }
   loadPageViews();
   document.getElementById('last-updated').textContent =
     'อัปเดต: ' + new Date().toLocaleTimeString('th-TH');

@@ -1,4 +1,5 @@
-name = "meechain"
+# wrangler.toml
+name = 'meechain-connect'
 pages_build_output_dir = "deploy/public"
 compatibility_date = "2025-03-10"
 compatibility_flags = ["nodejs_compat"]
@@ -8,7 +9,7 @@ CHAIN_ID = "13390"
 # PRIMARY RPC — rpc.meechain.live (Cloudflare Tunnel)
 DRPC_RPC_URL = "https://rpc.meechain.live"
 VITE_RPC_URL = "https://rpc.meechain.live"
-APP_DOMAIN = "app.meechain.live"
+APP_DOMAIN = "web.meechain.live"
 RPC_DOMAIN = "rpc.meechain.live"
 VITE_TOKEN_CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
 VITE_NFT_CONTRACT_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
