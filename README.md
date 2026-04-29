@@ -189,11 +189,19 @@ npm run compose:dshackle:local:down
 ├── dao.html            # Governance / DAO dashboard
 ├── analytics.html      # Analytics dashboard
 ├── nft-market.html     # NFT Marketplace
+├── server.js           # Local API/server entrypoint
+├── worker.js           # Cloudflare Worker entrypoint
+├── scripts/            # Ops and deployment scripts
+├── src/
+│   ├── css/            # Stylesheets
+│   ├── js/             # Front-end JavaScript modules
+│   └── assets/         # Images and resources
 ├── scripts/            # Operational helper scripts
 ├── src/                # Frontend source assets (css/js/images)
 ├── contracts/          # Smart contracts
 ├── functions/          # Serverless API functions
-└── test/               # Test files
+├── test/               # Unit/integration tests (legacy set)
+└── tests/              # Additional test suites
 ```
 
 ## Deployment Options
