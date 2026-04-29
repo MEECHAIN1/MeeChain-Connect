@@ -129,25 +129,31 @@ web3.connect().then(ok => {
 });
 
 // ── Load OpenAI credentials ──────────────────────────────────────
-let apiKey = process.env.OPENAI_API_KEY || '';
-let baseURL = process.env.OPENAI_BASE_URL || '';
+const resolveOpenAIConfig = () => {
+  let openAiApiKey = (process.env.OPENAI_API_KEY || '').trim();
+  let openAiBaseUrl = (process.env.OPENAI_BASE_URL || '').trim();
 
-const configPath = path.join(os.homedir(), '.genspark_llm.yaml');
-if (fs.existsSync(configPath)) {
-  try {
-    const cfg = yaml.load(fs.readFileSync(configPath, 'utf8'));
-    apiKey = apiKey || cfg?.openai?.api_key || '';
-    baseURL = baseURL || cfg?.openai?.base_url || '';
-  } catch (error) {
-    console.warn(`⚠️ Failed to read ${configPath}: ${error.message}`);
+  const configPath = path.join(os.homedir(), '.genspark_llm.yaml');
+  if (fs.existsSync(configPath)) {
+    try {
+      const cfg = yaml.load(fs.readFileSync(configPath, 'utf8'));
+      openAiApiKey = openAiApiKey || (cfg?.openai?.api_key || '').trim();
+      openAiBaseUrl = openAiBaseUrl || (cfg?.openai?.base_url || '').trim();
+    } catch (error) {
+      console.warn(`⚠️ Failed to read ${configPath}: ${error.message}`);
+    }
   }
-}
+
+  return { openAiApiKey, openAiBaseUrl };
+};
+
+const { openAiApiKey, openAiBaseUrl } = resolveOpenAIConfig();
 
 let openai = null;
-if (apiKey) {
+if (openAiApiKey) {
   openai = new OpenAI({
-    apiKey,
-    baseURL: baseURL || undefined,
+    apiKey: openAiApiKey,
+    baseURL: openAiBaseUrl || undefined,
   });
 } else {
   console.warn('⚠️ OPENAI_API_KEY not found, MeeBot AI routes will be disabled');
