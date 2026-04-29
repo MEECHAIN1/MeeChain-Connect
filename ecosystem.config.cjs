@@ -1,21 +1,26 @@
 module.exports = {
   apps: [
     {
-      name: 'meechain-dashboard',
-      script: 'server.js',
-      cwd: '/home/user/webapp',
+      name: "meechain-dashboard",
+      script: "./server.js",
+      cwd: __dirname,
       instances: 1,
+      exec_mode: "fork",
       autorestart: true,
       watch: false,
-      max_memory_restart: '512M',
+      max_memory_restart: "512M",
+      time: true,
+      out_file: "./logs/pm2-out.log",
+      error_file: "./logs/pm2-error.log",
+      merge_logs: true,
       env: {
-        NODE_ENV: 'production',
-        PORT: 3000
+        NODE_ENV: "production",
+        PORT: process.env.PORT || 3000,
       },
-      error_file: '/home/user/webapp/logs/pm2-error.log',
-      out_file: '/home/user/webapp/logs/pm2-out.log',
-      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
-      merge_logs: true
-    }
-  ]
+      env_development: {
+        NODE_ENV: "development",
+        PORT: process.env.PORT || 3000,
+      },
+    },
+  ],
 };

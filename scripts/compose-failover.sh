@@ -54,7 +54,8 @@ else
   echo "⚠️ docker CLI not found in PATH."
 fi
 
-if [[ "${ALLOW_PODMAN_DIRECT,,}" == "true" ]]; then
+ALLOW_PODMAN_LC="$(printf '%s' "$ALLOW_PODMAN_DIRECT" | tr '[:upper:]' '[:lower:]')"
+if [[ "$ALLOW_PODMAN_LC" == "true" ]]; then
   if command -v podman >/dev/null 2>&1; then
     run_podman_direct "$@"
     exit $?

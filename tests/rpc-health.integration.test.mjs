@@ -84,8 +84,13 @@ test('GET /rpc/health returns expected structure + rpc mode state', async () => 
     assert.equal(rpcJson.id, 1);
     assert.equal(rpcJson.result, '0x344e');
   } finally {
-    child.kill('SIGTERM');
-    await new Promise((resolve) => child.once('exit', resolve));
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill('SIGTERM');
+      await new Promise((resolve) => {
+        if (child.exitCode !== null || child.signalCode !== null) return resolve();
+        child.once('exit', resolve);
+      });
+    }
   }
 
   assert.equal(stderr.includes('Missing credentials'), false, 'server should boot in test with dummy key');
