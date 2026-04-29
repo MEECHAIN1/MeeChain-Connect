@@ -10,7 +10,7 @@ TARGETS=(
 
 fail=0
 for target in "${TARGETS[@]}"; do
-  echo "\n=== Verifying ${target} ==="
+  printf '\n=== Verifying %s ===\n' "$target"
   if bash scripts/verify-rpc-endpoint.sh "$target" "$TIMEOUT"; then
     echo "✅ ${target} OK"
   else
