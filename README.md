@@ -1,6 +1,8 @@
 # MeeChain Dashboard
 
+
 [![🚀 Deploy MeeChain to Cloudflare Pages (meechain)](https://github.com/MEECHAIN1/MeeChain-Connect/actions/workflows/deploy.yml/badge.svg)](https://github.com/MEECHAIN1/MeeChain-Connect/actions/workflows/deploy.yml)
+
 
 แดชบอร์ด Web Application สำหรับ MeeChain Blockchain Platform
 
@@ -26,6 +28,7 @@ node server.js
 ## Contributor onboarding checklist
 เอกสาร checklist ฉบับ ritualized สำหรับ contributors:
 - `docs/CONTRIBUTOR_CHECKLIST.md`
+
 
 ## RPC Ritual Health Check
 
@@ -64,6 +67,7 @@ The script runs these checks:
 
 ### Contributor Milestone
 Passing all checks earns the contributor the **RPC Ready Badge** as part of the ritualized onboarding flow.
+
 
 ## Production-safe RPC fallback
 รองรับผ่าน env ใน `server.js`:
@@ -177,6 +181,7 @@ npm run compose:dshackle:local:down
 - `docker-compose.dshackle.local.yml`
 - `config/dshackle/provider.local.yaml`
 
+
 ## Project Structure
 ```text
 ├── index.html          # Main dashboard page
@@ -243,6 +248,7 @@ MeeChain contributors สามารถ deploy Cloudflare Tunnel ได้ส�
 - Termux → Portable, flexible, mobile onboarding
 
 ทั้งสองวิธีถือว่า valid และสามารถใช้ร่วมกันได้ตามสถานการณ์.
+
 
 ## Cloudflare Tunnel
 ตัวอย่าง config: `cloudflared/config.yml.example`
