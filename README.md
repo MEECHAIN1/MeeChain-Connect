@@ -1,13 +1,15 @@
 # MeeChain Dashboard
 
+
 [![🚀 Deploy MeeChain to Cloudflare Pages (meechain)](https://github.com/MEECHAIN1/MeeChain-Connect/actions/workflows/deploy.yml/badge.svg)](https://github.com/MEECHAIN1/MeeChain-Connect/actions/workflows/deploy.yml)
+
 
 แดชบอร์ด Web Application สำหรับ MeeChain Blockchain Platform
 
 ## Prerequisites
 - Modern web browser (Chrome, Firefox, Safari, Edge)
 - Node.js 18+
-- Run via `node server.js` (a static web server is **not** sufficient — `/api/*` and `/rpc/*` are required)
+- Local web server (`python3 -m http.server`, `npx serve`) หรือรันผ่าน `node server.js`
 
 ## Installation
 ```bash
@@ -26,6 +28,7 @@ node server.js
 ## Contributor onboarding checklist
 เอกสาร checklist ฉบับ ritualized สำหรับ contributors:
 - `docs/CONTRIBUTOR_CHECKLIST.md`
+
 
 ## RPC Ritual Health Check
 
@@ -64,6 +67,7 @@ The script runs these checks:
 
 ### Contributor Milestone
 Passing all checks earns the contributor the **RPC Ready Badge** as part of the ritualized onboarding flow.
+
 
 ## Production-safe RPC fallback
 รองรับผ่าน env ใน `server.js`:
@@ -107,6 +111,15 @@ npm run verify:rpc
 bash scripts/verify-rpc-endpoint.sh https://rpc.meechain.live/rpc 10
 ```
 
+ถ้ามี DNS แยก Cloudflare origin เป็น `origin-rpc.meechain.live` ให้ตรวจแบบ matrix ได้เลย:
+
+```bash
+npm run verify:rpc:matrix
+# checks both:
+# - https://rpc.meechain.live/rpc
+# - https://origin-rpc.meechain.live/rpc
+```
+
 เทสต์นี้บังคับตรวจทั้ง GET และ POST JSON-RPC เพื่อลด false positive (กรณี GET ตอบ 200 แต่ POST timeout).
 
 
@@ -125,13 +138,52 @@ PRIMARY_CONTEXT=default FALLBACK_CONTEXT=podman npm run compose:ps
 ![Docker to Podman failover demo](docs/assets/compose-failover-demo.svg)
 
 ## External RPC check (ล่าสุด)
-ตรวจจาก external network วันที่ **April 19, 2026**:
-- `GET https://rpc.meechain.live/rpc` ตอบ `200` พร้อม JSON status
-- `POST https://rpc.meechain.live/rpc` (eth_chainId) ยัง timeout ~10s
-- สรุป: external endpoint ยังไม่พร้อมสำหรับ wallet client จนกว่า POST จะตอบ JSON-RPC ปกติ
+ตรวจจาก external network วันที่ **April 27, 2026**:
+- `GET https://rpc.meechain.live/rpc` ตอบ `502`
+- `POST https://rpc.meechain.live/rpc` (eth_chainId) ตอบ `502`
+- สรุป: external endpoint ยังไม่พร้อมสำหรับ wallet client จนกว่า GET/POST จะกลับมาปกติ
+
+
+## dRPC + Dshackle hybrid setup
+สำหรับการใช้ local RPC คู่กับ dRPC ผ่าน proxy เดียว:
+- Runbook: `docs/DRPC_DSHACKLE_SETUP.md`
+- Config template: `config/dshackle/provider.example.yaml`
+- Quick check: `npm run verify:dshackle` (หรือ `bash scripts/check-dshackle-proxy.sh <url>`)
+
+
+### Compose profile: MeeChain + Dshackle
+รัน stack พร้อม Dshackle ด้วย compose ไฟล์เสริม:
+
+```bash
+npm run compose:dshackle:up
+npm run compose:dshackle:ps
+npm run compose:dshackle:down
+```
+
+ไฟล์ที่ใช้:
+- `docker-compose.yml`
+- `docker-compose.dshackle.yml`
+
+> หมายเหตุ: ต้องเตรียมไฟล์ TLS/keys ใน `./secrets/dshackle/*` ก่อนใช้งานจริง
+
+
+### Compose profile: MeeChain + Dshackle (local dev)
+โปรไฟล์นี้ปิด TLS/Auth สำหรับ dev เท่านั้น:
+
+```bash
+npm run compose:dshackle:local:up
+npm run compose:dshackle:local:ps
+npm run compose:dshackle:local:down
+```
+
+ไฟล์ที่ใช้:
+- `docker-compose.yml`
+- `docker-compose.dshackle.local.yml`
+- `config/dshackle/provider.local.yaml`
+
 
 ## Project Structure
-```
+```text
 ├── index.html          # Main dashboard page
 ├── explorer.html       # Mee Ritual Chain Explorer
 ├── dao.html            # Governance / DAO dashboard
@@ -144,6 +196,8 @@ PRIMARY_CONTEXT=default FALLBACK_CONTEXT=podman npm run compose:ps
 │   ├── css/            # Stylesheets
 │   ├── js/             # Front-end JavaScript modules
 │   └── assets/         # Images and resources
+├── scripts/            # Operational helper scripts
+├── src/                # Frontend source assets (css/js/images)
 ├── contracts/          # Smart contracts
 ├── functions/          # Serverless API functions
 ├── test/               # Unit/integration tests (legacy set)
@@ -202,6 +256,7 @@ MeeChain contributors สามารถ deploy Cloudflare Tunnel ได้ส�
 - Termux → Portable, flexible, mobile onboarding
 
 ทั้งสองวิธีถือว่า valid และสามารถใช้ร่วมกันได้ตามสถานการณ์.
+
 
 ## Cloudflare Tunnel
 ตัวอย่าง config: `cloudflared/config.yml.example`

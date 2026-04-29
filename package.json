@@ -4,7 +4,7 @@
   "description": "แดชบอร์ด Web Application สำหรับ MeeChain Blockchain Platform",
   "main": "server.js",
   "scripts": {
-    "build": "node scripts/build-pages.mjs",
+    "build": "node build-pages.mjs",
     "deploy:worker": "wrangler deploy -c wrangler.worker.toml --keep-vars",
     "start": "node server.js",
     "dev": "nodemon server.js",
@@ -40,7 +40,15 @@
     "docs": "jsdoc -c jsdoc.json",
     "docs:watch": "nodemon --watch src --watch server.js --exec \"npm run docs\"",
     "test:rpc:integration": "node --test tests/rpc-health.integration.test.mjs",
-    "verify:rpc": "bash scripts/verify-rpc-endpoint.sh"
+    "verify:rpc": "bash scripts/verify-rpc-endpoint.sh",
+    "verify:dshackle": "bash scripts/check-dshackle-proxy.sh",
+    "compose:dshackle:up": "bash scripts/compose-failover.sh -f docker-compose.yml -f docker-compose.dshackle.yml up -d",
+    "compose:dshackle:down": "bash scripts/compose-failover.sh -f docker-compose.yml -f docker-compose.dshackle.yml down",
+    "compose:dshackle:ps": "bash scripts/compose-failover.sh -f docker-compose.yml -f docker-compose.dshackle.yml ps",
+    "compose:dshackle:local:up": "bash scripts/compose-failover.sh -f docker-compose.yml -f docker-compose.dshackle.local.yml up -d",
+    "compose:dshackle:local:down": "bash scripts/compose-failover.sh -f docker-compose.yml -f docker-compose.dshackle.local.yml down",
+    "compose:dshackle:local:ps": "bash scripts/compose-failover.sh -f docker-compose.yml -f docker-compose.dshackle.local.yml ps",
+    "verify:rpc:matrix": "bash scripts/verify-rpc-matrix.sh"
   },
   "keywords": [
     "MeeChain",
@@ -73,5 +81,5 @@
   },
   "engines": {
     "node": "20.x"
- }
+  }
 }

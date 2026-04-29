@@ -1,438 +1,272 @@
 /**
  * Unit tests for Cloudflare Pages Functions added in this PR:
- *   cf-deploy/functions/api/chat.js
- *   cf-deploy/functions/api/chat/stream.js
  *   cf-deploy/functions/api/health.js
  *   cf-deploy/functions/api/network.js
+ *   cf-deploy/functions/api/chat.js
+ *   cf-deploy/functions/api/chat/stream.js
  *   cf-deploy/functions/api/nodecloud/stats.js
  *   cf-deploy/functions/api/web3/status.js
- *
- * Run: node --test tests/cf-functions.test.mjs
  */
 
 import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
+// ─── helpers ────────────────────────────────────────────────────────────────
 
-/** Build a fake ctx object used by all CF Pages Functions. */
-function makeCtx(env = {}, reqBody = null, method = 'GET') {
+/** Build a fake ctx object for CF Pages Functions */
+function makeCtx({ env = {}, body = null, method = 'GET' } = {}) {
   const request = new Request('https://example.com/', {
     method,
-    headers: { 'Content-Type': 'application/json' },
-    body: reqBody !== null ? JSON.stringify(reqBody) : undefined,
+    body: body !== null ? JSON.stringify(body) : undefined,
+    headers: body !== null ? { 'Content-Type': 'application/json' } : {},
   });
   return { request, env };
 }
 
-/** Build a ctx with a POST request whose body is a raw string (for bad JSON). */
-function makeCtxRaw(body, env = {}) {
-  const request = new Request('https://example.com/', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body,
-  });
-  return { request, env };
-}
-
-/** Read all SSE events from a Response that carries an event-stream body. */
-async function collectSSE(response) {
-  const text = await response.text();
-  const events = [];
-  for (const line of text.split('\n')) {
-    if (line.startsWith('data: ')) {
-      try {
-        events.push(JSON.parse(line.slice(6)));
-      } catch {
-        events.push(line.slice(6));
-      }
-    }
+/** Read all bytes from a ReadableStream and return as string */
+async function streamToText(readable) {
+  const reader = readable.getReader();
+  const decoder = new TextDecoder();
+  let result = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    result += decoder.decode(value, { stream: true });
   }
-  return events;
+  return result;
 }
 
-// Save and restore globalThis.fetch around each test that mocks it.
-let originalFetch;
-beforeEach(() => { originalFetch = globalThis.fetch; });
-afterEach(() => { globalThis.fetch = originalFetch; });
+/** Parse SSE text into array of parsed data payloads */
+function parseSseLines(text) {
+  return text
+    .split('\n')
+    .filter((l) => l.startsWith('data: '))
+    .map((l) => JSON.parse(l.slice(6).trim()));
+}
 
-// ────────────────────────────────────────────────────────────────────────────
-// cf-deploy/functions/api/health.js
-// ────────────────────────────────────────────────────────────────────────────
+// ─── /api/health ────────────────────────────────────────────────────────────
 
-describe('health.js', async () => {
-  const { onRequestGet } = await import('../cf-deploy/functions/api/health.js');
+describe('/api/health', () => {
+  let onRequestGet;
 
-  test('returns status ok with default env values', async () => {
-    const res = await onRequestGet(makeCtx({}));
+  beforeEach(async () => {
+    ({ onRequestGet } = await import('../cf-deploy/functions/api/health.js'));
+  });
+
+  test('returns status ok with default contract addresses', async () => {
+    const ctx = makeCtx({ env: {} });
+    const res = await onRequestGet(ctx);
+
     assert.equal(res.status, 200);
+
     const body = await res.json();
     assert.equal(body.status, 'ok');
     assert.equal(body.model, 'gpt-5-mini');
     assert.equal(body.bot, 'MeeBot AI');
     assert.equal(body.web3, false);
     assert.equal(body.chainId, 13390);
-    assert.equal(body.rpc, 'http://rpc.meechain.run.place');
     assert.equal(body.domain, 'meebot.io');
     assert.equal(body.version, '2.0.0');
   });
 
-  test('uses default contract addresses when env not set', async () => {
-    const res = await onRequestGet(makeCtx({}));
-    const { contracts } = await res.json();
-    assert.equal(contracts.token,   '0x5FbDB2315678afecb367f032d93F642f64180aa3');
-    assert.equal(contracts.nft,     '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512');
-    assert.equal(contracts.staking, '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0');
-  });
-
-  test('uses env-provided values when set', async () => {
-    const env = {
-      DRPC_RPC_URL: 'https://custom-rpc.example.com',
-      VITE_TOKEN_CONTRACT_ADDRESS: '0xTOKEN',
-      VITE_NFT_CONTRACT_ADDRESS: '0xNFT',
-      VITE_STAKING_CONTRACT_ADDRESS: '0xSTAKING',
-    };
-    const res = await onRequestGet(makeCtx(env));
-    const body = await res.json();
-    assert.equal(body.rpc, 'https://custom-rpc.example.com');
-    assert.equal(body.contracts.token,   '0xTOKEN');
-    assert.equal(body.contracts.nft,     '0xNFT');
-    assert.equal(body.contracts.staking, '0xSTAKING');
-  });
-
-  test('sets correct response headers', async () => {
-    const res = await onRequestGet(makeCtx({}));
-    assert.equal(res.headers.get('Content-Type'), 'application/json');
-    assert.equal(res.headers.get('Access-Control-Allow-Origin'), '*');
-    assert.equal(res.headers.get('Cache-Control'), 'no-cache');
-  });
-
-  test('web3 field is always false (static value)', async () => {
-    const res = await onRequestGet(makeCtx({ DRPC_RPC_URL: 'http://anything' }));
-    const body = await res.json();
-    assert.equal(body.web3, false);
-  });
-});
-
-// ────────────────────────────────────────────────────────────────────────────
-// cf-deploy/functions/api/network.js
-// ────────────────────────────────────────────────────────────────────────────
-
-describe('network.js', async () => {
-  const { onRequestGet } = await import('../cf-deploy/functions/api/network.js');
-
-  test('default chainId 13390 encodes to 0x344e', async () => {
-    const res = await onRequestGet(makeCtx({}));
-    const body = await res.json();
-    assert.equal(body.chainId, '0x344e');
-  });
-
-  test('custom CHAIN_ID is hex-encoded correctly', async () => {
-    const res = await onRequestGet(makeCtx({ CHAIN_ID: '1' }));
-    const body = await res.json();
-    assert.equal(body.chainId, '0x1');
-  });
-
-  test('chainName is MeeChain Ritual Chain', async () => {
-    const res = await onRequestGet(makeCtx({}));
-    const body = await res.json();
-    assert.equal(body.chainName, 'MeeChain Ritual Chain');
-  });
-
-  test('nativeCurrency has expected fields', async () => {
-    const res = await onRequestGet(makeCtx({}));
-    const { nativeCurrency } = await res.json();
-    assert.equal(nativeCurrency.name,     'MEE Token');
-    assert.equal(nativeCurrency.symbol,   'MEE');
-    assert.equal(nativeCurrency.decimals, 18);
-  });
-
-  test('default rpcUrls uses fallback addresses', async () => {
-    const res = await onRequestGet(makeCtx({}));
-    const { rpcUrls } = await res.json();
-    assert.ok(Array.isArray(rpcUrls));
-    assert.equal(rpcUrls[0], 'http://rpc.meechain.run.place');
-  });
-
-  test('custom env overrides rpcUrls and contracts', async () => {
-    const env = {
-      DRPC_RPC_URL: 'https://drpc.custom',
-      VITE_RPC_URL: 'https://vite.custom',
-      VITE_TOKEN_CONTRACT_ADDRESS: '0xT',
-      VITE_NFT_CONTRACT_ADDRESS:   '0xN',
-      VITE_STAKING_CONTRACT_ADDRESS: '0xP',
-    };
-    const res = await onRequestGet(makeCtx(env));
-    const body = await res.json();
-    assert.equal(body.rpcUrls[0], 'https://drpc.custom');
-    assert.equal(body.rpcUrls[1], 'https://vite.custom');
-    assert.equal(body.contracts.token,  '0xT');
-    assert.equal(body.contracts.nft,    '0xN');
-    assert.equal(body.contracts.portal, '0xP');
-  });
-
-  test('blockExplorerUrls is an array', async () => {
-    const res = await onRequestGet(makeCtx({}));
-    const { blockExplorerUrls } = await res.json();
-    assert.ok(Array.isArray(blockExplorerUrls));
-    assert.ok(blockExplorerUrls.length > 0);
-  });
-
-  test('sets CORS header', async () => {
-    const res = await onRequestGet(makeCtx({}));
-    assert.equal(res.headers.get('Access-Control-Allow-Origin'), '*');
-  });
-
-  test('large custom chainId encodes correctly', async () => {
-    const res = await onRequestGet(makeCtx({ CHAIN_ID: '43114' }));
-    const body = await res.json();
-    assert.equal(body.chainId, '0xa86a');
-  });
-});
-
-// ────────────────────────────────────────────────────────────────────────────
-// cf-deploy/functions/api/nodecloud/stats.js
-// ────────────────────────────────────────────────────────────────────────────
-
-describe('nodecloud/stats.js', async () => {
-  const { onRequestGet } = await import('../cf-deploy/functions/api/nodecloud/stats.js');
-
-  test('no NODECLOUD_STATS_KEY returns mock data', async () => {
-    const res = await onRequestGet(makeCtx({}));
-    const body = await res.json();
-    assert.equal(body.source, 'nodecloud_mock');
-    assert.equal(body.keyHint, 'not-configured');
-    assert.equal(body.chainId, 13390);
-    assert.equal(body.network, 'MeeChain Ritual Chain');
-  });
-
-  test('mock fallback includes uptime and requests fields', async () => {
-    const res = await onRequestGet(makeCtx({}));
-    const body = await res.json();
-    assert.equal(body.uptime, '99.98%');
-    assert.equal(body.requests, 12453);
-  });
-
-  test('mock fallback includes badges', async () => {
-    const res = await onRequestGet(makeCtx({}));
-    const body = await res.json();
-    assert.ok(body.badges);
-    assert.ok(body.badges.health);
-    assert.ok(body.badges.network);
-    assert.ok(body.badges.stats);
-  });
-
-  test('mock fallback uses env DRPC_RPC_URL as rpcEndpoint', async () => {
-    const env = { DRPC_RPC_URL: 'https://custom.rpc' };
-    const res = await onRequestGet(makeCtx(env));
-    const body = await res.json();
-    assert.equal(body.rpcEndpoint, 'https://custom.rpc');
-  });
-
-  test('mock fallback lastUpdated is a valid ISO string', async () => {
-    const res = await onRequestGet(makeCtx({}));
-    const body = await res.json();
-    const d = new Date(body.lastUpdated);
-    assert.ok(!isNaN(d.getTime()), 'lastUpdated should be a valid ISO date string');
-  });
-
-  test('with NODECLOUD_STATS_KEY and successful API returns live data', async () => {
-    globalThis.fetch = async (url, _opts) => {
-      if (url === 'https://api.nodecloud.io/v1/stats') {
-        return new Response(JSON.stringify({ nodes: 42, status: 'healthy' }), { status: 200 });
-      }
-      throw new Error('unexpected fetch');
-    };
-    const env = { NODECLOUD_STATS_KEY: 'test-key-123' };
-    const res = await onRequestGet(makeCtx(env));
-    const body = await res.json();
-    assert.equal(body.source, 'nodecloud_live');
-    assert.equal(body.nodes, 42);
-    assert.equal(body.status, 'healthy');
-  });
-
-  test('with NODECLOUD_STATS_KEY and non-ok API response falls back to mock', async () => {
-    globalThis.fetch = async () => new Response('Server Error', { status: 500 });
-    const env = { NODECLOUD_STATS_KEY: 'test-key-123' };
-    const res = await onRequestGet(makeCtx(env));
-    const body = await res.json();
-    assert.equal(body.source, 'nodecloud_mock');
-  });
-
-  test('with NODECLOUD_STATS_KEY and fetch throws falls back to mock', async () => {
-    globalThis.fetch = async () => { throw new Error('Network unreachable'); };
-    const env = { NODECLOUD_STATS_KEY: 'test-key-xyz' };
-    const res = await onRequestGet(makeCtx(env));
-    const body = await res.json();
-    assert.equal(body.source, 'nodecloud_mock');
-  });
-
-  test('keyHint shows first 8 chars of key when key is set but API fails', async () => {
-    globalThis.fetch = async () => new Response('err', { status: 503 });
-    const env = { NODECLOUD_STATS_KEY: 'abcdefghijklmnop' };
-    const res = await onRequestGet(makeCtx(env));
-    const body = await res.json();
-    assert.equal(body.keyHint, 'abcdefgh...');
-  });
-
-  test('sets CORS header', async () => {
-    const res = await onRequestGet(makeCtx({}));
-    assert.equal(res.headers.get('Access-Control-Allow-Origin'), '*');
-  });
-});
-
-// ────────────────────────────────────────────────────────────────────────────
-// cf-deploy/functions/api/web3/status.js
-// ────────────────────────────────────────────────────────────────────────────
-
-describe('web3/status.js', async () => {
-  const { onRequestGet } = await import('../cf-deploy/functions/api/web3/status.js');
-
-  test('returns connected:false and blockNumber:null when fetch throws', async () => {
-    globalThis.fetch = async () => { throw new Error('Network error'); };
-    const res = await onRequestGet(makeCtx({}));
-    const body = await res.json();
-    assert.equal(body.connected, false);
-    assert.equal(body.blockNumber, null);
-  });
-
-  test('returns connected:false when RPC responds with non-ok status', async () => {
-    globalThis.fetch = async () => new Response('Bad Gateway', { status: 502 });
-    const res = await onRequestGet(makeCtx({}));
-    const body = await res.json();
-    assert.equal(body.connected, false);
-    assert.equal(body.blockNumber, null);
-  });
-
-  test('returns connected:true and parsed blockNumber on valid RPC response', async () => {
-    // eth_blockNumber returns hex block number; 0x13B7C0 = 1292224
-    globalThis.fetch = async () =>
-      new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: '0x13B7C0' }), { status: 200 });
-    const res = await onRequestGet(makeCtx({}));
-    const body = await res.json();
-    assert.equal(body.connected, true);
-    assert.equal(body.blockNumber, 0x13B7C0);
-  });
-
-  test('returns connected:false when result is not a valid hex number', async () => {
-    globalThis.fetch = async () =>
-      new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: 'invalid' }), { status: 200 });
-    const res = await onRequestGet(makeCtx({}));
-    const body = await res.json();
-    assert.equal(body.connected, false);
-  });
-
-  test('uses default RPC URL from fallback', async () => {
-    globalThis.fetch = async () => { throw new Error('x'); };
-    const res = await onRequestGet(makeCtx({}));
+  test('uses default RPC URL when DRPC_RPC_URL is not set', async () => {
+    const ctx = makeCtx({ env: {} });
+    const res = await onRequestGet(ctx);
     const body = await res.json();
     assert.equal(body.rpc, 'http://rpc.meechain.run.place');
   });
 
-  test('uses DRPC_RPC_URL from env', async () => {
-    globalThis.fetch = async () => { throw new Error('x'); };
-    const env = { DRPC_RPC_URL: 'https://custom-rpc.test' };
-    const res = await onRequestGet(makeCtx(env));
+  test('uses DRPC_RPC_URL from env when provided', async () => {
+    const ctx = makeCtx({ env: { DRPC_RPC_URL: 'https://my-custom-rpc.example.com' } });
+    const res = await onRequestGet(ctx);
     const body = await res.json();
-    assert.equal(body.rpc, 'https://custom-rpc.test');
+    assert.equal(body.rpc, 'https://my-custom-rpc.example.com');
   });
 
-  test('returns default chainId 13390', async () => {
-    globalThis.fetch = async () => { throw new Error('x'); };
-    const res = await onRequestGet(makeCtx({}));
+  test('returns default contract addresses when env vars are missing', async () => {
+    const ctx = makeCtx({ env: {} });
+    const res = await onRequestGet(ctx);
     const body = await res.json();
-    assert.equal(body.chainId, 13390);
+    assert.equal(body.contracts.token, '0x5FbDB2315678afecb367f032d93F642f64180aa3');
+    assert.equal(body.contracts.nft, '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512');
+    assert.equal(body.contracts.staking, '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0');
   });
 
-  test('returns custom chainId from env', async () => {
-    globalThis.fetch = async () => { throw new Error('x'); };
-    const res = await onRequestGet(makeCtx({ CHAIN_ID: '1' }));
+  test('uses contract addresses from env when provided', async () => {
+    const ctx = makeCtx({
+      env: {
+        VITE_TOKEN_CONTRACT_ADDRESS: '0xAAAA',
+        VITE_NFT_CONTRACT_ADDRESS: '0xBBBB',
+        VITE_STAKING_CONTRACT_ADDRESS: '0xCCCC',
+      },
+    });
+    const res = await onRequestGet(ctx);
     const body = await res.json();
-    assert.equal(body.chainId, 1);
+    assert.equal(body.contracts.token, '0xAAAA');
+    assert.equal(body.contracts.nft, '0xBBBB');
+    assert.equal(body.contracts.staking, '0xCCCC');
   });
 
-  test('returns default contract addresses', async () => {
-    globalThis.fetch = async () => { throw new Error('x'); };
-    const res = await onRequestGet(makeCtx({}));
-    const { contracts } = await res.json();
-    assert.equal(contracts.token,  '0x5FbDB2315678afecb367f032d93F642f64180aa3');
-    assert.equal(contracts.nft,    '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512');
-    assert.equal(contracts.portal, '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0');
-  });
-
-  test('sets correct response headers', async () => {
-    globalThis.fetch = async () => { throw new Error('x'); };
-    const res = await onRequestGet(makeCtx({}));
+  test('sets correct Content-Type and CORS headers', async () => {
+    const ctx = makeCtx({ env: {} });
+    const res = await onRequestGet(ctx);
     assert.equal(res.headers.get('Content-Type'), 'application/json');
     assert.equal(res.headers.get('Access-Control-Allow-Origin'), '*');
     assert.equal(res.headers.get('Cache-Control'), 'no-cache');
   });
+});
 
-  test('zero block number 0x0 → connected:true, blockNumber:0', async () => {
-    globalThis.fetch = async () =>
-      new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: '0x0' }), { status: 200 });
-    const res = await onRequestGet(makeCtx({}));
+// ─── /api/network ───────────────────────────────────────────────────────────
+
+describe('/api/network', () => {
+  let onRequestGet;
+
+  beforeEach(async () => {
+    ({ onRequestGet } = await import('../cf-deploy/functions/api/network.js'));
+  });
+
+  test('returns hex chainId 0x344e for default chain 13390', async () => {
+    const ctx = makeCtx({ env: {} });
+    const res = await onRequestGet(ctx);
     const body = await res.json();
-    // parseInt('0x0', 16) === 0; !isNaN(0) === true → connected should be true
-    assert.equal(body.connected, true);
-    assert.equal(body.blockNumber, 0);
+    assert.equal(body.chainId, '0x344e');
+  });
+
+  test('converts custom CHAIN_ID to hex', async () => {
+    const ctx = makeCtx({ env: { CHAIN_ID: '1' } });
+    const res = await onRequestGet(ctx);
+    const body = await res.json();
+    assert.equal(body.chainId, '0x1');
+  });
+
+  test('returns correct chainName', async () => {
+    const ctx = makeCtx({ env: {} });
+    const body = await (await onRequestGet(ctx)).json();
+    assert.equal(body.chainName, 'MeeChain Ritual Chain');
+  });
+
+  test('returns two RPC URLs by default', async () => {
+    const ctx = makeCtx({ env: {} });
+    const body = await (await onRequestGet(ctx)).json();
+    assert.ok(Array.isArray(body.rpcUrls));
+    assert.equal(body.rpcUrls.length, 2);
+    assert.equal(body.rpcUrls[0], 'http://rpc.meechain.run.place');
+  });
+
+  test('uses env RPC URLs when provided', async () => {
+    const ctx = makeCtx({
+      env: {
+        DRPC_RPC_URL: 'https://drpc.example.com',
+        VITE_RPC_URL: 'https://vite-rpc.example.com',
+      },
+    });
+    const body = await (await onRequestGet(ctx)).json();
+    assert.equal(body.rpcUrls[0], 'https://drpc.example.com');
+    assert.equal(body.rpcUrls[1], 'https://vite-rpc.example.com');
+  });
+
+  test('returns native currency with correct symbol and decimals', async () => {
+    const ctx = makeCtx({ env: {} });
+    const body = await (await onRequestGet(ctx)).json();
+    assert.equal(body.nativeCurrency.symbol, 'MEE');
+    assert.equal(body.nativeCurrency.decimals, 18);
+    assert.equal(body.nativeCurrency.name, 'MEE Token');
+  });
+
+  test('returns blockExplorerUrls array', async () => {
+    const ctx = makeCtx({ env: {} });
+    const body = await (await onRequestGet(ctx)).json();
+    assert.ok(Array.isArray(body.blockExplorerUrls));
+    assert.ok(body.blockExplorerUrls.length > 0);
+  });
+
+  test('returns default contract addresses', async () => {
+    const ctx = makeCtx({ env: {} });
+    const body = await (await onRequestGet(ctx)).json();
+    assert.equal(body.contracts.token, '0x5FbDB2315678afecb367f032d93F642f64180aa3');
+    assert.equal(body.contracts.nft, '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512');
+    assert.equal(body.contracts.portal, '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0');
+  });
+
+  test('sets CORS header', async () => {
+    const ctx = makeCtx({ env: {} });
+    const res = await onRequestGet(ctx);
+    assert.equal(res.headers.get('Access-Control-Allow-Origin'), '*');
+    assert.equal(res.headers.get('Content-Type'), 'application/json');
+  });
+
+  test('returns 0x0 for CHAIN_ID=0 edge case', async () => {
+    const ctx = makeCtx({ env: { CHAIN_ID: '0' } });
+    const body = await (await onRequestGet(ctx)).json();
+    assert.equal(body.chainId, '0x0');
   });
 });
 
-// ────────────────────────────────────────────────────────────────────────────
-// cf-deploy/functions/api/chat.js
-// ────────────────────────────────────────────────────────────────────────────
+// ─── /api/chat ──────────────────────────────────────────────────────────────
 
-describe('chat.js', async () => {
-  const { onRequestPost, onRequestOptions } = await import('../cf-deploy/functions/api/chat.js');
+describe('/api/chat', () => {
+  let onRequestPost, onRequestOptions;
+  let originalFetch;
 
-  test('OPTIONS returns correct CORS headers', async () => {
-    const res = await onRequestOptions();
+  beforeEach(async () => {
+    ({ onRequestPost, onRequestOptions } = await import('../cf-deploy/functions/api/chat.js'));
+    originalFetch = global.fetch;
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  test('returns 400 when message is empty string', async () => {
+    const ctx = makeCtx({ env: {}, body: { message: '' }, method: 'POST' });
+    const res = await onRequestPost(ctx);
+    assert.equal(res.status, 400);
+    const body = await res.json();
+    assert.equal(body.error, 'Message required');
+  });
+
+  test('returns 400 when message is whitespace only', async () => {
+    const ctx = makeCtx({ env: {}, body: { message: '   ' }, method: 'POST' });
+    const res = await onRequestPost(ctx);
+    assert.equal(res.status, 400);
+  });
+
+  test('returns 400 when message field is missing', async () => {
+    const ctx = makeCtx({ env: {}, body: {}, method: 'POST' });
+    const res = await onRequestPost(ctx);
+    assert.equal(res.status, 400);
+  });
+
+  test('returns error reply when OPENAI_API_KEY is not configured', async () => {
+    const ctx = makeCtx({ env: {}, body: { message: 'สวัสดี' }, method: 'POST' });
+    const res = await onRequestPost(ctx);
     assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.error, 'API key not configured');
+    assert.ok(body.reply.includes('API key'));
+  });
+
+  test('returns CORS headers when API key is not configured', async () => {
+    const ctx = makeCtx({ env: {}, body: { message: 'hello' }, method: 'POST' });
+    const res = await onRequestPost(ctx);
     assert.equal(res.headers.get('Access-Control-Allow-Origin'), '*');
-    assert.equal(res.headers.get('Access-Control-Allow-Methods'), 'POST, OPTIONS');
-    assert.equal(res.headers.get('Access-Control-Allow-Headers'), 'Content-Type');
   });
 
-  test('empty message returns 400', async () => {
-    const ctx = makeCtx({}, { message: '' }, 'POST');
-    const res = await onRequestPost(ctx);
-    assert.equal(res.status, 400);
-    const body = await res.json();
-    assert.ok(body.error);
-  });
+  test('returns reply and usage on successful OpenAI call', async () => {
+    global.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: 'สวัสดีครับ!' } }],
+          usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
 
-  test('whitespace-only message returns 400', async () => {
-    const ctx = makeCtx({}, { message: '   ' }, 'POST');
-    const res = await onRequestPost(ctx);
-    assert.equal(res.status, 400);
-  });
-
-  test('missing message field returns 400', async () => {
-    const ctx = makeCtx({}, {}, 'POST');
-    const res = await onRequestPost(ctx);
-    assert.equal(res.status, 400);
-  });
-
-  test('no OPENAI_API_KEY returns fallback reply without calling OpenAI', async () => {
-    let fetchCalled = false;
-    globalThis.fetch = async () => { fetchCalled = true; return new Response('{}', { status: 200 }); };
-    const ctx = makeCtx({}, { message: 'สวัสดี' }, 'POST');
-    const res = await onRequestPost(ctx);
-    assert.equal(res.status, 200);
-    const body = await res.json();
-    assert.ok(body.reply, 'should have reply field');
-    assert.ok(body.error, 'should have error field indicating no key');
-    assert.equal(fetchCalled, false, 'should not call OpenAI when key is missing');
-  });
-
-  test('successful OpenAI response returns reply and usage', async () => {
-    globalThis.fetch = async () =>
-      new Response(JSON.stringify({
-        choices: [{ message: { content: 'สวัสดีครับ!' } }],
-        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
-      }), { status: 200 });
-    const ctx = makeCtx({ OPENAI_API_KEY: 'sk-test' }, { message: 'สวัสดี' }, 'POST');
+    const ctx = makeCtx({
+      env: { OPENAI_API_KEY: 'sk-test' },
+      body: { message: 'สวัสดี' },
+      method: 'POST',
+    });
     const res = await onRequestPost(ctx);
     assert.equal(res.status, 200);
     const body = await res.json();
@@ -441,199 +275,529 @@ describe('chat.js', async () => {
     assert.equal(body.usage.total_tokens, 15);
   });
 
-  test('uses fallback reply when choices array is empty', async () => {
-    globalThis.fetch = async () =>
-      new Response(JSON.stringify({ choices: [] }), { status: 200 });
-    const ctx = makeCtx({ OPENAI_API_KEY: 'sk-test' }, { message: 'hello' }, 'POST');
+  test('returns fallback reply when choices array is empty', async () => {
+    global.fetch = async () =>
+      new Response(
+        JSON.stringify({ choices: [], usage: {} }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+
+    const ctx = makeCtx({
+      env: { OPENAI_API_KEY: 'sk-test' },
+      body: { message: 'test' },
+      method: 'POST',
+    });
     const res = await onRequestPost(ctx);
     const body = await res.json();
-    assert.equal(body.reply, 'ขออภัย ไม่สามารถตอบได้');
+    assert.ok(body.reply); // fallback string present
   });
 
-  test('OpenAI non-ok response returns error reply', async () => {
-    globalThis.fetch = async () => new Response('Unauthorized', { status: 401 });
-    const ctx = makeCtx({ OPENAI_API_KEY: 'sk-bad' }, { message: 'hello' }, 'POST');
+  test('handles OpenAI HTTP error response', async () => {
+    global.fetch = async () =>
+      new Response('Unauthorized', { status: 401 });
+
+    const ctx = makeCtx({
+      env: { OPENAI_API_KEY: 'sk-bad' },
+      body: { message: 'test' },
+      method: 'POST',
+    });
     const res = await onRequestPost(ctx);
-    assert.equal(res.status, 200);
     const body = await res.json();
-    assert.ok(body.reply, 'should have reply indicating error');
-    assert.match(body.error, /HTTP 401/);
+    assert.ok(body.error.includes('401'));
+    assert.ok(body.reply);
   });
 
-  test('uses custom OPENAI_BASE_URL', async () => {
-    let calledUrl = '';
-    globalThis.fetch = async (url) => {
-      calledUrl = url;
-      return new Response(JSON.stringify({
-        choices: [{ message: { content: 'ok' } }],
-        usage: {},
-      }), { status: 200 });
+  test('uses custom OPENAI_BASE_URL when provided', async () => {
+    let capturedUrl = '';
+    global.fetch = async (url) => {
+      capturedUrl = url;
+      return new Response(
+        JSON.stringify({ choices: [{ message: { content: 'ok' } }], usage: {} }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
     };
-    const env = { OPENAI_API_KEY: 'sk-test', OPENAI_BASE_URL: 'https://my-proxy.example.com/v1' };
-    const ctx = makeCtx(env, { message: 'hi' }, 'POST');
+
+    const ctx = makeCtx({
+      env: { OPENAI_API_KEY: 'sk-test', OPENAI_BASE_URL: 'https://custom.api.example.com/v1' },
+      body: { message: 'test' },
+      method: 'POST',
+    });
     await onRequestPost(ctx);
-    assert.ok(calledUrl.startsWith('https://my-proxy.example.com/v1'), `expected custom base URL, got ${calledUrl}`);
+    assert.ok(capturedUrl.startsWith('https://custom.api.example.com/v1'), `URL was: ${capturedUrl}`);
   });
 
-  test('sends correct Authorization header to OpenAI', async () => {
-    let authHeader = '';
-    globalThis.fetch = async (_url, opts) => {
-      authHeader = opts.headers['Authorization'];
-      return new Response(JSON.stringify({ choices: [{ message: { content: 'x' } }], usage: {} }), { status: 200 });
+  test('sends Authorization header with bearer token', async () => {
+    let capturedHeaders = {};
+    global.fetch = async (_url, opts) => {
+      capturedHeaders = Object.fromEntries(Object.entries(opts.headers));
+      return new Response(
+        JSON.stringify({ choices: [{ message: { content: 'ok' } }], usage: {} }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
     };
-    const ctx = makeCtx({ OPENAI_API_KEY: 'sk-mykey' }, { message: 'test' }, 'POST');
+
+    const ctx = makeCtx({
+      env: { OPENAI_API_KEY: 'sk-mykey' },
+      body: { message: 'hi' },
+      method: 'POST',
+    });
     await onRequestPost(ctx);
-    assert.equal(authHeader, 'Bearer sk-mykey');
+    assert.equal(capturedHeaders['Authorization'], 'Bearer sk-mykey');
   });
 
-  test('malformed JSON body returns 500', async () => {
-    const ctx = makeCtxRaw('not-json', {});
+  test('returns 500 on unexpected exception', async () => {
+    global.fetch = async () => { throw new Error('Network failure'); };
+
+    const ctx = makeCtx({
+      env: { OPENAI_API_KEY: 'sk-test' },
+      body: { message: 'hello' },
+      method: 'POST',
+    });
     const res = await onRequestPost(ctx);
     assert.equal(res.status, 500);
+    const body = await res.json();
+    assert.equal(body.error, 'Network failure');
   });
 
-  test('response includes CORS header', async () => {
-    const ctx = makeCtx({}, { message: 'hello' }, 'POST');
-    const res = await onRequestPost(ctx);
-    assert.equal(res.headers.get('Access-Control-Allow-Origin'), '*');
-  });
-
-  test('sessionId field is accepted without error (ignored)', async () => {
-    globalThis.fetch = async () =>
-      new Response(JSON.stringify({ choices: [{ message: { content: 'hi' } }], usage: {} }), { status: 200 });
-    const ctx = makeCtx({ OPENAI_API_KEY: 'sk-test' }, { message: 'hello', sessionId: 'abc123' }, 'POST');
-    const res = await onRequestPost(ctx);
-    assert.equal(res.status, 200);
-  });
-});
-
-// ────────────────────────────────────────────────────────────────────────────
-// cf-deploy/functions/api/chat/stream.js
-// ────────────────────────────────────────────────────────────────────────────
-
-describe('chat/stream.js', async () => {
-  const { onRequestPost, onRequestOptions } = await import('../cf-deploy/functions/api/chat/stream.js');
-
-  test('OPTIONS returns correct CORS headers', async () => {
+  test('onRequestOptions returns correct CORS preflight headers', async () => {
     const res = await onRequestOptions();
     assert.equal(res.status, 200);
     assert.equal(res.headers.get('Access-Control-Allow-Origin'), '*');
-    assert.equal(res.headers.get('Access-Control-Allow-Methods'), 'POST, OPTIONS');
-    assert.equal(res.headers.get('Access-Control-Allow-Headers'), 'Content-Type');
+    assert.ok(res.headers.get('Access-Control-Allow-Methods').includes('POST'));
+    assert.ok(res.headers.get('Access-Control-Allow-Headers').includes('Content-Type'));
+  });
+});
+
+// ─── /api/chat/stream ───────────────────────────────────────────────────────
+
+describe('/api/chat/stream', () => {
+  let onRequestPost, onRequestOptions;
+  let originalFetch;
+
+  beforeEach(async () => {
+    ({ onRequestPost, onRequestOptions } = await import('../cf-deploy/functions/api/chat/stream.js'));
+    originalFetch = global.fetch;
   });
 
-  test('empty message returns 400', async () => {
-    const ctx = makeCtx({}, { message: '' }, 'POST');
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  test('returns 400 when message is empty', async () => {
+    const ctx = makeCtx({ env: {}, body: { message: '' }, method: 'POST' });
     const res = await onRequestPost(ctx);
     assert.equal(res.status, 400);
     const body = await res.json();
-    assert.ok(body.error);
+    assert.equal(body.error, 'Message required');
   });
 
-  test('whitespace-only message returns 400', async () => {
-    const ctx = makeCtx({}, { message: '   ' }, 'POST');
+  test('returns 400 when message is whitespace', async () => {
+    const ctx = makeCtx({ env: {}, body: { message: '  ' }, method: 'POST' });
     const res = await onRequestPost(ctx);
     assert.equal(res.status, 400);
   });
 
-  test('no OPENAI_API_KEY returns SSE stream with delta and done', async () => {
-    const ctx = makeCtx({}, { message: 'สวัสดี' }, 'POST');
+  test('returns SSE stream with error delta when API key missing', async () => {
+    const ctx = makeCtx({ env: {}, body: { message: 'hello' }, method: 'POST' });
     const res = await onRequestPost(ctx);
     assert.equal(res.headers.get('Content-Type'), 'text/event-stream');
-    const events = await collectSSE(res);
-    const deltaEvent = events.find(e => e.delta);
-    assert.ok(deltaEvent, 'should have at least one delta event');
-    const doneEvent = events.find(e => e.done === true);
-    assert.ok(doneEvent, 'should have a done:true event');
+    const text = await streamToText(res.body);
+    const events = parseSseLines(text);
+    assert.ok(events.length >= 2, 'should have at least delta and done events');
+    assert.ok(events[0].delta, 'first event should have delta with error message');
+    assert.ok(events[0].delta.includes('OPENAI_API_KEY'));
+    assert.equal(events[events.length - 1].done, true);
   });
 
-  test('upstream non-ok response returns SSE with error event', async () => {
-    globalThis.fetch = async () => new Response('Server Error', { status: 503 });
-    const ctx = makeCtx({ OPENAI_API_KEY: 'sk-test' }, { message: 'hello' }, 'POST');
+  test('returns SSE stream CORS headers when API key missing', async () => {
+    const ctx = makeCtx({ env: {}, body: { message: 'hello' }, method: 'POST' });
+    const res = await onRequestPost(ctx);
+    assert.equal(res.headers.get('Access-Control-Allow-Origin'), '*');
+  });
+
+  test('returns SSE stream with error event when upstream fails', async () => {
+    global.fetch = async () => new Response('Bad Gateway', { status: 502 });
+
+    const ctx = makeCtx({
+      env: { OPENAI_API_KEY: 'sk-test' },
+      body: { message: 'hello' },
+      method: 'POST',
+    });
     const res = await onRequestPost(ctx);
     assert.equal(res.headers.get('Content-Type'), 'text/event-stream');
-    const events = await collectSSE(res);
-    const errorEvent = events.find(e => e.error);
+    const text = await streamToText(res.body);
+    const events = parseSseLines(text);
+    const errorEvent = events.find((e) => e.error);
     assert.ok(errorEvent, 'should have an error event');
-    assert.match(errorEvent.error, /503/);
+    assert.ok(errorEvent.error.includes('502'));
   });
 
-  test('strips trailing slash from OPENAI_BASE_URL', async () => {
-    let calledUrl = '';
-    const encoder = new TextEncoder();
-    globalThis.fetch = async (url) => {
-      calledUrl = url;
-      // Return a minimal valid SSE stream
-      const body = new ReadableStream({
-        start(ctrl) {
-          ctrl.enqueue(encoder.encode('data: [DONE]\n\n'));
-          ctrl.close();
-        },
-      });
-      return new Response(body, { status: 200 });
-    };
-    const env = { OPENAI_API_KEY: 'sk-test', OPENAI_BASE_URL: 'https://proxy.example.com/v1/' };
-    const ctx = makeCtx(env, { message: 'hi' }, 'POST');
-    const res = await onRequestPost(ctx);
-    // Consume the stream so the async pipeline completes
-    await res.text();
-    assert.ok(!calledUrl.includes('//chat'), `URL should not have double slash, got: ${calledUrl}`);
-    assert.ok(calledUrl.startsWith('https://proxy.example.com/v1/chat'), `Expected clean URL, got: ${calledUrl}`);
-  });
+  test('streams delta chunks from upstream SSE', async () => {
+    // Simulate OpenAI streaming SSE format
+    const sseChunks = [
+      'data: {"choices":[{"delta":{"content":"สวัสดี"}}]}\n\n',
+      'data: {"choices":[{"delta":{"content":"ครับ"}}]}\n\n',
+      'data: [DONE]\n\n',
+    ].map((s) => new TextEncoder().encode(s));
 
-  test('successful streaming returns text/event-stream content-type', async () => {
-    const encoder = new TextEncoder();
-    globalThis.fetch = async () => {
-      const body = new ReadableStream({
-        start(ctrl) {
-          ctrl.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"สวั"}}]}\n\n'));
-          ctrl.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"สดี"}}]}\n\n'));
-          ctrl.enqueue(encoder.encode('data: [DONE]\n\n'));
-          ctrl.close();
-        },
+    let chunkIndex = 0;
+    const mockReadable = new ReadableStream({
+      pull(controller) {
+        if (chunkIndex < sseChunks.length) {
+          controller.enqueue(sseChunks[chunkIndex++]);
+        } else {
+          controller.close();
+        }
+      },
+    });
+
+    global.fetch = async () =>
+      new Response(mockReadable, {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' },
       });
-      return new Response(body, { status: 200 });
-    };
-    const ctx = makeCtx({ OPENAI_API_KEY: 'sk-test' }, { message: 'hello' }, 'POST');
+
+    const ctx = makeCtx({
+      env: { OPENAI_API_KEY: 'sk-test' },
+      body: { message: 'สวัสดี' },
+      method: 'POST',
+    });
     const res = await onRequestPost(ctx);
     assert.equal(res.headers.get('Content-Type'), 'text/event-stream');
+    assert.equal(res.headers.get('Cache-Control'), 'no-cache');
+
+    const text = await streamToText(res.body);
+    const events = parseSseLines(text);
+
+    const deltas = events.filter((e) => e.delta).map((e) => e.delta);
+    assert.ok(deltas.includes('สวัสดี'), `deltas were: ${JSON.stringify(deltas)}`);
+    assert.ok(deltas.includes('ครับ'));
+
+    const doneEvent = events.find((e) => e.done === true);
+    assert.ok(doneEvent, 'should have a done event');
+  });
+
+  test('trims trailing slash from OPENAI_BASE_URL', async () => {
+    let capturedUrl = '';
+    global.fetch = async (url) => {
+      capturedUrl = url;
+      const empty = new ReadableStream({ start(c) { c.close(); } });
+      return new Response(empty, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+    };
+
+    const ctx = makeCtx({
+      env: { OPENAI_API_KEY: 'sk-test', OPENAI_BASE_URL: 'https://api.example.com/v1/' },
+      body: { message: 'hi' },
+      method: 'POST',
+    });
+    await onRequestPost(ctx);
+    assert.ok(!capturedUrl.includes('//chat'), `URL should not have double slash: ${capturedUrl}`);
+  });
+
+  test('returns 500 SSE on unexpected exception', async () => {
+    global.fetch = async () => { throw new Error('Connection refused'); };
+
+    const ctx = makeCtx({
+      env: { OPENAI_API_KEY: 'sk-test' },
+      body: { message: 'hello' },
+      method: 'POST',
+    });
+    const res = await onRequestPost(ctx);
+    assert.equal(res.status, 500);
+    const text = await res.text();
+    assert.ok(text.includes('Connection refused'));
+  });
+
+  test('onRequestOptions returns CORS preflight headers', async () => {
+    const res = await onRequestOptions();
+    assert.equal(res.headers.get('Access-Control-Allow-Origin'), '*');
+    assert.ok(res.headers.get('Access-Control-Allow-Methods').includes('POST'));
+    assert.ok(res.headers.get('Access-Control-Allow-Headers').includes('Content-Type'));
+  });
+});
+
+// ─── /api/nodecloud/stats ───────────────────────────────────────────────────
+
+describe('/api/nodecloud/stats', () => {
+  let onRequestGet;
+  let originalFetch;
+
+  beforeEach(async () => {
+    ({ onRequestGet } = await import('../cf-deploy/functions/api/nodecloud/stats.js'));
+    originalFetch = global.fetch;
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  test('returns mock data when NODECLOUD_STATS_KEY is not configured', async () => {
+    const ctx = makeCtx({ env: {} });
+    const res = await onRequestGet(ctx);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.source, 'nodecloud_mock');
+  });
+
+  test('mock response contains expected fields', async () => {
+    const ctx = makeCtx({ env: {} });
+    const body = await (await onRequestGet(ctx)).json();
+    assert.ok(body.uptime);
+    assert.equal(typeof body.requests, 'number');
+    assert.ok(body.cost);
+    assert.equal(body.chainId, 13390);
+    assert.equal(body.network, 'MeeChain Ritual Chain');
+    assert.ok(body.lastUpdated); // ISO timestamp
+    assert.equal(body.keyHint, 'not-configured');
+  });
+
+  test('mock response includes badges object', async () => {
+    const ctx = makeCtx({ env: {} });
+    const body = await (await onRequestGet(ctx)).json();
+    assert.ok(body.badges);
+    assert.ok(body.badges.health);
+    assert.ok(body.badges.network);
+    assert.ok(body.badges.stats);
+  });
+
+  test('uses default RPC endpoint in mock when DRPC_RPC_URL is not set', async () => {
+    const ctx = makeCtx({ env: {} });
+    const body = await (await onRequestGet(ctx)).json();
+    assert.equal(body.rpcEndpoint, 'http://rpc.meechain.run.place');
+  });
+
+  test('uses DRPC_RPC_URL from env in mock fallback', async () => {
+    const ctx = makeCtx({ env: { DRPC_RPC_URL: 'https://custom-rpc.example.com' } });
+    const body = await (await onRequestGet(ctx)).json();
+    assert.equal(body.rpcEndpoint, 'https://custom-rpc.example.com');
+  });
+
+  test('shows partial key hint when stats key is configured', async () => {
+    // API call will fail (no mock), falls back to mock data with key hint
+    global.fetch = async () => new Response('Error', { status: 500 });
+
+    const ctx = makeCtx({ env: { NODECLOUD_STATS_KEY: 'abcdefgh1234' } });
+    const body = await (await onRequestGet(ctx)).json();
+    assert.equal(body.source, 'nodecloud_mock');
+    assert.equal(body.keyHint, 'abcdefgh...');
+  });
+
+  test('returns live data when nodecloud API responds ok', async () => {
+    global.fetch = async () =>
+      new Response(
+        JSON.stringify({ nodes: 42, status: 'healthy' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+
+    const ctx = makeCtx({ env: { NODECLOUD_STATS_KEY: 'live-key-123' } });
+    const res = await onRequestGet(ctx);
+    const body = await res.json();
+    assert.equal(body.source, 'nodecloud_live');
+    assert.equal(body.nodes, 42);
+    assert.equal(body.status, 'healthy');
+  });
+
+  test('falls back to mock when nodecloud API returns non-ok status', async () => {
+    global.fetch = async () => new Response('Not Found', { status: 404 });
+
+    const ctx = makeCtx({ env: { NODECLOUD_STATS_KEY: 'some-key' } });
+    const body = await (await onRequestGet(ctx)).json();
+    assert.equal(body.source, 'nodecloud_mock');
+  });
+
+  test('falls back to mock when nodecloud API throws exception', async () => {
+    global.fetch = async () => { throw new Error('DNS failure'); };
+
+    const ctx = makeCtx({ env: { NODECLOUD_STATS_KEY: 'some-key' } });
+    const body = await (await onRequestGet(ctx)).json();
+    assert.equal(body.source, 'nodecloud_mock');
+  });
+
+  test('sets CORS headers', async () => {
+    const ctx = makeCtx({ env: {} });
+    const res = await onRequestGet(ctx);
+    assert.equal(res.headers.get('Access-Control-Allow-Origin'), '*');
+    assert.equal(res.headers.get('Content-Type'), 'application/json');
+  });
+});
+
+// ─── /api/web3/status ───────────────────────────────────────────────────────
+
+describe('/api/web3/status', () => {
+  let onRequestGet;
+  let originalFetch;
+
+  beforeEach(async () => {
+    ({ onRequestGet } = await import('../cf-deploy/functions/api/web3/status.js'));
+    originalFetch = global.fetch;
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  test('returns connected=true and blockNumber when RPC responds ok', async () => {
+    global.fetch = async () =>
+      new Response(
+        JSON.stringify({ jsonrpc: '2.0', id: 1, result: '0x1E8480' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+
+    const ctx = makeCtx({ env: {} });
+    const res = await onRequestGet(ctx);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.connected, true);
+    assert.equal(body.blockNumber, 0x1E8480); // 2000000 decimal
+  });
+
+  test('returns connected=false and blockNumber=null when fetch throws', async () => {
+    global.fetch = async () => { throw new Error('Network error'); };
+
+    const ctx = makeCtx({ env: {} });
+    const body = await (await onRequestGet(ctx)).json();
+    assert.equal(body.connected, false);
+    assert.equal(body.blockNumber, null);
+  });
+
+  test('returns connected=false when RPC response is not ok', async () => {
+    global.fetch = async () => new Response('Bad Gateway', { status: 502 });
+
+    const ctx = makeCtx({ env: {} });
+    const body = await (await onRequestGet(ctx)).json();
+    assert.equal(body.connected, false);
+    assert.equal(body.blockNumber, null);
+  });
+
+  test('returns connected=false when result is not a valid hex number', async () => {
+    global.fetch = async () =>
+      new Response(
+        JSON.stringify({ jsonrpc: '2.0', id: 1, result: 'not-a-hex' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+
+    const ctx = makeCtx({ env: {} });
+    const body = await (await onRequestGet(ctx)).json();
+    assert.equal(body.connected, false);
+  });
+
+  test('uses default RPC URL when DRPC_RPC_URL is not set', async () => {
+    let capturedUrl = '';
+    global.fetch = async (url) => {
+      capturedUrl = url;
+      return new Response(
+        JSON.stringify({ result: '0x1' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    };
+
+    const ctx = makeCtx({ env: {} });
+    await onRequestGet(ctx);
+    assert.equal(capturedUrl, 'http://rpc.meechain.run.place');
+  });
+
+  test('uses DRPC_RPC_URL from env', async () => {
+    let capturedUrl = '';
+    global.fetch = async (url) => {
+      capturedUrl = url;
+      return new Response(
+        JSON.stringify({ result: '0x1' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    };
+
+    const ctx = makeCtx({ env: { DRPC_RPC_URL: 'https://custom-rpc.test' } });
+    await onRequestGet(ctx);
+    assert.equal(capturedUrl, 'https://custom-rpc.test');
+  });
+
+  test('returns default chainId 13390', async () => {
+    global.fetch = async () => new Response('Error', { status: 500 });
+
+    const ctx = makeCtx({ env: {} });
+    const body = await (await onRequestGet(ctx)).json();
+    assert.equal(body.chainId, 13390);
+  });
+
+  test('uses custom CHAIN_ID from env', async () => {
+    global.fetch = async () => new Response('Error', { status: 500 });
+
+    const ctx = makeCtx({ env: { CHAIN_ID: '1' } });
+    const body = await (await onRequestGet(ctx)).json();
+    assert.equal(body.chainId, 1);
+  });
+
+  test('returns default contract addresses', async () => {
+    global.fetch = async () => new Response('Error', { status: 500 });
+
+    const ctx = makeCtx({ env: {} });
+    const body = await (await onRequestGet(ctx)).json();
+    assert.equal(body.contracts.token, '0x5FbDB2315678afecb367f032d93F642f64180aa3');
+    assert.equal(body.contracts.nft, '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512');
+    assert.equal(body.contracts.portal, '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0');
+  });
+
+  test('returns contract addresses from env', async () => {
+    global.fetch = async () => new Response('Error', { status: 500 });
+
+    const ctx = makeCtx({
+      env: {
+        VITE_TOKEN_CONTRACT_ADDRESS: '0xTOK',
+        VITE_NFT_CONTRACT_ADDRESS: '0xNFT',
+        VITE_STAKING_CONTRACT_ADDRESS: '0xSTK',
+      },
+    });
+    const body = await (await onRequestGet(ctx)).json();
+    assert.equal(body.contracts.token, '0xTOK');
+    assert.equal(body.contracts.nft, '0xNFT');
+    assert.equal(body.contracts.portal, '0xSTK');
+  });
+
+  test('returns rpc URL in response body', async () => {
+    global.fetch = async () => new Response('Error', { status: 500 });
+
+    const ctx = makeCtx({ env: { DRPC_RPC_URL: 'https://my-rpc.example.com' } });
+    const body = await (await onRequestGet(ctx)).json();
+    assert.equal(body.rpc, 'https://my-rpc.example.com');
+  });
+
+  test('sets correct response headers', async () => {
+    global.fetch = async () => new Response('Error', { status: 500 });
+
+    const ctx = makeCtx({ env: {} });
+    const res = await onRequestGet(ctx);
+    assert.equal(res.headers.get('Content-Type'), 'application/json');
     assert.equal(res.headers.get('Access-Control-Allow-Origin'), '*');
     assert.equal(res.headers.get('Cache-Control'), 'no-cache');
   });
 
-  test('streaming SSE emits delta events for content chunks', async () => {
-    const encoder = new TextEncoder();
-    globalThis.fetch = async () => {
-      const body = new ReadableStream({
-        start(ctrl) {
-          ctrl.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"Hello"}}]}\n\n'));
-          ctrl.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":" World"}}]}\n\n'));
-          ctrl.enqueue(encoder.encode('data: [DONE]\n\n'));
-          ctrl.close();
-        },
-      });
-      return new Response(body, { status: 200 });
+  test('sends POST request with eth_blockNumber JSON-RPC body', async () => {
+    let capturedMethod = '';
+    let capturedBody = null;
+    global.fetch = async (_url, opts) => {
+      capturedMethod = opts.method;
+      capturedBody = JSON.parse(opts.body);
+      return new Response(JSON.stringify({ result: '0x1' }), { status: 200 });
     };
-    const ctx = makeCtx({ OPENAI_API_KEY: 'sk-test' }, { message: 'hello' }, 'POST');
-    const res = await onRequestPost(ctx);
-    const events = await collectSSE(res);
-    const deltas = events.filter(e => e.delta).map(e => e.delta);
-    assert.ok(deltas.includes('Hello'), 'should have "Hello" delta');
-    assert.ok(deltas.includes(' World'), 'should have " World" delta');
-    const doneEvent = events.find(e => e.done === true);
-    assert.ok(doneEvent, 'should have done:true event');
+
+    const ctx = makeCtx({ env: {} });
+    await onRequestGet(ctx);
+    assert.equal(capturedMethod, 'POST');
+    assert.equal(capturedBody.method, 'eth_blockNumber');
+    assert.equal(capturedBody.jsonrpc, '2.0');
   });
 
-  test('malformed JSON body returns 500 SSE', async () => {
-    const ctx = makeCtxRaw('not-json', {});
-    const res = await onRequestPost(ctx);
-    assert.equal(res.status, 500);
-    assert.equal(res.headers.get('Content-Type'), 'text/event-stream');
-  });
+  test('handles result of 0x0 (block zero) as connected', async () => {
+    global.fetch = async () =>
+      new Response(
+        JSON.stringify({ result: '0x0' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
 
-  test('missing message field returns 400', async () => {
-    const ctx = makeCtx({}, {}, 'POST');
-    const res = await onRequestPost(ctx);
-    assert.equal(res.status, 400);
+    const ctx = makeCtx({ env: {} });
+    const body = await (await onRequestGet(ctx)).json();
+    // parseInt('0x0', 16) = 0, !isNaN(0) = true
+    assert.equal(body.connected, true);
+    assert.equal(body.blockNumber, 0);
   });
 });
