@@ -1,0 +1,22 @@
+version: '3.9'
+services:
+  dshackle:
+    image: emeraldpay/dshackle:latest
+    container_name: meechain-dshackle
+    ports:
+      - "12448:12448"
+    volumes:
+      - ./config/dshackle/provider.example.yaml:/etc/dshackle/config.yaml:ro
+      # เตรียมไฟล์จริงก่อนใช้งาน production
+      - ./secrets/dshackle/ssl:/etc/dshackle/ssl:ro
+      - ./secrets/dshackle/keys:/etc/dshackle/keys:ro
+    command: ["-config", "/etc/dshackle/config.yaml"]
+    restart: unless-stopped
+
+  meechain-connect:
+    environment:
+      DRPC_RPC_URL: "http://dshackle:12448"
+      VITE_RPC_URL: "http://dshackle:12448"
+      RPC_MODE: "auto"
+    depends_on:
+      - dshackle
