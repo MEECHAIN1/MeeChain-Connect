@@ -183,7 +183,7 @@
 
 <!-- ── Navbar ── -->
 <nav class="navbar">
-  <a class="nav-logo" href="index.html">
+  <a class="nav-logo" href="./index.html">
     <img src="src/assets/images/meechain_logo.png" alt="MeeChain" onerror="this.style.display='none'"/>
     <div><div class="nav-logo-text">MeeChain</div><div class="nav-logo-sub">NFT Marketplace</div></div>
   </a>
@@ -426,6 +426,12 @@ async function connectWallet(){
     const ok = await window.connectMetaMask();
     if(ok && window.WalletState?.address){
       walletAddress = window.WalletState.address;
+      // Apply same local state updates as fallback path
+      loadMyNFTs();
+      const btn = document.getElementById('wallet-btn');
+      if(btn){ btn.textContent = '🦊✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4); btn.classList.add('connected'); btn.style.background='#10B981'; }
+      const myBtn = document.getElementById('my-connect-btn');
+      if(myBtn){ myBtn.textContent = '🦊✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4); }
     }
     return;
   }
@@ -466,10 +472,24 @@ async function connectWallet(){
 
 // ── Sync with wallet.js events ──
 window.addEventListener('walletConnected', (e) => {
-  if(e.detail?.address) walletAddress = e.detail.address;
+  if(e.detail?.address){
+    walletAddress = e.detail.address;
+    loadMyNFTs();
+    const btn = document.getElementById('wallet-btn');
+    if(btn){ btn.textContent = '🦊✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4); btn.classList.add('connected'); btn.style.background='#10B981'; }
+    const myBtn = document.getElementById('my-connect-btn');
+    if(myBtn){ myBtn.textContent = '🦊✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4); }
+  }
 });
 window.addEventListener('walletUIUpdated', (e) => {
-  if(e.detail?.address) walletAddress = e.detail.address;
+  if(e.detail?.address){
+    walletAddress = e.detail.address;
+    loadMyNFTs();
+    const btn = document.getElementById('wallet-btn');
+    if(btn){ btn.textContent = '🦊✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4); btn.classList.add('connected'); btn.style.background='#10B981'; }
+    const myBtn = document.getElementById('my-connect-btn');
+    if(myBtn){ myBtn.textContent = '🦊✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4); }
+  }
 });
 
 // ── Load NFTs from API ──

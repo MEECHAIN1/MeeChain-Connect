@@ -1,0 +1,7 @@
+tunnel: <YOUR_TUNNEL_ID>
+credentials-file: ~/.cloudflared/<YOUR_TUNNEL_ID>.json
+
+ingress:
+  - hostname: rpc.meechain.live
+    service: http://127.0.0.1:3000
+  - service: http_status:404
