@@ -1,14 +1,14 @@
 {
-  "name": "webapp",
+  "name": "meechain",
   "version": "1.0.0",
   "description": "แดชบอร์ด Web Application สำหรับ MeeChain Blockchain Platform",
   "main": "server.js",
   "scripts": {
-    "build": "node scripts/build-pages.mjs",
+    "build": "node build-pages.mjs",
     "deploy:worker": "wrangler deploy -c wrangler.worker.toml --keep-vars",
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "mocha test/**/*.test.js --timeout 10000",
     "hardhat": "npx hardhat node",
     "deploy": "cd blockchain && npx hardhat run scripts/deploy.js --network localhost",
     "test:rpc": "bash scripts/test-rpc.sh",
@@ -17,8 +17,38 @@
     "test:browser:live": "node scripts/browser-regression.mjs",
     "infra:start": "bash scripts/start.sh",
     "infra:stop": "bash scripts/stop.sh",
+    "infra:start:podman": "bash scripts/start.sh podman",
+    "infra:start:docker": "bash scripts/start.sh docker",
+    "infra:start:compose": "bash scripts/start.sh compose",
+    "infra:start:pm2": "bash scripts/start.sh pm2",
+    "infra:stop:podman": "bash scripts/stop.sh podman",
+    "infra:stop:docker": "bash scripts/stop.sh docker",
+    "infra:stop:compose": "bash scripts/stop.sh compose",
+    "container:build": "podman build -t meechain-dashboard:latest . || docker build -t meechain-dashboard:latest .",
+    "container:build:podman": "podman build -t meechain-dashboard:latest .",
+    "container:build:docker": "docker build -t meechain-dashboard:latest .",
+    "container:logs": "podman logs -f meechain-dashboard 2>/dev/null || docker logs -f meechain-dashboard",
+    "container:status": "podman ps -a 2>/dev/null || docker ps -a",
+    "podman:setup": "bash scripts/podman-setup.sh",
+    "podman:check": "bash scripts/podman-setup.sh check",
+    "compose": "bash scripts/compose-failover.sh",
+    "compose:auto": "bash scripts/compose-failover.sh",
+    "compose:up": "bash scripts/compose-failover.sh up -d",
+    "compose:down": "bash scripts/compose-failover.sh down",
+    "compose:ps": "bash scripts/compose-failover.sh ps",
+    "docker:failover:windows": "powershell -ExecutionPolicy Bypass -File scripts/docker-failover.ps1",
     "docs": "jsdoc -c jsdoc.json",
-    "docs:watch": "nodemon --watch src --watch server.js --exec \"npm run docs\""
+    "docs:watch": "nodemon --watch src --watch server.js --exec \"npm run docs\"",
+    "test:rpc:integration": "node --test tests/rpc-health.integration.test.mjs",
+    "verify:rpc": "bash scripts/verify-rpc-endpoint.sh",
+    "verify:dshackle": "bash scripts/check-dshackle-proxy.sh",
+    "compose:dshackle:up": "bash scripts/compose-failover.sh -f docker-compose.yml -f docker-compose.dshackle.yml up -d",
+    "compose:dshackle:down": "bash scripts/compose-failover.sh -f docker-compose.yml -f docker-compose.dshackle.yml down",
+    "compose:dshackle:ps": "bash scripts/compose-failover.sh -f docker-compose.yml -f docker-compose.dshackle.yml ps",
+    "compose:dshackle:local:up": "bash scripts/compose-failover.sh -f docker-compose.yml -f docker-compose.dshackle.local.yml up -d",
+    "compose:dshackle:local:down": "bash scripts/compose-failover.sh -f docker-compose.yml -f docker-compose.dshackle.local.yml down",
+    "compose:dshackle:local:ps": "bash scripts/compose-failover.sh -f docker-compose.yml -f docker-compose.dshackle.local.yml ps",
+    "verify:rpc:matrix": "bash scripts/verify-rpc-matrix.sh"
   },
   "keywords": [
     "MeeChain",
@@ -34,13 +64,13 @@
     "ethers": "^6.16.0",
     "express": "^4.22.1",
     "js-yaml": "^4.1.1",
-    "openai": "^6.33.0",
+    "openai": "^6.34.0",
     "ws": "^8.20.0"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^6.1.2",
+    "@nomicfoundation/hardhat-toolbox": "^7.0.0",
     "docdash": "^2.0.2",
-    "hardhat": "^2.28.0",
+    "hardhat": "^3.4.0",
     "install": "^0.13.0",
     "jsdoc": "^4.0.5",
     "nodemon": "^3.1.14",
@@ -48,5 +78,8 @@
     "playwright": "^1.59.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": "20.x"
   }
 }
