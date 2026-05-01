@@ -187,19 +187,17 @@ npm run compose:dshackle:local:down
 
 ย้าย image จาก repo เดิมไปยัง org/repo ใหม่:
 
-```bash
 # 1) Login
 docker login
 
 # 2) Pull image เดิม
-docker pull meechainv2:tagname
+docker pull meechainv02-meechainv2:latest
 
 # 3) Re-tag ให้เป็น path ใหม่
-docker tag meechainv2:tagname meechainv02/meechainv2:tagname
+docker tag meechainv02-meechainv2:latest meechainv02/meechainv2:latest
 
 # 4) Push เข้า repo ใหม่
-docker push meechainv02/meechainv2:tagname
-```
+docker push meechainv02/meechainv2:latest
 
 Checklist flow:
 1. ตรวจสอบว่า repo ใหม่ใน org ถูกสร้างแล้ว
