@@ -495,6 +495,18 @@ function copyReceiveAddress() {
 
 // ── Override connectWallet from app.js ───────────────────────────────
 window.connectWallet = async function(type) {
+  const path = (location.pathname || '').toLowerCase();
+  const hash = (location.hash || '').toLowerCase();
+  const isIndexPage = path.endsWith('/index.html') || path === '/' || path === '';
+  const isWalletPage = isIndexPage && (hash === '#wallet' || hash === '#page-wallet');
+
+  // อนุญาตให้เชื่อมต่อได้เฉพาะหน้า Wallet Hub เท่านั้น
+  if (!isWalletPage) {
+    window.MeeWalletHub?.openHub?.();
+    showToast('🔒 เปิดเชื่อมต่อได้เฉพาะหน้า Wallet เท่านั้น', 'info');
+    return;
+  }
+
   document.getElementById('wallet-modal')?.classList.add('hidden');
 
   if (type === 'metamask') {
