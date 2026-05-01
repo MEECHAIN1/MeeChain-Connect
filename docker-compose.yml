@@ -13,7 +13,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
-    image: meechainv02-meechainv2:latest
+    image: meechainv02/meechainv2:latest
     container_name: meechain-dashboard
 
     # ── Ports ──────────────────────────────────────────────

@@ -182,6 +182,35 @@ npm run compose:dshackle:local:down
 - `config/dshackle/provider.local.yaml`
 
 
+
+## Docker image migration (old repo -> new org/repo)
+
+ย้าย image จาก repo เดิมไปยัง org/repo ใหม่:
+
+```bash
+# 1) Login
+docker login
+
+# 2) Pull image เดิม
+docker pull meechainv2:tagname
+
+# 3) Re-tag ให้เป็น path ใหม่
+docker tag meechainv2:tagname meechainv02/meechainv2:tagname
+
+# 4) Push เข้า repo ใหม่
+docker push meechainv02/meechainv2:tagname
+```
+
+Checklist flow:
+1. ตรวจสอบว่า repo ใหม่ใน org ถูกสร้างแล้ว
+2. login ด้วย `docker login` ให้ตรงกับ org
+3. pull image เดิมจาก repo เก่า
+4. re-tag image ให้ตรงกับ org ใหม่
+5. push เข้า repo ใหม่
+6. update CI/CD pipeline, README, และ config ให้ใช้ path ใหม่
+
+หมายเหตุ: compose config ปัจจุบันตั้งค่า image เป็น `meechainv02/meechainv2:latest` แล้ว.
+
 ## Project Structure
 ```text
 ├── index.html          # Main dashboard page
