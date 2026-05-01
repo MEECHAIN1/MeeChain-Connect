@@ -132,7 +132,7 @@
   <div style="display:flex;align-items:center;gap:10px">
     <span id="last-updated">กำลังโหลด...</span>
     <button class="refresh-btn" onclick="loadAll()">🔄 รีเฟรช</button>
-    <button class="wallet-btn" id="wallet-btn" onclick="window.connectWallet ? window.connectWallet() : alert('กรุณาติดตั้ง MetaMask')">👛 เชื่อมต่อ Wallet</button>
+    <button class="wallet-btn" id="wallet-btn" onclick="openWalletHub()">👛 เชื่อมต่อ Wallet</button>
   </div>
 </nav>
 
@@ -639,6 +639,11 @@ setInterval(loadAll, 30_000);
         navigator.serviceWorker.register('/sw.js').catch(() => {});
       });
     }
-  </script>
+  
+function openWalletHub(){
+  if (typeof showToast === 'function') showToast('กรุณาเชื่อมต่อผ่านหน้า Wallet Hub', 'info');
+  window.location.href = 'index.html#wallet';
+}
+</script>
 </body>
 </html>

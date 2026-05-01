@@ -150,7 +150,7 @@
     <a class="nav-link active" href="dao.html">🏛️ DAO</a>
     <a class="nav-link" href="analytics.html">📊 Analytics</a>
   </div>
-  <button class="wallet-btn" id="wallet-btn" onclick="connectWallet()">👛 <span data-i18n="wallet.connect">เชื่อมต่อ Wallet</span></button>
+  <button class="wallet-btn" id="wallet-btn" onclick="openWalletHub()">👛 <span data-i18n="wallet.connect">เชื่อมต่อ Wallet</span></button>
 </nav>
 
 <!-- Hero -->
@@ -270,6 +270,11 @@ function showToast(msg, type='info', duration=4000) {
 
 // ── Wallet ──
 async function connectWallet() {
+  openWalletHub();
+  return false;
+}
+
+async function __legacy_connectWallet_disabled() {
   // Prefer wallet.js connectMetaMask if loaded (handles chain-switch automatically)
   if (typeof window.connectMetaMask === 'function') {
     const ok = await window.connectMetaMask();
@@ -667,6 +672,11 @@ window.addEventListener('walletUIUpdated', (e) => {
         navigator.serviceWorker.register('/sw.js').catch(() => {});
       });
     }
-  </script>
+  
+function openWalletHub(){
+  if (typeof showToast === 'function') showToast('กรุณาเชื่อมต่อผ่านหน้า Wallet Hub', 'info');
+  window.location.href = '/index.html#wallet';
+}
+</script>
 </body>
 </html>
