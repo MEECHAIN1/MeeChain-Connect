@@ -77,6 +77,19 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
 // ── RPC Configuration ────────────────────────────────────────────
+const _isProductionEnv = (process.env.NODE_ENV || '').toLowerCase() === 'production';
+const _requestedRpcMode = process.env.RPC_MODE || 'auto';
+const _effectiveRpcMode = _isProductionEnv ? 'upstream-only' : _requestedRpcMode;
+const _requestedAllowMockFallback = (process.env.RPC_ALLOW_MOCK_FALLBACK || 'true').toLowerCase() !== 'false';
+const _effectiveAllowMockFallback = _isProductionEnv ? false : _requestedAllowMockFallback;
+
+if (_isProductionEnv && _requestedRpcMode !== 'upstream-only') {
+  console.warn(`[RPC] NODE_ENV=production detected, forcing RPC_MODE=upstream-only (requested: ${_requestedRpcMode})`);
+}
+if (_isProductionEnv && _requestedAllowMockFallback) {
+  console.warn('[RPC] NODE_ENV=production detected, forcing RPC_ALLOW_MOCK_FALLBACK=false');
+}
+
 const RPC_CONFIG = {
   // Primary: dRPC gateway (used by frontend DApp via DRPC_ACCESS_KEY)
   drpcUrl:        process.env.DRPC_RPC_URL          || 'https://rpc.meechain.live',
@@ -91,11 +104,11 @@ const RPC_CONFIG = {
   // Fallback: original Ritual Chain endpoint
   fallbackUrl:    process.env.VITE_RPC_URL           || 'https://rpc.meechain.live',
   chainId:        parseInt(process.env.CHAIN_ID)     || 13390,
-  rpcMode:        process.env.RPC_MODE               || 'auto', // auto | upstream-only | mock-only
+  rpcMode:        _effectiveRpcMode, // auto | upstream-only | mock-only (forced upstream-only in production)
   requestTimeoutMs: Math.max(parseInt(process.env.RPC_TIMEOUT_MS || '3000', 10), 500),
   breakerCooldownMs: Math.max(parseInt(process.env.RPC_BREAKER_COOLDOWN_MS || '60000', 10), 5000),
   breakerFailureThreshold: Math.max(parseInt(process.env.RPC_BREAKER_FAILURE_THRESHOLD || '2', 10), 1),
-  allowMockFallback: (process.env.RPC_ALLOW_MOCK_FALLBACK || 'true').toLowerCase() !== 'false',
+  allowMockFallback: _effectiveAllowMockFallback, // forced false in production
 };
 
 // ── Contract Addresses ───────────────────────────────────────────
@@ -330,6 +343,10 @@ function _handleMockRpc(body) {
   }
 }
 
+function _isWriteRpcMethod(method) {
+  return ['eth_sendRawTransaction', 'eth_sendTransaction', 'personal_sendTransaction'].includes(method);
+}
+
 // ── RPC upstream health tracker (circuit breaker) ────────────────
 // If an upstream fails, mark it as dead for 60 s before retrying
 const _rpcHealth = {};  // { url: { dead, until, consecutiveFails, lastFailure, lastSuccess } }
@@ -515,14 +532,23 @@ async function handleRpcProxy(req, res) {
     }
   }
 
+  const containsWriteMethod = isBatch
+    ? body.some((item) => _isWriteRpcMethod(item?.method))
+    : _isWriteRpcMethod(body?.method);
+
   // All upstream failed
   if (!RPC_CONFIG.allowMockFallback || RPC_CONFIG.rpcMode === 'upstream-only') {
     return res.status(503).json(
       buildUnavailableError(-32097, `RPC upstream unavailable: ${lastError?.message || 'unknown error'}`),
     );
   }
+  if (containsWriteMethod) {
+    return res.status(503).json(
+      buildUnavailableError(-32096, 'Upstream RPC unavailable for mutating method; mock fallback is read-only only'),
+    );
+  }
   console.log(`[RPC] All upstream failed (${lastError?.message}) — serving mock response`);
-  return res.json(isBatch ? body.map(b => _handleMockRpc(b)) : _handleMockRpc(b));
+  return res.json(isBatch ? body.map((item) => _handleMockRpc(item)) : _handleMockRpc(body));
 }
 
 app.post('/',    handleRpcProxy);   // rpc.meechain.xyz  POST /
