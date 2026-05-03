@@ -489,7 +489,7 @@ async function handleRpcProxy(req, res) {
 
   // mock-only mode always returns deterministic local mock
   if (RPC_CONFIG.rpcMode === 'mock-only') {
-    return res.json(isBatch ? body.map(b => _handleMockRpc(b)) : _handleMockRpc(body));
+    return res.json(isBatch ? body.map((item) => _handleMockRpc(item)) : _handleMockRpc(body));
   }
 
   const targets = _buildRpcTargets();
@@ -515,7 +515,7 @@ async function handleRpcProxy(req, res) {
         buildUnavailableError(-32098, 'All upstream RPC endpoints are unavailable'),
       );
     }
-    return res.json(isBatch ? body.map(b => _handleMockRpc(b)) : _handleMockRpc(body));
+    return res.json(isBatch ? body.map((item) => _handleMockRpc(item)) : _handleMockRpc(body));
   }
 
   let lastError = null;
@@ -704,7 +704,7 @@ app.get('/api/nft/info', async (req, res) => {
   }
 });
 
-// ── API: NFT Balance ────────────────��─────────────────────────────
+// ── API: NFT Balance ──────────────��─����─────────────────────────────
 app.get('/api/nft/balance/:address', async (req, res) => {
   try {
     const balance = await web3.getNFTBalance(req.params.address);
@@ -1840,7 +1840,7 @@ app.get('/api/analytics/snapshot', (req, res) => {
   });
 });
 
-// ── Start Server ──────────────────────────────────────────────────
+// ── Start Server ────────────────────────────────────────────────���─
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ MeeBot AI Server running on http://0.0.0.0:${PORT}`);
   console.log(`   OpenAI Base URL : ${baseURL}`);
