@@ -292,3 +292,23 @@ MeeChain contributors สามารถ deploy Cloudflare Tunnel ได้ส�
 cp cloudflared/config.yml.example ~/.cloudflared/config.yml
 cloudflared tunnel run meechain-connect
 ```
+
+หลัง tunnel ติดแล้ว ให้ทดสอบทั้ง 2 โดเมน (มีหรือไม่มี `/` ท้าย URL ก็ได้ผลเหมือนกัน):
+
+```bash
+curl https://rpc.meechain.live/health
+curl https://rpc.meechain.run.place/health
+```
+
+> หมายเหตุ: ต้องสะกด hostname เป็น `rpc` (ไม่ใช่ `prc`) ใน Cloudflare ingress เสมอ
+
+ดู checklist ฝั่ง infra เพิ่มเติมได้ที่ `docs/ORIGIN_INFRA_CHECKLIST.md` (NAT/port-forward/firewall + fallback strategy).
+ถ้าตั้งผ่านหน้า Router โดยตรง ให้ map แบบ `WAN 8080 -> LAN 8080 (TCP)` และตั้ง `External Source IP = Any`.
+
+สำหรับ production แนะนำตั้ง env ให้ชัดเจน:
+```env
+NODE_ENV=production
+RPC_MODE=upstream-only
+RPC_ALLOW_MOCK_FALLBACK=false
+```
+> ในโค้ดมี hardening เพิ่ม: ถ้า `NODE_ENV=production` ระบบจะ force เป็น `upstream-only` และปิด mock fallback อัตโนมัติแม้ตั้ง env ผิด.
