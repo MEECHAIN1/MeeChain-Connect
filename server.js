@@ -1859,7 +1859,7 @@ app.get('/api/analytics/snapshot', (req, res) => {
 // ── Start Server ────────────────────────────────────────────────���─
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ MeeBot AI Server running on http://0.0.0.0:${PORT}`);
-  console.log(`   OpenAI Base URL : ${baseURL}`);
+  console.log(`   OpenAI Base URL : ${openAiBaseUrl || "(default)"}`);
   console.log(`   Model           : gpt-5-mini`);
   console.log(`   dRPC RPC URL    : ${RPC_CONFIG.drpcUrl}`);
   console.log(`   Fallback RPC    : ${RPC_CONFIG.fallbackUrl}`);
