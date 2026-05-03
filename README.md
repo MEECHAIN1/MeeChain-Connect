@@ -25,6 +25,69 @@ node server.js
 
 เปิดเว็บที่ `http://localhost:3000`
 
+## 🚀 Deployment Guide
+
+### 🔧 Environment Setup
+- Node.js ≥ v24.x (Replit/Sandbox จะจัดการให้)
+- npm ≥ 11.13.0
+- PM2 ≥ 6.0.14
+- Podman/Docker (optional, สำหรับ homelab/VM)
+
+### 🌐 RPC Endpoint
+- ใช้ Cloudflare Worker เป็น proxy ผ่าน `rpc.meechain.live`
+- Worker config:
+```js
+ORIGIN_URL: "https://mee-chain-connect-2--mcchain.replit.app",
+ORIGIN_MODE: "replit",
+```
+- Homelab fallback: `.cloudflared/config.yml` → port `5000`
+
+### ⚙️ Post-Merge Hook
+- `scripts/post-merge.sh` รัน `npm install` อัตโนมัติหลัง merge
+- Configured ใน `.replit` และทดสอบผ่าน ✅
+
+### 🛡️ Security
+- `npm audit` → 0 vulnerabilities
+- Dependencies อัปเดตแล้ว (แก้ `picomatch` + `brace-expansion`)
+
+### 🌐 Deployment URL
+- Replit URL: `https://mee-chain-connect-2--mcchain.replit.app`
+- Contributors ใช้ URL นี้ได้ทันที
+- ถ้าต้องการ custom domain (เช่น `app.meechain.live`) ให้ map ผ่าน Cloudflare Worker
+
+### 🎯 Ritual Flow Output
+```text
+✅ RPC Fixed → ⚙️ Post-Merge Hook Ready → 🛡️ Security Clean → 🌐 Deployment Live → 🎉 Badge Claimed
+```
+
+### 🚀 Deployment Flow (Replit → Cloudflare Worker → rpc.meechain.live)
+```mermaid
+flowchart TD
+    A[👨‍💻 Developer pushes code to Replit] --> B[⚙️ Replit auto-build & run]
+    B --> C[🌐 Replit App URL (mee-chain-connect-2--mcchain.replit.app)]
+    C --> D[☁️ Cloudflare Worker Proxy]
+    D --> E[🔗 rpc.meechain.live endpoint]
+    E --> F[✅ MeeChain Dashboard & RPC Gateway Ready]
+```
+
+### 🎯 ความหมายของแต่ละขั้น
+- 👨‍💻 Developer pushes code to Replit → contributors ทำงานบน Replit
+- ⚙️ Replit auto-build & run → Replit จัดการ build และ start server อัตโนมัติ
+- 🌐 Replit App URL → ได้ URL ที่ Replit generate (เช่น `mee-chain-connect-2--mcchain.replit.app`)
+- ☁️ Cloudflare Worker Proxy → Worker map URL นี้ไปยัง custom domain
+- 🔗 `rpc.meechain.live` endpoint → ผู้ใช้เข้าถึงผ่าน domain หลัก
+- ✅ MeeChain Dashboard & RPC Gateway Ready → ระบบพร้อมใช้งานครบ ritual flow
+
+### 📌 Quick Snippet
+```markdown
+🚀 Deployment Flow
+
+1. Push code → Replit auto-build
+2. Access Replit URL → mee-chain-connect-2--mcchain.replit.app
+3. Cloudflare Worker → proxy ไปยัง rpc.meechain.live
+4. Contributors → ใช้งานผ่าน domain หลัก
+```
+
 ## Contributor onboarding checklist
 เอกสาร checklist ฉบับ ritualized สำหรับ contributors:
 - `docs/CONTRIBUTOR_CHECKLIST.md`
