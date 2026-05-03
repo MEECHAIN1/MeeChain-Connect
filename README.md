@@ -23,6 +23,29 @@ node server.js
 
 เปิดเว็บที่ `http://localhost:3000`
 
+> หมายเหตุ: โปรเจกต์นี้ต้องรันผ่าน `node server.js` เท่านั้น เพื่อให้ `/api/*` และ `/rpc/*` ทำงานได้ครบถ้วน
+> (`python3 -m http.server 8000` หรือ `npx serve` ใช้เสิร์ฟไฟล์ static ได้ แต่ไม่รองรับ API ของโปรเจกต์นี้).
+
+## Project Structure
+```
+├── index.html          # Main dashboard page
+├── explorer.html       # Mee Ritual Chain Explorer
+├── dao.html            # Governance / DAO dashboard
+├── analytics.html      # Analytics dashboard
+├── nft-market.html     # NFT Marketplace
+├── scripts/
+│   ├── start.sh        # Service start helper
+│   ├── stop.sh         # Service stop helper
+│   └── rpc-check.sh    # RPC ritual health check
+├── src/
+│   ├── css/            # Stylesheets
+│   ├── js/             # JavaScript files
+│   └── assets/         # Images and resources
+├── contracts/          # Smart contracts
+├── functions/          # Serverless API functions
+└── test/               # Test files
+```
+
 ## Contributor onboarding checklist
 เอกสาร checklist ฉบับ ritualized สำหรับ contributors:
 - `docs/CONTRIBUTOR_CHECKLIST.md`
@@ -129,26 +152,6 @@ PRIMARY_CONTEXT=default FALLBACK_CONTEXT=podman npm run compose:ps
 - `GET https://rpc.meechain.live/rpc` ตอบ `200` พร้อม JSON status
 - `POST https://rpc.meechain.live/rpc` (eth_chainId) ยัง timeout ~10s
 - สรุป: external endpoint ยังไม่พร้อมสำหรับ wallet client จนกว่า POST จะตอบ JSON-RPC ปกติ
-
-## Project Structure
-```
-├── index.html          # Main dashboard page
-├── explorer.html       # Mee Ritual Chain Explorer
-├── dao.html            # Governance / DAO dashboard
-├── analytics.html      # Analytics dashboard
-├── nft-market.html     # NFT Marketplace
-├── scripts/
-│   ├── start.sh        # Service start helper
-│   ├── stop.sh         # Service stop helper
-│   └── rpc-check.sh    # RPC ritual health check
-├── src/
-│   ├── css/            # Stylesheets
-│   ├── js/             # JavaScript files
-│   └── assets/         # Images and resources
-├── contracts/          # Smart contracts
-├── functions/          # Serverless API functions
-└── test/               # Test files
-```
 
 ## Deployment Options
 MeeChain contributors สามารถ deploy Cloudflare Tunnel ได้สองวิธีหลัก:
