@@ -183,7 +183,7 @@ check_config() {
   for file in "${CONFIG_FILES[@]}"; do
     if [[ -f "$file" ]]; then
       found_files=1
-      if grep -q "$host" "$file"; then
+      if grep -qF "$host" "$file"; then
         ok "Config verified in $file"
         pass_check
         matched_files=1
