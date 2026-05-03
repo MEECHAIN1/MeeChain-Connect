@@ -8,6 +8,7 @@
 #   RESOLVERS_CSV="1.1.1.1,8.8.8.8"
 # CLI:
 #   bash scripts/rpc-check.sh --target rpc.meechain.net
+#   bash scripts/rpc-check.sh --rpc-url https://rpc.meechain.net/rpc
 # ============================================================
 
 set -u
@@ -248,12 +249,21 @@ parse_args() {
         RPC_LIST=("https://$2")
         shift 2
         ;;
+      --rpc-url)
+        if [[ -z "${2:-}" ]]; then
+          err "--rpc-url requires a full URL, e.g. --rpc-url https://rpc.meechain.net/rpc"
+          exit 2
+        fi
+        RPC_LIST=("$2")
+        shift 2
+        ;;
       --help|-h)
         cat <<'EOF'
-Usage: bash scripts/rpc-check.sh [--target <host>]
+Usage: bash scripts/rpc-check.sh [--target <host> | --rpc-url <url>]
 
 Options:
   --target <host>   Check only one RPC host (https://<host>)
+  --rpc-url <url>   Check one explicit RPC URL
   -h, --help        Show this help
 EOF
         exit 0

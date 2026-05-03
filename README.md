@@ -54,6 +54,8 @@ The script performs a complete health check across DNS resolution, JSON-RPC meth
 bash scripts/rpc-check.sh
 # or target a specific host only
 bash scripts/rpc-check.sh --target rpc.meechain.net
+# or pass full RPC URL
+bash scripts/rpc-check.sh --rpc-url https://rpc.meechain.net/rpc
 ```
 
 The script runs these checks:
