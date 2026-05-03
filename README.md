@@ -18,6 +18,7 @@ npm install
 
 ## Usage
 ```bash
+# from the project root
 node server.js
 ```
 
