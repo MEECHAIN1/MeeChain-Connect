@@ -56,6 +56,10 @@ bash scripts/rpc-check.sh
 bash scripts/rpc-check.sh --target rpc.meechain.net
 # or pass full RPC URL
 bash scripts/rpc-check.sh --rpc-url https://rpc.meechain.net/rpc
+# override config files from CLI
+bash scripts/rpc-check.sh --target rpc.meechain.net --config-files config/dshackle/provider.local.yaml
+# skip config verification when troubleshooting DNS/RPC only
+bash scripts/rpc-check.sh --target rpc.meechain.net --skip-config
 ```
 
 The script runs these checks:
@@ -63,6 +67,44 @@ The script runs these checks:
 - **RPC Method Check** — Call `eth_chainId` and `eth_blockNumber` to validate JSON-RPC responses.
 - **Latency Measurement** — Measure response time for each endpoint.
 - **Summary** — Print consolidated results with ritual overlay badges.
+
+### Ritual Flow Diagram
+```mermaid
+flowchart TD
+    A[🌐 DNS Check] --> B[🔗 RPC Check]
+    B --> C[⚙️ Config Verification]
+    C --> D[✅ Test Script]
+    D --> E[🎉 Badge Claimed]
+```
+
+### Node.js Config + OpenAI Ritual Flow
+```mermaid
+flowchart TD
+    A[📦 dotenv Loaded] --> B[🔑 API Key Loaded]
+    B --> C[🌐 BaseURL Ready]
+    C --> D[⚙️ RPC Config Verified]
+    D --> E[🤖 OpenAI Config Ready]
+    E --> F[🎉 Node.js Config Badge Claimed]
+```
+
+### Security & Dependency Ritual Flow
+```mermaid
+flowchart TD
+    A[⚙️ Node.js Engine Upgrade] --> B[🛡️ npm audit fix]
+    B --> C[📦 Dependency Verify]
+    C --> D[🔑 .env Config Check]
+    D --> E[🎉 Security & Config Badge Claimed]
+```
+
+🛡️ **Security & Dependency Ritual**
+
+Before running MeeChain server:
+
+1. Upgrade Node.js → v24.x
+2. Run `npm audit fix --force`
+3. Verify dependencies → `npm ls --depth=0`
+4. Check `.env` → should include `MEECHAINAPIKEY`, `BASE_URL`, `DRPC_RPC_URL`, `VITE_RPC_URL`
+5. Run `bash scripts/rpc-check.sh` → all ritual badges should be claimed ✅
 
 ### Ritual Overlay
 | Step | Action | Ritual Overlay |
