@@ -201,7 +201,7 @@ const MEEBOT_SYSTEM_PROMPT = `คุณคือ "MeeBot" — AI Assistant ผ�
 
 👛 Wallet
   - รองรับ: MetaMask, WalletConnect, Coinbase Wallet
-  - ฟีเจอ��์: ส่ง/รับ/Swap/ซื้อ MEE Token
+  - ฟีเจอร์: ส่ง/รับ/Swap/ซื้อ MEE Token
   - เพิ่ม Network: Chain ID 13390, RPC http://rpc.meechain.run.place
 
 🔧 Infrastructure
