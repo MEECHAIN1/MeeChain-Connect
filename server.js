@@ -543,6 +543,22 @@ async function handleRpcProxy(req, res) {
     );
   }
   if (containsWriteMethod) {
+    if (isBatch) {
+      return res.status(503).json(
+        body.map((item) => (
+          _isWriteRpcMethod(item?.method)
+            ? {
+                jsonrpc: '2.0',
+                id: item?.id ?? null,
+                error: {
+                  code: -32096,
+                  message: 'Upstream RPC unavailable for mutating method; mock fallback is read-only',
+                },
+              }
+            : _handleMockRpc(item)
+        )),
+      );
+    }
     return res.status(503).json(
       buildUnavailableError(-32096, 'Upstream RPC unavailable for mutating method; mock fallback is read-only'),
     );
