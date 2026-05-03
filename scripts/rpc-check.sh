@@ -63,6 +63,7 @@ extract_host() {
   echo "$url" | awk -F/ '{print $3}'
 }
 
+# check_dns ตรวจสอบการแก้ชื่อ DNS สำหรับโฮสต์ที่ระบุโดยเรียกไปยังแต่ละตัวแก้ชื่อใน RESOLVERS และอัปเดตตัวนับผลการตรวจ (pass/fail) ตามผลลัพธ์
 check_dns() {
   local host="$1"
   echo "🔍 DNS check for $host"
@@ -97,6 +98,7 @@ check_dns() {
   return 0
 }
 
+# rpc_call ส่งคำขอ JSON-RPC POST ไปยัง URL สำหรับเมธอดที่ระบุ, ตรวจสอบความถูกต้องของผลลัพธ์ (ใช้ `jq` หากติดตั้ง) และอัปเดตตัวนับผลการทดสอบ (pass/fail) ตามผลลัพธ์.
 rpc_call() {
   local url="$1"
   local method="$2"
@@ -147,6 +149,7 @@ rpc_call() {
   fi
 }
 
+# check_rpc ตรวจสอบว่า endpoint RPC ตอบสนองต่อคำสั่ง JSON-RPC `eth_chainId` และ `eth_blockNumber` และคืนค่า 0 หากไม่เกิดความล้มเหลวใหม่ หรือ 1 หากมีการล้มเหลวเกิดขึ้น
 check_rpc() {
   local url="$1"
   echo "⛓️ RPC check for $url"
@@ -161,6 +164,8 @@ check_rpc() {
   return 0
 }
 
+# measure_latency วัดเวลาตอบสนอง (total time) ของปลายทาง HTTP และอัปเดตตัวนับผลการตรวจสอบเป็นผ่านหรือไม่ผ่าน.
+# url คือ URL เต็มของ RPC/HTTP endpoint ที่จะทำการทดสอบความหน่วง.
 measure_latency() {
   local url="$1"
   echo "⏱️ Latency test for $url"
@@ -178,6 +183,12 @@ measure_latency() {
 }
 
 
+# check_config ตรวจสอบว่าชื่อโฮสต์ที่ระบุปรากฏในหนึ่งหรือมากกว่าของไฟล์คอนฟิกที่ตั้งค่าไว้ และอัปเดตตัวนับผลการตรวจสอบตามผล
+# 
+# คำอธิบายเพิ่มเติม:
+# - สำหรับแต่ละไฟล์ใน CONFIG_FILES: ถ้าไฟล์มีอยู่ จะค้นหาสตริงโฮสต์และเรียก pass_check เมื่อพบ หรือ fail_check เมื่อไม่พบ; ถ้าไฟล์ขาด จะรายงานและเรียก fail_check
+# - ถ้าไม่พบไฟล์คอนฟิกเลย จะพิมพ์ข้อความแสดงข้อผิดพลาดแต่จะไม่เปลี่ยนตัวนับเพิ่มเติมในกรณีนั้น
+# - คืนค่า 0 เมื่อมีไฟล์ใดไฟล์หนึ่งจับคู่โฮสต์ได้ (ถือว่า "Config Verified") และคืนค่า 1 ในกรณีอื่น ๆ
 check_config() {
   local host="$1"
   echo "🔍 Config check for $host"
@@ -213,6 +224,7 @@ check_config() {
   return 1
 }
 
+# print_badge_overlay พิมพ์แผง ASCII ที่แสดงการ Onboarding เสร็จสมบูรณ์พร้อมสรุปสถานะย่อยของการตรวจสอบ
 print_badge_overlay() {
   cat <<'EOF'
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
@@ -226,6 +238,7 @@ print_badge_overlay() {
 EOF
 }
 
+# print_summary พิมพ์สรุปผลการตรวจสุขภาพ RPC พร้อมสถิติของการเช็กและแสดงบาดจ์เมื่อไม่มีข้อผิดพลาด
 print_summary() {
   echo "-----------------------------------"
   if [[ $FAILED_CHECKS -eq 0 ]]; then
@@ -246,6 +259,7 @@ print_summary() {
 }
 
 
+# parse_args ประมวลผลอาร์กิวเมนต์บรรทัดคำสั่งและตั้งค่า RPC_LIST, CONFIG_FILES และ SKIP_CONFIG_CHECK ตามแฟลกที่ส่งเข้ามา (รองรับ --target, --rpc-url, --config-files, --skip-config, --help).
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -298,6 +312,7 @@ EOF
   done
 }
 
+# main ดำเนินการตรวจสอบสถานะของรายการ RPC โดยแสดงค่าคอนฟิก เรียกตรวจสอบ DNS, RPC, (ไม่บังคับ) ตรวจสอบไฟล์คอนฟิก และวัดความหน่วงสำหรับแต่ละ endpoint แล้วพิมพ์สรุปผล
 main() {
   echo "MeeChain RPC Ritual Health Check"
   echo "DNS resolvers: ${RESOLVERS[*]}"
