@@ -201,7 +201,7 @@ const MEEBOT_SYSTEM_PROMPT = `คุณคือ "MeeBot" — AI Assistant ผ�
 
 👛 Wallet
   - รองรับ: MetaMask, WalletConnect, Coinbase Wallet
-  - ฟีเจอร์: ส่ง/รับ/Swap/ซื้อ MEE Token
+  - ฟีเจอ��์: ส่ง/รับ/Swap/ซื้อ MEE Token
   - เพิ่ม Network: Chain ID 13390, RPC http://rpc.meechain.run.place
 
 🔧 Infrastructure
@@ -544,7 +544,7 @@ async function handleRpcProxy(req, res) {
   }
   if (containsWriteMethod) {
     return res.status(503).json(
-      buildUnavailableError(-32096, 'Upstream RPC unavailable for mutating method; mock fallback is read-only only'),
+      buildUnavailableError(-32096, 'Upstream RPC unavailable for mutating method; mock fallback is read-only'),
     );
   }
   console.log(`[RPC] All upstream failed (${lastError?.message}) — serving mock response`);
@@ -704,7 +704,7 @@ app.get('/api/nft/info', async (req, res) => {
   }
 });
 
-// ── API: NFT Balance ──────────────────────────────────────────────
+// ── API: NFT Balance ────────────────��─────────────────────────────
 app.get('/api/nft/balance/:address', async (req, res) => {
   try {
     const balance = await web3.getNFTBalance(req.params.address);
