@@ -224,10 +224,10 @@ EOF
 
 print_summary() {
   echo "-----------------------------------"
-  echo "✅ DNS Ready → 🔗 RPC Ready → ⚙️ Config Verified → 🎉 Badge Claimed"
   echo "Checks: $TOTAL_CHECKS total | $PASSED_CHECKS passed | $FAILED_CHECKS failed"
 
   if [[ $FAILED_CHECKS -eq 0 ]]; then
+    echo "✅ DNS Ready → 🔗 RPC Ready → ⚙️ Config Verified → 🎉 Badge Claimed"
     ok "RPC health check completed successfully"
     print_badge_overlay
     return 0
