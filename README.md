@@ -34,12 +34,28 @@ node server.js
 
 This section documents how contributors can verify the health of MeeChain RPC endpoints using `scripts/rpc-check.sh`.
 
+### 🛡️ Contributor Onboarding Ritual
+
+Overlay Checklist (DNS → RPC → Config → Test)
+
+| ขั้นตอน | รายละเอียด | วิธีตรวจสอบ | Badge Overlay |
+|---------|------------|--------------|---------------|
+| DNS | ตั้งค่า DNS ผ่านแอป DNS Changer (Google / Cloudflare / Quad9 / FamilyShield) | รัน `dnsleaktest.com` หรือ `nslookup rpc.meechain.net` → ต้อง resolve ได้ | 🌐 DNS Ready |
+| RPC | ตรวจสอบว่า RPC endpoint (`https://rpc.meechain.net`) ตอบสนอง | ใช้ `curl -I https://rpc.meechain.net` → ต้องได้ `HTTP 200/OK` | 🔗 RPC Ready |
+| Config | ตรวจสอบไฟล์ config ว่า endpoint/hostname ตรงกับ DNS ที่ตั้งไว้ | เปิดไฟล์ config หรือใช้ `grep` ตรวจ hostname/IP | ⚙️ Config Verified |
+| Test | รันสคริปต์ health check (`scripts/rpc-check.sh`) เพื่อทดสอบ DNS → RPC → Latency → Summary | Output ต้องแสดงทุกขั้นตอนผ่าน พร้อม badge overlay | ✅ Onboarding Complete |
+
+
 ### Overview
 The script performs a complete health check across DNS resolution, JSON-RPC method calls, and latency measurement. It supports multiple resolvers and fallback RPC endpoints for reproducible checks.
 
 ### Usage
 ```bash
 bash scripts/rpc-check.sh
+# or target a specific host only
+bash scripts/rpc-check.sh --target rpc.meechain.net
+# or pass full RPC URL
+bash scripts/rpc-check.sh --rpc-url https://rpc.meechain.net/rpc
 ```
 
 The script runs these checks:
