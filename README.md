@@ -6,8 +6,7 @@
 
 ## Prerequisites
 - Modern web browser (Chrome, Firefox, Safari, Edge)
-- Local web server (เช่น `python3 -m http.server` หรือ `npx serve`)
-- Local web server (e.g., `python3 -m http.server` or `npx serve`)
+- Local web server (`python3 -m http.server 8000` หรือ `npx serve`)
 
 ## Installation
 ```bash
@@ -22,7 +21,32 @@ npx serve
 ```
 
 ## Usage
-Open your browser and navigate to `http://localhost:8000`.
+1. Start local server ด้วยคำสั่งใดคำสั่งหนึ่ง:
+   - `python3 -m http.server 8000`
+   - `npx serve`
+2. เปิดเบราว์เซอร์ไปที่ URL ที่ server แสดงผล:
+   - `python3 -m http.server 8000` → `http://localhost:8000`
+   - `npx serve` → โดยทั่วไปคือ `http://localhost:3000` (ตรวจจาก output ของคำสั่ง)
+
+## Project Structure
+```text
+├── index.html          # Main dashboard page
+├── explorer.html       # Mee Ritual Chain Explorer
+├── dao.html            # Governance / DAO dashboard
+├── analytics.html      # Analytics dashboard
+├── nft-market.html     # NFT Marketplace
+├── scripts/
+│   ├── start.sh        # Service start helper
+│   ├── stop.sh         # Service stop helper
+│   └── rpc-check.sh    # RPC ritual health check
+├── src/
+│   ├── css/            # Stylesheets
+│   ├── js/             # JavaScript files
+│   └── assets/         # Images and resources
+├── contracts/          # Smart contracts
+├── functions/          # Serverless API functions
+└── test/               # Test files
+```
 
 ## RPC Ritual Health Check
 
@@ -61,39 +85,6 @@ The script runs these checks:
 
 ### Contributor Milestone
 Passing all checks earns the contributor the **RPC Ready Badge** as part of the ritualized onboarding flow.
-
-## Project Structure
-```
-├── index.html          # Main dashboard page
-├── explorer.html       # Mee Ritual Chain Explorer
-├── dao.html            # Governance / DAO dashboard
-├── analytics.html      # Analytics dashboard
-├── nft-market.html     # NFT Marketplace
-├── scripts/
-│   ├── start.sh        # Service start helper
-│   ├── stop.sh         # Service stop helper
-│   └── rpc-check.sh    # RPC ritual health check
-├── src/
-│   ├── css/            # Stylesheets
-│   ├── js/             # JavaScript files
-│   └── assets/         # Images and resources
-├── contracts/          # Smart contracts
-├── functions/          # Serverless API functions
-└── test/               # Test files
-```
-## Project Structure
-```text
-├── index.html          # Main dashboard page
-├── nft-market.html     # NFT Marketplace
-├── block-explorer.html # Mee Ritual Chain Explorer
-├── staking.html        # Staking & Mining
-├── wallet.html         # Wallet Management
-├── meebot.html         # MeeBot NFT Collection
-├── settings.html       # Settings page
-├── css/                # Stylesheets
-├── js/                 # JavaScript files
-└── assets/             # Images and resources
-```
 
 ## Deployment Options
 MeeChain contributors สามารถ deploy Cloudflare Tunnel ได้สองวิธีหลัก:
