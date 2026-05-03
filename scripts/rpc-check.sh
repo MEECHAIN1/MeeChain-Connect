@@ -246,7 +246,9 @@ parse_args() {
           err "--target requires a host, e.g. --target rpc.meechain.net"
           exit 2
         fi
-        RPC_LIST=("https://$2")
+        local target_host="${2#https://}"
+        target_host="${target_host#http://}"
+        RPC_LIST=("https://$target_host")
         shift 2
         ;;
       --rpc-url)
