@@ -17,6 +17,7 @@ set -u
 RPC_LIST=("https://rpc.meechain.net")
 RESOLVERS=("1.1.1.1" "8.8.8.8")
 CONFIG_FILES=(".env" "chains.yaml" "config/dshackle/provider.example.yaml" "config/dshackle/provider.local.yaml")
+CONFIG_FILES=("config/dshackle/provider.example.yaml" "config/dshackle/provider.local.yaml")
 CURL_TIMEOUT="${CURL_TIMEOUT:-10}"
 SKIP_CONFIG_CHECK=0
 
@@ -199,6 +200,7 @@ check_config() {
     if [[ -f "$file" ]]; then
       found_files=1
       if grep -q "$host" "$file"; then
+      if grep -qF "$host" "$file"; then
         ok "Config verified in $file"
         pass_check
         matched_files=1
@@ -246,9 +248,12 @@ print_summary() {
   else
     echo "❌ Ritual incomplete — see failed stages above"
   fi
+print_summary() {
+  echo "-----------------------------------"
   echo "Checks: $TOTAL_CHECKS total | $PASSED_CHECKS passed | $FAILED_CHECKS failed"
 
   if [[ $FAILED_CHECKS -eq 0 ]]; then
+    echo "✅ DNS Ready → 🔗 RPC Ready → ⚙️ Config Verified → 🎉 Badge Claimed"
     ok "RPC health check completed successfully"
     print_badge_overlay
     return 0
@@ -269,6 +274,9 @@ parse_args() {
           exit 2
         fi
         RPC_LIST=("https://$2")
+        local target_host="${2#https://}"
+        target_host="${target_host#http://}"
+        RPC_LIST=("https://$target_host")
         shift 2
         ;;
       --rpc-url)
@@ -294,6 +302,9 @@ parse_args() {
       --help|-h)
         cat <<'EOF'
 Usage: bash scripts/rpc-check.sh [--target <host> | --rpc-url <url>] [--config-files <csv>] [--skip-config]
+      --help|-h)
+        cat <<'EOF'
+Usage: bash scripts/rpc-check.sh [--target <host> | --rpc-url <url>]
 
 Options:
   --target <host>   Check only one RPC host (https://<host>)
@@ -336,6 +347,7 @@ main() {
     else
       check_config "$host"
     fi
+    check_config "$host"
     measure_latency "$rpc"
     echo "-----------------------------------"
   done
