@@ -1,3 +1,5 @@
+import { getDefaultRpcUrl } from '../_shared/meebot.js';
+
 // ╔══════════════════════════════════════════════════════╗
 // ║  Cloudflare Pages Function: /api/web3/status        ║
 // ╚══════════════════════════════════════════════════════╝
@@ -5,7 +7,7 @@
 export async function onRequestGet(ctx) {
   const { env } = ctx;
 
-  const rpcUrl   = env.DRPC_RPC_URL || 'http://rpc.meechain.run.place';
+  const rpcUrl   = getDefaultRpcUrl(env);
   const chainId  = parseInt(env.CHAIN_ID || '13390', 10);
   const contracts = {
     token:   env.VITE_TOKEN_CONTRACT_ADDRESS   || '0x5FbDB2315678afecb367f032d93F642f64180aa3',

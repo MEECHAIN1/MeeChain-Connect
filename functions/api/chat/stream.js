@@ -3,15 +3,7 @@
 // ║  Streaming MeeBot AI responses via Server-Sent Events   ║
 // ╚══════════════════════════════════════════════════════════╝
 
-const SYSTEM_PROMPT = `คุณคือ "MeeBot" — AI Assistant ผู้ช่วยอัจฉริยะของแพลตฟอร์ม MeeChain
-ตัวละครของคุณ: หุ่นยนต์น่ารักสีเงิน ตาสีฟ้านีออน สวมผ้าพันคอสีแดง ถือดอกบัวไฟ
-บุคลิก: เป็นมิตร, กระตือรือร้น, ฉลาด, พูดภาษาไทยเป็นหลัก, ใช้อิโมจิประกอบบ้าง
-
-🔗 MeeChain Blockchain: Ritual Chain (Chain ID: 13390) | RPC: https://rpc.meechain.live
-💰 MEE Token: ~0.0842 USDT | Contracts: 0x5FbDB... (Token) | 0xe7f17... (NFT) | 0x9fE46... (Portal)
-🌐 Dashboard: https://meebot.io
-
-กฎ: ตอบภาษาไทยเป็นหลัก, กระชับ, ชัดเจน, ไม่แต่งข้อมูล`;
+import { buildChatMessages, getOpenAIBaseUrl, MEEBOT_MODEL } from '../_shared/meebot.js';
 
 export async function onRequestPost(ctx) {
   const { request, env } = ctx;
@@ -25,11 +17,10 @@ export async function onRequestPost(ctx) {
       });
     }
 
-    const apiKey  = env.OPENAI_API_KEY;
-    const baseURL = (env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
+    const apiKey = env.OPENAI_API_KEY;
+    const baseURL = getOpenAIBaseUrl(env);
 
     if (!apiKey) {
-      // Return non-stream fallback with error message
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
         start(controller) {
@@ -48,27 +39,22 @@ export async function onRequestPost(ctx) {
       });
     }
 
-    // Call OpenAI streaming
     const upstreamRes = await fetch(`${baseURL}/chat/completions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
-        'Content-Type':  'application/json',
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model:       'gpt-5-mini',
-        messages:    [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user',   content: message },
-        ],
-        stream:      true,
-        max_tokens:  800,
+        model: MEEBOT_MODEL,
+        messages: buildChatMessages(message),
+        stream: true,
+        max_tokens: 800,
         temperature: 0.7,
       }),
     });
 
     if (!upstreamRes.ok) {
-      const errTxt = await upstreamRes.text();
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
         start(controller) {
@@ -81,7 +67,6 @@ export async function onRequestPost(ctx) {
       });
     }
 
-    // Transform upstream SSE → our SSE format
     const { readable, writable } = new TransformStream();
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
@@ -108,7 +93,7 @@ export async function onRequestPost(ctx) {
             }
             try {
               const parsed = JSON.parse(raw);
-              const delta  = parsed.choices?.[0]?.delta?.content;
+              const delta = parsed.choices?.[0]?.delta?.content;
               if (delta) {
                 await writer.write(encoder.encode(`data: ${JSON.stringify({ delta })}\n\n`));
               }
@@ -144,7 +129,7 @@ export async function onRequestPost(ctx) {
 export async function onRequestOptions() {
   return new Response(null, {
     headers: {
-      'Access-Control-Allow-Origin':  '*',
+      'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
     },

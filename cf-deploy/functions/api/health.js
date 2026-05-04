@@ -1,3 +1,5 @@
+import { getDefaultRpcUrl } from './_shared/meebot.js';
+
 // ╔══════════════════════════════════════════════════════╗
 // ║  Cloudflare Pages Function: /api/health             ║
 // ╚══════════════════════════════════════════════════════╝
@@ -11,7 +13,7 @@ export async function onRequestGet(ctx) {
     bot:       'MeeBot AI',
     web3:      false,
     chainId:   13390,
-    rpc:       env.DRPC_RPC_URL || 'http://rpc.meechain.run.place',
+    rpc:       getDefaultRpcUrl(env),
     contracts: {
       token:   env.VITE_TOKEN_CONTRACT_ADDRESS   || '0x5FbDB2315678afecb367f032d93F642f64180aa3',
       nft:     env.VITE_NFT_CONTRACT_ADDRESS     || '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
