@@ -2,20 +2,22 @@
 // ║  Cloudflare Pages Function: /api/health             ║
 // ╚══════════════════════════════════════════════════════╝
 
+import { getMeechainConfig } from './_shared/meechain-config.js';
+
 export async function onRequestGet(ctx) {
   const { env } = ctx;
+  const config = getMeechainConfig(env);
 
   const data = {
     status:    'ok',
     model:     'gpt-5-mini',
     bot:       'MeeBot AI',
     web3:      false,
-    chainId:   13390,
-    rpc:       env.DRPC_RPC_URL || 'https://rpc.meechain.live',
+    chainId:   config.chainId,
+    rpc:       config.rpcPrimary,
     contracts: {
-      token:   env.VITE_TOKEN_CONTRACT_ADDRESS   || '0x5FbDB2315678afecb367f032d93F642f64180aa3',
-      nft:     env.VITE_NFT_CONTRACT_ADDRESS     || '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
-      staking: env.VITE_STAKING_CONTRACT_ADDRESS || '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+      ...config.contracts,
+      staking: config.contracts.portal,
     },
     domain:    'meebot.io',
     version:   '2.0.0',
