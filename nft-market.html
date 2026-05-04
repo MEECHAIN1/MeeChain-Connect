@@ -183,7 +183,7 @@
 
 <!-- ── Navbar ── -->
 <nav class="navbar">
-  <a class="nav-logo" href="index.html">
+  <a class="nav-logo" href="./index.html">
     <img src="src/assets/images/meechain_logo.png" alt="MeeChain" onerror="this.style.display='none'"/>
     <div><div class="nav-logo-text">MeeChain</div><div class="nav-logo-sub">NFT Marketplace</div></div>
   </a>
@@ -194,7 +194,7 @@
     <a class="nav-link" href="dao.html">🏛️ DAO</a>
     <a class="nav-link" href="analytics.html">📊 Analytics</a>
   </div>
-  <button class="wallet-btn" id="wallet-btn" onclick="connectWallet()">👛 <span data-i18n="wallet.connect">เชื่อมต่อ Wallet</span></button>
+  <button class="wallet-btn" id="wallet-btn" onclick="openWalletHub()">👛 <span data-i18n="wallet.connect">เชื่อมต่อ Wallet</span></button>
 </nav>
 
 <!-- ── Hero ── -->
@@ -319,7 +319,7 @@
   <div id="my-section" style="display:none">
     <div class="section-header">
       <div class="section-title">👤 NFT ของฉัน</div>
-      <button class="wallet-btn" id="my-connect-btn" onclick="connectWallet()">🔌 เชื่อมต่อ Wallet</button>
+      <button class="wallet-btn" id="my-connect-btn" onclick="openWalletHub()">🔌 เชื่อมต่อ Wallet</button>
     </div>
     <div id="my-nft-grid" class="nft-grid">
       <div class="empty-state" style="grid-column:1/-1">
@@ -870,6 +870,11 @@ async function loadMyNFTs(){
         navigator.serviceWorker.register('/sw.js').catch(() => {});
       });
     }
-  </script>
+  
+function openWalletHub(){
+  if (typeof showToast === 'function') showToast('กรุณาเชื่อมต่อผ่านหน้า Wallet Hub', 'info');
+  window.location.href = '/index.html#wallet';
+}
+</script>
 </body>
 </html>

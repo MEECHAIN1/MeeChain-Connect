@@ -16,10 +16,9 @@ const RUNTIME_RPC_URL = `${location.origin}/rpc`;
 const MEECHAIN_NETWORK = {
   chainId:        '0x344e',   // 13390 decimal
   chainName:      'MeeChain Ritual Chain',
-  // Local proxy is FIRST — always reachable regardless of external RPC status
-  // MetaMask will use the first working URL in this list
+  // IMPORTANT: wallet RPC URLs must be public JSON-RPC endpoints (MetaMask calls them directly).
+  // Do not include same-origin /rpc here because some hosts reject extension/mobile-wallet POST requests (HTTP 405).
   rpcUrls:        [
-    `${location.origin}/rpc`,          // same-origin proxy (always online)
     'https://rpc.meechain.live',       // primary external
     'https://rpc.meechain.run.place',  // fallback external
   ],
@@ -125,11 +124,8 @@ async function loadContractAddresses() {
     const resp = await fetch('/api/network');
     const data = await resp.json();
     if (Array.isArray(data.rpcUrls) && data.rpcUrls.length > 0) {
-      // Always keep local proxy as first option — server already prepends it
-      // but ensure it's present in case server didn't add it
-      const localProxy = `${location.origin}/rpc`;
-      const merged = [localProxy, ...data.rpcUrls.filter(u => u !== localProxy)];
-      MEECHAIN_NETWORK.rpcUrls = merged;
+      // Keep only absolute HTTP(S) RPC URLs for wallet providers.
+      MEECHAIN_NETWORK.rpcUrls = data.rpcUrls.filter((u) => /^https?:\/\//i.test(String(u)));
     }
     if (data.contracts) {
       TOKEN_ADDRESS  = data.contracts.token   || TOKEN_ADDRESS;
@@ -217,10 +213,7 @@ async function ensureMeeChainNetwork() {
         const networkConfig = {
           ...MEECHAIN_NETWORK,
           rpcUrls: [
-            ...new Set([
-              `${location.origin}/rpc`,       // always-online local proxy
-              ...MEECHAIN_NETWORK.rpcUrls,
-            ]),
+            ...new Set(MEECHAIN_NETWORK.rpcUrls.filter((u) => /^https?:\/\//i.test(String(u)))),
           ],
         };
         await window.ethereum.request({
@@ -502,6 +495,18 @@ function copyReceiveAddress() {
 
 // ── Override connectWallet from app.js ───────────────────────────────
 window.connectWallet = async function(type) {
+  const path = (location.pathname || '').toLowerCase();
+  const hash = (location.hash || '').toLowerCase();
+  const isIndexPage = path.endsWith('/index.html') || path === '/' || path === '';
+  const isWalletPage = isIndexPage && (hash === '#wallet' || hash === '#page-wallet');
+
+  // อนุญาตให้เชื่อมต่อได้เฉพาะหน้า Wallet Hub เท่านั้น
+  if (!isWalletPage) {
+    window.MeeWalletHub?.openHub?.();
+    showToast('🔒 เปิดเชื่อมต่อได้เฉพาะหน้า Wallet เท่านั้น', 'info');
+    return;
+  }
+
   document.getElementById('wallet-modal')?.classList.add('hidden');
 
   if (type === 'metamask') {
