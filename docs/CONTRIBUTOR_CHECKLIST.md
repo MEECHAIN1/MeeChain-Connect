@@ -28,7 +28,7 @@
   - `https://rpc.meechain.live/rpc`
   - `https://origin-rpc.meechain.live/rpc`
   (ต้องเช็คทั้ง GET และ POST JSON-RPC)
-- สถานะล่าสุด (April 27, 2026): GET/POST ตอบ `502` (error code: 502)
+- สถานะล่าสุด (May 4, 2026): public ตอบ `530` (error code: 1033) และ origin ตอบ `503` (DNS resolution failure)
 - สรุป: endpoint ภายนอกยังไม่พร้อมสำหรับ wallet client จนกว่า POST จะตอบ JSON-RPC ปกติ
 - Contributors ต้องใช้ local proxy `/rpc` เป็น default
 
@@ -37,7 +37,7 @@
 - ✅ `node --check src/js/wallet.js`
 - ✅ `bash -n scripts/test-rpc.sh`
 - ✅ `npm run test:rpc:integration`
-- ⚠️ `node server.js` (หากไม่ตั้ง `OPENAI_API_KEY` จะรันไม่ขึ้น)
+- ✅ `node server.js` (รันขึ้นได้และตอบ `/rpc/health` + JSON-RPC ผ่าน local proxy)
 - ✅ `npm run verify:rpc:matrix`
 
 ---
