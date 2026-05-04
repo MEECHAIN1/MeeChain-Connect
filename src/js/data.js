@@ -123,10 +123,10 @@ const MEECHAIN_DATA = {
 
   // Smart Contract Addresses (Ritual Chain)
   contracts: {
-    token:   '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9',
-    nft:     '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707',
-    staking: '0xa513E6E4b8f2a923D98304ec87F64353C4D5C853',
-    portal:  '0xa513E6E4b8f2a923D98304ec87F64353C4D5C853',
+    token:   '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+    nft:     '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
+    staking: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+    portal:  '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
     rpc:     `${window.location.origin}/rpc`,
   },
 
@@ -290,21 +290,21 @@ const MEECHAIN_DATA = {
       minStake: '100 MEE', lockPeriod: '30 วัน',
       totalStaked: '8,524,100 MEE', capacity: 72,
       icon: '🟣',
-      contractAddr: '0xa513E6E4b8f2a923D98304ec87F64353C4D5C853'
+      contractAddr: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0'
     },
     {
       name: 'MEE Premium Pool', apy: '148%',
       minStake: '1,000 MEE', lockPeriod: '90 วัน',
       totalStaked: '12,840,500 MEE', capacity: 58,
       icon: '🟠',
-      contractAddr: '0xa513E6E4b8f2a923D98304ec87F64353C4D5C853'
+      contractAddr: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0'
     },
     {
       name: 'Ritual Chain Pool', apy: '248%',
       minStake: '5,000 MEE', lockPeriod: '180 วัน',
       totalStaked: '24,120,000 MEE', capacity: 34,
       icon: '🔵',
-      contractAddr: '0xa513E6E4b8f2a923D98304ec87F64353C4D5C853'
+      contractAddr: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0'
     },
   ],
 
@@ -451,4 +451,3 @@ if (document.readyState === 'loading') {
 } else {
   LivePrice.start();
 }
-
