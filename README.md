@@ -1,435 +1,151 @@
-# MeeChain Dashboard
+# MeeChain Connect
 
+Web app และ API server สำหรับ MeeChain พร้อม runtime helper สำหรับรันแบบ local, PM2, Docker และ Compose
 
-[![🚀 Deploy MeeChain to Cloudflare Pages (meechain)](https://github.com/MEECHAIN1/MeeChain-Connect/actions/workflows/deploy.yml/badge.svg)](https://github.com/MEECHAIN1/MeeChain-Connect/actions/workflows/deploy.yml)
+## Features
 
+- MeeChain API server ผ่าน `server.js`
+- Health check ที่ `/health` และ `/api/health`
+- Config endpoint ที่ `/api/config`
+- Web3 / RPC integration สำหรับ MeeChain
+- Runtime helper scripts สำหรับ start, stop, logs, status, doctor
 
-แดชบอร์ด Web Application สำหรับ MeeChain Blockchain Platform
+## Requirements
 
-## Prerequisites
-- Modern web browser (Chrome, Firefox, Safari, Edge)
-- Node.js 18+
-- Local web server (`python3 -m http.server`, `npx serve`) หรือรันผ่าน `node server.js`
+- Node.js 20+ แนะนำ
+- npm
+- PM2 (ถ้าจะรันแบบ process manager)
+- Docker / Compose (ถ้าจะรันแบบ container)
 
-## Installation
+## Quick Start
+
 ```bash
 git clone https://github.com/MEECHAIN1/MeeChain-Connect.git
 cd MeeChain-Connect
+cp .env.example .env
 npm install
+bash scripts/doctor.sh
+bash scripts/start.sh
 ```
 
-## Usage
-```bash
-node server.js
-```
+## Run Modes
 
-เปิดเว็บที่ `http://localhost:3000`
-
-## 🚀 Deployment Guide
-
-### 🔧 Environment Setup
-- Node.js ≥ v24.x (Replit/Sandbox จะจัดการให้)
-- npm ≥ 11.13.0
-- PM2 ≥ 6.0.14
-- Podman/Docker (optional, สำหรับ homelab/VM)
-
-### 🌐 RPC Endpoint
-- ใช้ Cloudflare Worker เป็น proxy ผ่าน `rpc.meechain.live`
-- Worker config:
-```js
-ORIGIN_URL: "https://mee-chain-connect-2--mcchain.replit.app",
-ORIGIN_MODE: "replit",
-```
-- Homelab fallback: `.cloudflared/config.yml` → port `5000`
-
-### ⚙️ Post-Merge Hook
-- `scripts/post-merge.sh` รัน `npm install` อัตโนมัติหลัง merge
-- Configured ใน `.replit` และทดสอบผ่าน ✅
-
-### 🛡️ Security
-- `npm audit` → 0 vulnerabilities
-- Dependencies อัปเดตแล้ว (แก้ `picomatch` + `brace-expansion`)
-
-### 🌐 Deployment URL
-- Replit URL: `https://mee-chain-connect-2--mcchain.replit.app`
-- Contributors ใช้ URL นี้ได้ทันที
-- ถ้าต้องการ custom domain (เช่น `app.meechain.live`) ให้ map ผ่าน Cloudflare Worker
-
-### 🎯 Ritual Flow Output
-```text
-✅ RPC Fixed → ⚙️ Post-Merge Hook Ready → 🛡️ Security Clean → 🌐 Deployment Live → 🎉 Badge Claimed
-```
-
-### 🚀 Deployment Flow (Replit → Cloudflare Worker → rpc.meechain.live)
-```mermaid
-flowchart TD
-    A[👨‍💻 Developer pushes code to Replit] --> B[⚙️ Replit auto-build & run]
-    B --> C[🌐 Replit App URL (mee-chain-connect-2--mcchain.replit.app)]
-    C --> D[☁️ Cloudflare Worker Proxy]
-    D --> E[🔗 rpc.meechain.live endpoint]
-    E --> F[✅ MeeChain Dashboard & RPC Gateway Ready]
-```
-
-### 🎯 ความหมายของแต่ละขั้น
-- 👨‍💻 Developer pushes code to Replit → contributors ทำงานบน Replit
-- ⚙️ Replit auto-build & run → Replit จัดการ build และ start server อัตโนมัติ
-- 🌐 Replit App URL → ได้ URL ที่ Replit generate (เช่น `mee-chain-connect-2--mcchain.replit.app`)
-- ☁️ Cloudflare Worker Proxy → Worker map URL นี้ไปยัง custom domain
-- 🔗 `rpc.meechain.live` endpoint → ผู้ใช้เข้าถึงผ่าน domain หลัก
-- ✅ MeeChain Dashboard & RPC Gateway Ready → ระบบพร้อมใช้งานครบ ritual flow
-
-### 📌 Quick Snippet
-```markdown
-🚀 Deployment Flow
-
-1. Push code → Replit auto-build
-2. Access Replit URL → mee-chain-connect-2--mcchain.replit.app
-3. Cloudflare Worker → proxy ไปยัง rpc.meechain.live
-4. Contributors → ใช้งานผ่าน domain หลัก
-```
-
-## Contributor onboarding checklist
-เอกสาร checklist ฉบับ ritualized สำหรับ contributors:
-- `docs/CONTRIBUTOR_CHECKLIST.md`
-
-
-## RPC Ritual Health Check
-
-This section documents how contributors can verify the health of MeeChain RPC endpoints using `scripts/rpc-check.sh`.
-
-### 🛡️ Contributor Onboarding Ritual
-
-Overlay Checklist (DNS → RPC → Config → Test)
-
-| ขั้นตอน | รายละเอียด | วิธีตรวจสอบ | Badge Overlay |
-|---------|------------|--------------|---------------|
-| DNS | ตั้งค่า DNS ผ่านแอป DNS Changer (Google / Cloudflare / Quad9 / FamilyShield) | รัน `dnsleaktest.com` หรือ `nslookup rpc.meechain.net` → ต้อง resolve ได้ | 🌐 DNS Ready |
-| RPC | ตรวจสอบว่า RPC endpoint (`https://rpc.meechain.net`) ตอบสนอง | ใช้ `curl -I https://rpc.meechain.net` → ต้องได้ `HTTP 200/OK` | 🔗 RPC Ready |
-| Config | ตรวจสอบไฟล์ config ว่า endpoint/hostname ตรงกับ DNS ที่ตั้งไว้ | เปิดไฟล์ config หรือใช้ `grep` ตรวจ hostname/IP | ⚙️ Config Verified |
-| Test | รันสคริปต์ health check (`scripts/rpc-check.sh`) เพื่อทดสอบ DNS → RPC → Latency → Summary | Output ต้องแสดงทุกขั้นตอนผ่าน พร้อม badge overlay | ✅ Onboarding Complete |
-
-
-### Overview
-The script performs a complete health check across DNS resolution, JSON-RPC method calls, and latency measurement. It supports multiple resolvers and fallback RPC endpoints for reproducible checks.
-
-### Usage
-```bash
-bash scripts/rpc-check.sh
-# or target a specific host only
-bash scripts/rpc-check.sh --target rpc.meechain.net
-# or pass full RPC URL
-bash scripts/rpc-check.sh --rpc-url https://rpc.meechain.net/rpc
-# override config files from CLI
-bash scripts/rpc-check.sh --target rpc.meechain.net --config-files config/dshackle/provider.local.yaml
-# skip config verification when troubleshooting DNS/RPC only
-bash scripts/rpc-check.sh --target rpc.meechain.net --skip-config
-```
-
-The script runs these checks:
-- **DNS Check** — Query the RPC host against multiple public resolvers (default: Cloudflare `1.1.1.1`, Google `8.8.8.8`).
-- **RPC Method Check** — Call `eth_chainId` and `eth_blockNumber` to validate JSON-RPC responses.
-- **Latency Measurement** — Measure response time for each endpoint.
-- **Summary** — Print consolidated results with ritual overlay badges.
-
-### Ritual Flow Diagram
-```mermaid
-flowchart TD
-    A[🌐 DNS Check] --> B[🔗 RPC Check]
-    B --> C[⚙️ Config Verification]
-    C --> D[✅ Test Script]
-    D --> E[🎉 Badge Claimed]
-```
-
-### Node.js Config + OpenAI Ritual Flow
-```mermaid
-flowchart TD
-    A[📦 dotenv Loaded] --> B[🔑 API Key Loaded]
-    B --> C[🌐 BaseURL Ready]
-    C --> D[⚙️ RPC Config Verified]
-    D --> E[🤖 OpenAI Config Ready]
-    E --> F[🎉 Node.js Config Badge Claimed]
-```
-
-### Security & Dependency Ritual Flow
-```mermaid
-flowchart TD
-    A[⚙️ Node.js Engine Upgrade] --> B[🛡️ npm audit fix]
-    B --> C[📦 Dependency Verify]
-    C --> D[🔑 .env Config Check]
-    D --> E[🎉 Security & Config Badge Claimed]
-```
-
-🛡️ **Security & Dependency Ritual**
-
-Before running MeeChain server:
-
-1. Upgrade Node.js → v24.x
-2. Run `npm audit fix --force`
-3. Verify dependencies → `npm ls --depth=0`
-4. Check `.env` → should include `MEECHAINAPIKEY`, `BASE_URL`, `DRPC_RPC_URL`, `VITE_RPC_URL`
-5. Run `bash scripts/rpc-check.sh` → all ritual badges should be claimed ✅
-
-### Ritual Overlay
-| Step | Action | Ritual Overlay |
-|---|---|---|
-| DNS Check | Query via multiple resolvers | 🔍 Resolve or Fail |
-| RPC Method | Call `eth_chainId` / `eth_blockNumber` | ⛓️ Chain Linked |
-| Latency Measure | Curl timing output | ⏱️ Pulse Measured |
-| Summary | Print consolidated status | 🎉 Badge Claimed |
-
-### Example Output
-```text
-🔍 DNS check for rpc.meechain.live
-⛓️ RPC check for https://rpc.meechain.live
-⏱️ Latency test for https://rpc.meechain.live
------------------------------------
-✅ RPC health check completed
-```
-
-### Contributor Milestone
-Passing all checks earns the contributor the **RPC Ready Badge** as part of the ritualized onboarding flow.
-
-
-## Production-safe RPC fallback
-รองรับผ่าน env ใน `server.js`:
-- `RPC_MODE=auto|upstream-only|mock-only`
-- `RPC_ALLOW_MOCK_FALLBACK=true|false`
-- `RPC_TIMEOUT_MS=3000`
-- `RPC_BREAKER_FAILURE_THRESHOLD=2`
-- `RPC_BREAKER_COOLDOWN_MS=60000`
-
-ตรวจสถานะวงจร fallback:
-- `GET /api/rpc/status`
-- `GET /rpc/health`
-
-## RPC smoke test
-```bash
-bash scripts/test-rpc.sh https://rpc.meechain.live/rpc https://rpc.meechain.live/health
-```
-
-ถ้าอยู่หลัง Cloudflare Access:
-```bash
-export CF_ACCESS_CLIENT_ID="<client-id>"
-export CF_ACCESS_CLIENT_SECRET="<client-secret>"
-bash scripts/test-rpc.sh https://rpc.meechain.live/rpc https://rpc.meechain.live/health
-```
-
-## Integration test: local `/rpc/health`
-```bash
-npm run test:rpc:integration
-```
-
-เทสต์นี้จะบูต `server.js` ในพอร์ตทดสอบ แล้วตรวจว่า `/rpc/health` และ `/api/rpc/status` ให้ค่า state ถูกต้อง.
-
-## Celebration overlay demo
-![RPC connected celebration animation](docs/assets/rpc-connected-demo.svg)
-
-
-## External RPC verification
-```bash
-npm run verify:rpc
-# or
-bash scripts/verify-rpc-endpoint.sh https://rpc.meechain.live/rpc 10
-```
-
-ถ้ามี DNS แยก Cloudflare origin เป็น `origin-rpc.meechain.live` ให้ตรวจแบบ matrix ได้เลย:
+### Auto
 
 ```bash
-npm run verify:rpc:matrix
-# checks both:
-# - https://rpc.meechain.live/rpc
-# - https://origin-rpc.meechain.live/rpc
+bash scripts/start.sh
 ```
 
-เทสต์นี้บังคับตรวจทั้ง GET และ POST JSON-RPC เพื่อลด false positive (กรณี GET ตอบ 200 แต่ POST timeout).
-
-
-## Docker Compose healthcheck
-ตอนนี้มี `docker-compose.yml` พร้อม `healthcheck` ที่ตรวจ `GET /rpc/health` ภายใน container เพื่อให้ orchestration รู้สถานะ RPC proxy ได้อัตโนมัติ.
+### PM2
 
 ```bash
-PRIMARY_CONTEXT=default FALLBACK_CONTEXT=podman npm run compose:up
-PRIMARY_CONTEXT=default FALLBACK_CONTEXT=podman npm run compose:ps
+bash scripts/start.sh pm2
 ```
 
-## Docker → Podman failover demo log
-ตัวอย่างผลลัพธ์จริงของ flow failover อยู่ที่:
-- `docs/assets/compose-failover-demo.svg`
-
-![Docker to Podman failover demo](docs/assets/compose-failover-demo.svg)
-
-## External RPC check (ล่าสุด)
-ตรวจจาก external network วันที่ **April 27, 2026**:
-- `GET https://rpc.meechain.live/rpc` ตอบ `502`
-- `POST https://rpc.meechain.live/rpc` (eth_chainId) ตอบ `502`
-- สรุป: external endpoint ยังไม่พร้อมสำหรับ wallet client จนกว่า GET/POST จะกลับมาปกติ
-
-
-## dRPC + Dshackle hybrid setup
-สำหรับการใช้ local RPC คู่กับ dRPC ผ่าน proxy เดียว:
-- Runbook: `docs/DRPC_DSHACKLE_SETUP.md`
-- Config template: `config/dshackle/provider.example.yaml`
-- Quick check: `npm run verify:dshackle` (หรือ `bash scripts/check-dshackle-proxy.sh <url>`)
-
-
-### Compose profile: MeeChain + Dshackle
-รัน stack พร้อม Dshackle ด้วย compose ไฟล์เสริม:
+### Docker
 
 ```bash
-npm run compose:dshackle:up
-npm run compose:dshackle:ps
-npm run compose:dshackle:down
+bash scripts/start.sh docker
 ```
 
-ไฟล์ที่ใช้:
-- `docker-compose.yml`
-- `docker-compose.dshackle.yml`
-
-> หมายเหตุ: ต้องเตรียมไฟล์ TLS/keys ใน `./secrets/dshackle/*` ก่อนใช้งานจริง
-
-
-### Compose profile: MeeChain + Dshackle (local dev)
-โปรไฟล์นี้ปิด TLS/Auth สำหรับ dev เท่านั้น:
+### Compose
 
 ```bash
-npm run compose:dshackle:local:up
-npm run compose:dshackle:local:ps
-npm run compose:dshackle:local:down
+bash scripts/start.sh compose
 ```
 
-ไฟล์ที่ใช้:
-- `docker-compose.yml`
-- `docker-compose.dshackle.local.yml`
-- `config/dshackle/provider.local.yaml`
+### Plain Node
 
+```bash
+bash scripts/start.sh node
+```
 
+## Useful Commands
 
-## Docker image migration (old repo -> new org/repo)
+### Environment report
 
-ย้าย image จาก repo เดิมไปยัง org/repo ใหม่:
+```bash
+bash scripts/start.sh --explain
+```
 
-# 1) Login
-docker login
+### Service status
 
-# 2) Pull image เดิม
-docker pull meechainv02-meechainv2:latest
+```bash
+bash scripts/status.sh
+```
 
-# 3) Re-tag ให้เป็น path ใหม่
-docker tag meechainv02-meechainv2:latest meechainv02/meechainv2:latest
+### Logs
 
-# 4) Push เข้า repo ใหม่
-docker push meechainv02/meechainv2:latest
+```bash
+bash scripts/logs.sh
+```
 
-Checklist flow:
-1. ตรวจสอบว่า repo ใหม่ใน org ถูกสร้างแล้ว
-2. login ด้วย `docker login` ให้ตรงกับ org
-3. pull image เดิมจาก repo เก่า
-4. re-tag image ให้ตรงกับ org ใหม่
-5. push เข้า repo ใหม่
-6. update CI/CD pipeline, README, และ config ให้ใช้ path ใหม่
+### Stop service
 
-หมายเหตุ: compose config ปัจจุบันตั้งค่า image เป็น `meechainv02/meechainv2:latest` แล้ว.
+```bash
+bash scripts/stop.sh
+```
+
+## Health Check
+
+```bash
+curl http://127.0.0.1:3000/health
+curl http://127.0.0.1:3000/api/health
+curl http://127.0.0.1:3000/api/config
+```
+
+## PM2
+
+โปรเจกต์นี้มี `ecosystem.config.cjs` สำหรับรันผ่าน PM2 โดยใช้ process name:
+
+```bash
+pm2 start ecosystem.config.cjs --env production
+pm2 logs meechain-dashboard
+pm2 status
+```
+
+## Environment
+
+ตั้งค่าผ่าน `.env`
+
+ตัวอย่างค่าหลัก:
+
+```env
+PORT=3000
+NODE_ENV=production
+CHAIN_ID=13390
+DRPC_RPC_URL=https://rpc.meechain.live/rpc
+VITE_RPC_URL=https://rpc.meechain.live/rpc
+OPENAI_API_KEY=
+OPENAI_BASE_URL=https://api.openai.com/v1
+```
+
+> ถ้าไม่ได้ตั้ง `OPENAI_API_KEY` ระบบจะยังรันได้ แต่ฟีเจอร์ MeeBot AI จะถูกปิดไว้
 
 ## Project Structure
+
 ```text
-├── index.html          # Main dashboard page
-├── explorer.html       # Mee Ritual Chain Explorer
-├── dao.html            # Governance / DAO dashboard
-├── analytics.html      # Analytics dashboard
-├── nft-market.html     # NFT Marketplace
-├── server.js           # Local API/server entrypoint
-├── worker.js           # Cloudflare Worker entrypoint
-├── scripts/            # Ops and deployment scripts
+.
+├── server.js
+├── ecosystem.config.cjs
+├── docker-compose.yml
+├── Dockerfile
+├── scripts/
+│   ├── doctor.sh
+│   ├── start.sh
+│   ├── stop.sh
+│   ├── status.sh
+│   └── logs.sh
 ├── src/
-│   ├── css/            # Stylesheets
-│   ├── js/             # Front-end JavaScript modules
-│   └── assets/         # Images and resources
-├── scripts/            # Operational helper scripts
-├── src/                # Frontend source assets (css/js/images)
-├── contracts/          # Smart contracts
-├── functions/          # Serverless API functions
-├── test/               # Unit/integration tests (legacy set)
-└── tests/              # Additional test suites
+└── .env.example
 ```
 
-## Deployment Options
-MeeChain contributors สามารถ deploy Cloudflare Tunnel ได้สองวิธีหลัก:
+## Notes
 
-### 🗂️ Deploy ผ่าน Project Scripts
-เหมาะกับ: Contributor ที่ทำงานบนเครื่องหลัก (PC/Server/CI/CD)
+- แนะนำให้ใช้งานผ่าน `scripts/start.sh` เป็นหลัก
+- ใน Termux มักเหมาะกับ `node` หรือ `pm2`
+- ถ้าใช้งาน container ให้ใช้ Docker/Compose ตาม environment ที่รองรับ
 
-#### Flow
-1. Clone project แล้วเข้าไปใน repo.
-2. รันสคริปต์ เช่น:
-   ```bash
-   bash scripts/podman-setup.sh
-   bash scripts/rpc-check.sh
-   ```
-3. สคริปต์จะจัดการ install, config, health check และ fallback อัตโนมัติ.
-4. ผลลัพธ์ reproducible ทำให้ contributor ทุกคนได้ flow เดียวกัน.
+## License
 
-#### ข้อดี
-- Automation สูง ลด human error
-- ใช้ได้กับ CI/CD pipeline
-- Ritualized milestone ชัดเจน
-
-### 📱 Deploy ผ่าน Termux (Mobile)
-เหมาะกับ: Contributor ที่ต้องการความยืดหยุ่นและ portable environment
-
-
-## CPAN Ritual Onboarding (Termux)
-สำหรับ contributor ที่ต้องการยืนยันว่า CPAN พร้อมใช้งานใน Termux สามารถใช้สคริปต์นี้ได้:
-
-```bash
-./scripts/test_cpan.sh
-```
-
-หากแสดงข้อความ `🎉 CPAN พร้อมใช้งานแล้ว → Badge Claimed!` ถือว่าผ่าน milestone.
-#### Flow
-1. เปิด Termux แล้วติดตั้ง `cloudflared` และ dependencies.
-2. รันคำสั่งตรง ๆ:
-   ```bash
-   cloudflared tunnel run 66b8d43c-39f8-4ee1-97db-13cb718825cd
-   ```
-3. Connector ID จะถูกสร้างใหม่ทุกครั้ง แต่ผูกกับ Tunnel ID เดียวกัน.
-4. ใช้ `scripts/rpc-check.sh` ได้เช่นกัน ถ้า copy script เข้า Termux.
-
-#### ข้อดี
-- Portable ใช้ได้แม้ไม่มีเครื่องหลัก
-- เหมาะกับ contributor ที่ onboard ผ่านมือถือ
-- Tunnel ทำงานจริงแม้มี warning (เช่น `ping_group_range`, `origin lookup`)
-
-### 🎉 Contributor Milestone
-- Project Scripts → Automation, reproducible, CI/CD ready
-- Termux → Portable, flexible, mobile onboarding
-
-ทั้งสองวิธีถือว่า valid และสามารถใช้ร่วมกันได้ตามสถานการณ์.
-
-
-## Cloudflare Tunnel
-ตัวอย่าง config: `cloudflared/config.yml.example`
-
-```bash
-cp cloudflared/config.yml.example ~/.cloudflared/config.yml
-cloudflared tunnel run meechain-connect
-```
-
-หลัง tunnel ติดแล้ว ให้ทดสอบทั้ง 2 โดเมน (มีหรือไม่มี `/` ท้าย URL ก็ได้ผลเหมือนกัน):
-
-```bash
-curl https://rpc.meechain.live/health
-curl https://rpc.meechain.run.place/health
-```
-
-> หมายเหตุ: ต้องสะกด hostname เป็น `rpc` (ไม่ใช่ `prc`) ใน Cloudflare ingress เสมอ
-
-ดู checklist ฝั่ง infra เพิ่มเติมได้ที่ `docs/ORIGIN_INFRA_CHECKLIST.md` (NAT/port-forward/firewall + fallback strategy).
-ถ้าตั้งผ่านหน้า Router โดยตรง ให้ map แบบ `WAN 8080 -> LAN 8080 (TCP)` และตั้ง `External Source IP = Any`.
-
-สำหรับ production แนะนำตั้ง env ให้ชัดเจน:
-```env
-NODE_ENV=production
-RPC_MODE=upstream-only
-RPC_ALLOW_MOCK_FALLBACK=false
-```
-> ในโค้ดมี hardening เพิ่ม: ถ้า `NODE_ENV=production` ระบบจะ force เป็น `upstream-only` และปิด mock fallback อัตโนมัติแม้ตั้ง env ผิด.
+MIT
