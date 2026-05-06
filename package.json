@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "build": "mkdir -p deploy/public/src/css deploy/public/src/js deploy/public/src/web3 deploy/public/src/assets/images deploy/functions/api/chat deploy/functions/api/nodecloud deploy/functions/api/web3 && cp index.html deploy/public/ && cp _headers deploy/public/ 2>/dev/null || true && cp _redirects deploy/public/ 2>/dev/null || true && cp -r src/css/. deploy/public/src/css/ && cp -r src/js/. deploy/public/src/js/ && cp -r src/web3/. deploy/public/src/web3/ && cp -r src/assets/images/. deploy/public/src/assets/images/ && cp -r functions/. deploy/functions/",
+    "build": "mkdir -p deploy/public/src/css deploy/public/src/js deploy/public/src/web3 deploy/public/src/assets/images deploy/functions/api/chat deploy/functions/api/nodecloud deploy/functions/api/web3 && cp -f *.html deploy/public/ && cp -f manifest.json sw.js deploy/public/ 2>/dev/null || true && cp -f _headers deploy/public/ 2>/dev/null || true && cp -f _redirects deploy/public/ 2>/dev/null || true && cp -r src/css/. deploy/public/src/css/ && cp -r src/js/. deploy/public/src/js/ && cp -r src/web3/. deploy/public/src/web3/ && cp -r src/assets/images/. deploy/public/src/assets/images/ && cp -r functions/. deploy/functions/",
     "test": "echo 'No tests'"
   },
   "keywords": [
