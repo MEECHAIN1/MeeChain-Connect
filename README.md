@@ -207,7 +207,80 @@ Passing all checks earns the contributor the **RPC Ready Badge** as part of the 
 bash scripts/test-rpc.sh https://rpc.meechain.live/rpc https://rpc.meechain.live/health
 ```
 
-ถ้าอยู่หลัง Cloudflare Access:
+## Production post-deploy validation
+ใช้หลัง `docker compose up -d` เพื่อตรวจ health endpoint, RPC proxy, network config, Web3 status และ DNS พื้นฐานในคำสั่งเดียว:
+
+```bash
+npm run test:prod -- https://rpc.meechain.live
+```
+
+หลังเปลี่ยน DNS/CNAME ให้ `rpc.meechain.live` ชี้ไปที่ tunnel ชั่วคราว เช่น `speaker-marshall-stations-antonio.trycloudflare.com` แล้ว ให้ทดสอบผ่านชื่อจริงที่ผู้ใช้จะเรียก (`rpc.meechain.live`) เป็นหลัก. ถ้าเปิด proxy สีส้มของ Cloudflare อยู่ ภายนอกอาจเห็นเป็น IP ของ Cloudflare แทน CNAME target ซึ่งเป็นพฤติกรรมปกติ.
+
+> หมายเหตุ: URL แบบ `*.trycloudflare.com` จาก quick tunnel จะเปลี่ยนทุกครั้งเมื่อกด Stop/Start หรือ Restart ดังนั้นให้ถือเป็นช่องทางชั่วคราวเท่านั้น และต้องอัปเดต CNAME/เป้าหมาย tunnel ให้ตรงกับ URL ล่าสุดเสมอ. ถ้าต้องการ URL คงที่ในระยะยาว ควรใช้ named Cloudflare Tunnel กับ hostname `rpc.meechain.live` โดยตรง.
+
+### เปลี่ยนช่องทางไปที่ Named Tunnel `meechain-connect`
+
+สำหรับ production ให้ใช้ Named Tunnel `meechain-connect` แทน Quick Tunnel เพื่อให้ `rpc.meechain.live` เป็นช่องทางคงที่และไม่เปลี่ยนทุกครั้งที่ restart:
+
+1. แก้ DNS record `rpc.meechain.live` จาก Quick Tunnel ปัจจุบัน เช่น `exploration-garmin-guided-tower.trycloudflare.com` ไปที่ Named Tunnel target:
+
+   ```text
+   74d57437-86f8-47ee-91fa-5260b04a5ba3.cfargotunnel.com
+   ```
+
+2. บนเครื่องที่รัน origin ให้รัน named tunnel แทน quick tunnel:
+
+   ```bash
+   cloudflared tunnel run meechain-connect
+   ```
+
+3. ตรวจหลัง cutover ผ่าน hostname จริง พร้อมเช็ก CNAME target ของ Named Tunnel:
+
+   ```bash
+   EXPECTED_CNAME_TARGET=74d57437-86f8-47ee-91fa-5260b04a5ba3.cfargotunnel.com \
+   EXPECT_UPSTREAM_CONNECTED=1 \
+   npm run test:prod -- https://rpc.meechain.live
+   ```
+
+ถ้า Cloudflare DNS เปิด proxy สีส้มอยู่ CNAME target อาจถูกซ่อนหลัง Cloudflare edge IP ทำให้ CLI ภายนอกเห็นเฉพาะ A/AAAA record; ให้ยืนยัน target ใน Cloudflare dashboard หรือปิด proxy เป็น DNS-only ชั่วคราวตอนตรวจ cutover แล้วค่อยเปิดกลับ. ถ้าต้องการให้ script fail เมื่อมองไม่เห็น CNAME หรือ target ไม่ตรง ให้เพิ่ม `EXPECTED_CNAME_STRICT=1`.
+
+ถ้าใช้ URL ชั่วคราวจาก `trycloudflare.com` หรือแอป Pocket Live Server ให้ใช้ origin เป็นหลัก เช่น `https://speaker-marshall-stations-antonio.trycloudflare.com` (ไม่ต้องใส่ `/favicon.ico`). ถ้าเผลอวาง URL ที่มี path เช่น `/favicon.ico` สคริปต์จะ normalize กลับไปตรวจที่ origin ให้อัตโนมัติ:
+
+```bash
+npm run test:prod -- https://speaker-marshall-stations-antonio.trycloudflare.com/favicon.ico
+```
+
+ถ้ามีช่องทางปัจจุบันและช่องทางรองที่ต้องตรวจพร้อมกัน ให้ใช้ `--also` หรือ `PROD_TEST_ADDITIONAL_URLS`:
+
+```bash
+npm run test:prod -- https://rpc.meechain.live --also https://explicitly-browse-placement.trycloudflare.com
+PROD_TEST_ADDITIONAL_URLS="https://explicitly-browse-placement.trycloudflare.com,https://molecules-peripheral-accepts-bench.trycloudflare.com" npm run test:prod -- https://rpc.meechain.live
+```
+
+ถ้าเปิด URL จากแอปแล้วเห็นหน้า MeeChain Dashboard ได้ แปลว่า app tunnel เส้นนั้นกำลังชี้เข้าถึง frontend ได้แล้ว. แต่ถ้าแถบบนขึ้น `RPC upstream ยังไม่พร้อม — ใช้ local/mock data` หรือ `Upstream: Degraded` ให้ตรวจ `/api/web3/status` และ `/rpc/health` เพิ่ม เพราะ frontend online แล้วแต่ upstream RPC อาจยังไม่พร้อม. หากต้องการให้ validation fail ทันทีเมื่อ upstream degraded ให้ตั้ง `EXPECT_UPSTREAM_CONNECTED=1`:
+
+```bash
+EXPECT_UPSTREAM_CONNECTED=1 npm run test:prod -- https://exploration-garmin-guided-tower.trycloudflare.com/.
+```
+
+ถ้า log ของ `cloudflared` ขึ้น `Unable to reach the origin service ... dial tcp 127.0.0.1:8000: connect: connection refused` ให้ตรวจว่า local service เปิดอยู่ที่ port เดียวกับที่ tunnel ตั้งไว้ก่อนรัน validation เช่น Pocket Live Server เลือก port `8000` ก็ต้องมีแอปรอรับที่ `127.0.0.1:8000`.
+
+ตรวจผ่าน nginx/Cloudflare tunnel บนเครื่อง production ที่ expose HTTPS แบบ local self-signed certificate ได้ด้วย:
+
+```bash
+npm run test:prod:local
+# equivalent: bash scripts/test-production.sh https://localhost:8445 --insecure --skip-network
+```
+
+ถ้า endpoint อยู่หลัง Cloudflare Access ให้ตั้ง service token ก่อนรัน:
+
+```bash
+export CF_ACCESS_CLIENT_ID="<client-id>"
+export CF_ACCESS_CLIENT_SECRET="<client-secret>"
+npm run test:prod -- https://rpc.meechain.live
+```
+
+สำหรับ RPC smoke test เดิม ถ้าอยู่หลัง Cloudflare Access ให้ใช้ service token ชุดเดียวกัน:
 ```bash
 export CF_ACCESS_CLIENT_ID="<client-id>"
 export CF_ACCESS_CLIENT_SECRET="<client-secret>"
