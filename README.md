@@ -40,3 +40,50 @@ Open your browser and navigate to `http://localhost:8000`
 - Modern web browser (Chrome, Firefox, Safari, Edge)
 - Local web server (e.g., `python3 -m http.server` or `npx serve`)
 
+
+## Deployment Options
+
+MeeChain contributors สามารถ deploy Cloudflare Tunnel ได้สองวิธีหลัก:
+
+### 🗂️ Deploy ผ่าน Project Scripts
+เหมาะกับ: Contributor ที่ทำงานบนเครื่องหลัก (PC/Server/CI/CD)
+
+**Flow**
+1. Clone project และเข้าไปใน repo
+2. รันสคริปต์จากโปรเจกต์ เช่น:
+   ```bash
+   bash scripts/podman-setup.sh
+   # ถ้ามีในสาขาที่ใช้งาน:
+   bash scripts/rpc-check.sh
+   ```
+3. สคริปต์จะช่วยจัดการ install, config, health check และ fallback แบบอัตโนมัติ
+4. ผลลัพธ์ reproducible ทำให้ contributor ทุกคนได้ flow เดียวกัน
+
+**ข้อดี**
+- Automation สูง ลด human error
+- ใช้ได้กับ CI/CD pipeline
+- Milestone onboarding ชัดเจน
+
+### 📱 Deploy ผ่าน Termux (Mobile)
+เหมาะกับ: Contributor ที่ต้องการความยืดหยุ่นและ portable environment
+
+**Flow**
+1. เปิด Termux และติดตั้ง `cloudflared` พร้อม dependencies
+2. รันคำสั่งตรง ๆ:
+   ```bash
+   cloudflared tunnel run 66b8d43c-39f8-4ee1-97db-13cb718825cd
+   ```
+3. Connector ID จะถูกสร้างใหม่ได้ทุกครั้ง แต่ยังผูกกับ Tunnel ID เดิม
+4. เมื่อเห็น log edge connections (เช่น `sin07`, `bkk04`, `sn11`) แสดงว่า tunnel active
+5. สามารถใช้ `rpc-check.sh` ได้เช่นกัน หาก copy script เข้า Termux environment
+
+**ข้อดี**
+- Portable ใช้ได้แม้ไม่มีเครื่องหลัก
+- เหมาะกับ contributor ที่ onboard ผ่านมือถือ
+- Tunnel ยังทำงานได้แม้มี warning บางรายการ (เช่น `ping_group_range`, origin lookup)
+
+### 🎉 Contributor Milestone
+- **Project Scripts** → Automation, reproducible, CI/CD ready
+- **Termux** → Portable, flexible, mobile onboarding
+
+ทั้งสองวิธีถือว่า valid และสามารถใช้ร่วมกันได้ตามสถานการณ์
