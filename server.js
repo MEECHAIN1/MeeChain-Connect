@@ -77,6 +77,19 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
 // ── RPC Configuration ────────────────────────────────────────────
+const _isProductionEnv = (process.env.NODE_ENV || '').toLowerCase() === 'production';
+const _requestedRpcMode = process.env.RPC_MODE || 'auto';
+const _effectiveRpcMode = _isProductionEnv ? 'upstream-only' : _requestedRpcMode;
+const _requestedAllowMockFallback = (process.env.RPC_ALLOW_MOCK_FALLBACK || 'true').toLowerCase() !== 'false';
+const _effectiveAllowMockFallback = _isProductionEnv ? false : _requestedAllowMockFallback;
+
+if (_isProductionEnv && _requestedRpcMode !== 'upstream-only') {
+  console.warn(`[RPC] NODE_ENV=production detected, forcing RPC_MODE=upstream-only (requested: ${_requestedRpcMode})`);
+}
+if (_isProductionEnv && _requestedAllowMockFallback) {
+  console.warn('[RPC] NODE_ENV=production detected, forcing RPC_ALLOW_MOCK_FALLBACK=false');
+}
+
 const RPC_CONFIG = {
   // Primary: dRPC gateway (used by frontend DApp via DRPC_ACCESS_KEY)
   drpcUrl:        process.env.DRPC_RPC_URL          || 'https://rpc.meechain.live',
@@ -91,6 +104,11 @@ const RPC_CONFIG = {
   // Fallback: original Ritual Chain endpoint
   fallbackUrl:    process.env.VITE_RPC_URL           || 'https://rpc.meechain.live',
   chainId:        parseInt(process.env.CHAIN_ID)     || 13390,
+  rpcMode:        _effectiveRpcMode, // auto | upstream-only | mock-only (forced upstream-only in production)
+  requestTimeoutMs: Math.max(parseInt(process.env.RPC_TIMEOUT_MS || '3000', 10), 500),
+  breakerCooldownMs: Math.max(parseInt(process.env.RPC_BREAKER_COOLDOWN_MS || '60000', 10), 5000),
+  breakerFailureThreshold: Math.max(parseInt(process.env.RPC_BREAKER_FAILURE_THRESHOLD || '2', 10), 1),
+  allowMockFallback: _effectiveAllowMockFallback, // forced false in production
 };
 
 // ── Contract Addresses ───────────────────────────────────────────
@@ -124,17 +142,35 @@ web3.connect().then(ok => {
 });
 
 // ── Load OpenAI credentials ──────────────────────────────────────
-let apiKey = process.env.OPENAI_API_KEY;
-let baseURL = process.env.OPENAI_BASE_URL;
+const resolveOpenAIConfig = () => {
+  let openAiApiKey = (process.env.OPENAI_API_KEY || '').trim();
+  let openAiBaseUrl = (process.env.OPENAI_BASE_URL || '').trim();
 
-const configPath = path.join(os.homedir(), '.genspark_llm.yaml');
-if (fs.existsSync(configPath)) {
-  const cfg = yaml.load(fs.readFileSync(configPath, 'utf8'));
-  apiKey  = apiKey  || cfg?.openai?.api_key;
-  baseURL = baseURL || cfg?.openai?.base_url;
+  const configPath = path.join(os.homedir(), '.genspark_llm.yaml');
+  if (fs.existsSync(configPath)) {
+    try {
+      const cfg = yaml.load(fs.readFileSync(configPath, 'utf8'));
+      openAiApiKey = openAiApiKey || (cfg?.openai?.api_key || '').trim();
+      openAiBaseUrl = openAiBaseUrl || (cfg?.openai?.base_url || '').trim();
+    } catch (error) {
+      console.warn(`⚠️ Failed to read ${configPath}: ${error.message}`);
+    }
+  }
+
+  return { openAiApiKey, openAiBaseUrl };
+};
+
+const { openAiApiKey, openAiBaseUrl } = resolveOpenAIConfig();
+
+let openai = null;
+if (openAiApiKey) {
+  openai = new OpenAI({
+    apiKey: openAiApiKey,
+    baseURL: openAiBaseUrl || undefined,
+  });
+} else {
+  console.warn('⚠️ OPENAI_API_KEY not found, MeeBot AI routes will be disabled');
 }
-
-const openai = new OpenAI({ apiKey, baseURL });
 
 // ── MeeBot System Prompt ─────────────────────────────────────────
 const MEEBOT_SYSTEM_PROMPT = `คุณคือ "MeeBot" — AI Assistant ผู้ช่วยอัจฉริยะของแพลตฟอร์ม MeeChain
@@ -209,21 +245,47 @@ async function fetchNodeCloudStats() {
   });
 }
 
-// ── Health Check (root level — for rpc.meechain.live/health & app.meechain.live/health) ──
-app.get('/health', (req, res) => {
+// ── Health Check (root level + RPC preflight) ──
+function buildHealthPayload(req, serviceOverride) {
   const host = req.hostname || '';
-  const isRpcHost = host.includes('rpc.');
-  res.json({
+  const isRpcHost = host.includes('rpc.') || req.path.startsWith('/rpc');
+  const upstreams = [RPC_CONFIG.drpcUrl, RPC_CONFIG.fallbackUrl]
+    .filter(Boolean)
+    .map((url) => {
+      const h = _rpcHealth[url] || {};
+      return {
+        url,
+        dead: !!h.dead,
+        consecutiveFails: h.consecutiveFails || 0,
+      };
+    });
+
+  return {
     status:   'ok',
-    service:  isRpcHost ? 'MeeChain RPC Gateway' : 'MeeChain App Server',
-    host:     host,
+    service:  serviceOverride || (isRpcHost ? 'MeeChain RPC Gateway' : 'MeeChain App Server'),
+    host,
     chainId:  RPC_CONFIG.chainId,
     rpc:      RPC_CONFIG.drpcUrl,
     web3:     web3.connected,
+    mode:     RPC_CONFIG.rpcMode,
+    rpcState: {
+      allowMockFallback: RPC_CONFIG.allowMockFallback,
+      breakerFailureThreshold: RPC_CONFIG.breakerFailureThreshold,
+      breakerCooldownMs: RPC_CONFIG.breakerCooldownMs,
+      upstreams,
+    },
     uptime:   Math.floor(process.uptime()),
-    version:  '2.0.0',
+    version:  '2.1.1',
     ts:       new Date().toISOString(),
-  });
+  };
+}
+
+app.get('/health', (req, res) => {
+  res.json(buildHealthPayload(req));
+});
+
+app.get('/rpc/health', (req, res) => {
+  res.json(buildHealthPayload(req, 'MeeChain RPC Gateway'));
 });
 
 // ── Mock RPC handler (when upstream chain is not reachable) ──────
@@ -281,9 +343,15 @@ function _handleMockRpc(body) {
   }
 }
 
+function _isWriteRpcMethod(method) {
+  return ['eth_sendRawTransaction', 'eth_sendTransaction', 'personal_sendTransaction'].includes(method);
+}
+
 // ── RPC upstream health tracker (circuit breaker) ────────────────
 // If an upstream fails, mark it as dead for 60 s before retrying
-const _rpcHealth = {};  /**
+const _rpcHealth = {};  // { url: { dead, until, consecutiveFails, lastFailure, lastSuccess } }
+
+/**
  * ตรวจสอบว่า endpoint RPC ที่ระบุถูกทำเครื่องหมายว่า "dead" และยังอยู่ในช่วงเวลาที่ถูกบล็อกหรือไม่
  *
  * ตรวจสอบสถานะใน `_rpcHealth` สำหรับ `url` ที่กำหนด ถ้าพบและสถานะยังไม่หมดเวลา จะคืนค่า `true` มิฉะนั้นจะรีเซ็ตสถานะเมื่อหมดเวลาและคืนค่า `false`
@@ -296,19 +364,98 @@ function _isRpcDead(url) {
   if (Date.now() > h.until) { h.dead = false; return false; }
   return true;
 }
+
 /**
- * ทำเครื่องหมาย endpoint RPC ว่าไม่พร้อมใช้งานชั่วคราว
- * @param {string} url - URL ของ upstream RPC ที่จะถูกทำเครื่องหมายว่าไม่พร้อมใช้งานเป็นเวลา 60,000 มิลลิวินาที
+ * ทำเครื่องหมาย endpoint RPC ว่าไม่พร้อมใช้งานชั่วคราว (with consecutive failure tracking)
+ * @param {string} url - URL ของ upstream RPC ที่จะถูกทำเครื่องหมายว่าไม่พร้อมใช้งาน
  */
-function _markRpcDead(url) {
-  _rpcHealth[url] = { dead: true, until: Date.now() + 60_000 };
+function _markRpcFailure(url) {
+  const now = Date.now();
+  const prev = _rpcHealth[url] || {};
+  const consecutiveFails = (prev.consecutiveFails || 0) + 1;
+  const isDead = consecutiveFails >= RPC_CONFIG.breakerFailureThreshold;
+  _rpcHealth[url] = {
+    dead: isDead,
+    until: isDead ? now + RPC_CONFIG.breakerCooldownMs : 0,
+    consecutiveFails,
+    lastFailure: now,
+    lastSuccess: prev.lastSuccess || 0,
+  };
 }
 /**
  * ทำเครื่องหมายว่า RPC endpoint ที่ระบุว่าใช้งานได้และรีเซ็ตสถานะหมดเวลา
  * @param {string} url - URL ของ RPC endpoint ที่ต้องการตั้งสถานะเป็นใช้งานได้
  */
 function _markRpcAlive(url) {
-  _rpcHealth[url] = { dead: false, until: 0 };
+  _rpcHealth[url] = {
+    dead: false,
+    until: 0,
+    consecutiveFails: 0,
+    lastFailure: _rpcHealth[url]?.lastFailure || 0,
+    lastSuccess: Date.now(),
+  };
+}
+function _validateJsonRpcResponse(parsed) {
+  if (Array.isArray(parsed)) {
+    return parsed.every(item => item && item.jsonrpc === '2.0' && (Object.prototype.hasOwnProperty.call(item, 'result') || Object.prototype.hasOwnProperty.call(item, 'error')));
+  }
+  if (!parsed || parsed.jsonrpc !== '2.0') return false;
+  return Object.prototype.hasOwnProperty.call(parsed, 'result') || Object.prototype.hasOwnProperty.call(parsed, 'error');
+}
+function _buildRpcTargets() {
+  if (RPC_CONFIG.rpcMode === 'mock-only') return [];
+  const seen = new Set();
+  return [RPC_CONFIG.drpcUrl, RPC_CONFIG.fallbackUrl]
+    .filter(t => t && !seen.has(t) && seen.add(t))
+    .filter(t => !_isRpcDead(t));
+}
+async function _forwardRpcToUpstream(target, payload) {
+  const url = new URL(target);
+  const isHttps = url.protocol === 'https:';
+  const reqLib = isHttps ? https : http;
+  const postData = JSON.stringify(payload);
+
+  const result = await new Promise((resolve, reject) => {
+    const options = {
+      hostname: url.hostname,
+      port:     url.port || (isHttps ? 443 : 80),
+      path:     url.pathname || '/',
+      method:   'POST',
+      headers:  {
+        'Content-Type':   'application/json',
+        'Content-Length': Buffer.byteLength(postData),
+      },
+      timeout: RPC_CONFIG.requestTimeoutMs,
+      lookup: dnsLookup4,
+    };
+    if (RPC_CONFIG.drpcAccessKey && target === RPC_CONFIG.drpcUrl) {
+      options.headers['Authorization'] = `Bearer ${RPC_CONFIG.drpcAccessKey}`;
+    }
+    const r = reqLib.request(options, (resp) => {
+      let data = '';
+      resp.on('data', d => data += d);
+      resp.on('end', () => {
+        if (resp.statusCode >= 500) {
+          return reject(new Error(`RPC upstream HTTP ${resp.statusCode}`));
+        }
+        try {
+          const parsed = JSON.parse(data);
+          if (!_validateJsonRpcResponse(parsed)) {
+            reject(new Error('Non JSON-RPC response from upstream'));
+          } else {
+            resolve(parsed);
+          }
+        } catch {
+          reject(new Error('Invalid JSON from RPC node'));
+        }
+      });
+    });
+    r.on('error', reject);
+    r.on('timeout', () => { r.destroy(); reject(new Error('RPC timeout')); });
+    r.write(postData);
+    r.end();
+  });
+  return result;
 }
 
 // ── RPC Proxy (JSON-RPC forward) ─────────────────────────────────
@@ -330,174 +477,149 @@ async function handleRpcProxy(req, res) {
     return res.status(400).json({ error: 'Invalid JSON-RPC request' });
   }
 
-  // Handle batch requests (array of JSON-RPC calls)
-  if (Array.isArray(body)) {
-    // Deduplicate targets, skip known-dead endpoints
-    const seen = new Set();
-    const targets = [RPC_CONFIG.drpcUrl, RPC_CONFIG.fallbackUrl]
-      .filter(t => t && !seen.has(t) && seen.add(t))
-      .filter(t => !_isRpcDead(t));
-
-    // Try upstream first
-    let lastError = null;
-    for (const target of targets) {
-      try {
-        const url = new URL(target);
-        const isHttps = url.protocol === 'https:';
-        const reqLib  = isHttps ? https : http;
-        const postData = JSON.stringify(body);
-
-        const result = await new Promise((resolve, reject) => {
-          const options = {
-            hostname: url.hostname,
-            port:     url.port || (isHttps ? 443 : 80),
-            path:     url.pathname || '/',
-            method:   'POST',
-            headers:  {
-              'Content-Type':   'application/json',
-              'Content-Length': Buffer.byteLength(postData),
-            },
-            timeout: 3000,
-          };
-          if (RPC_CONFIG.drpcAccessKey && target === RPC_CONFIG.drpcUrl) {
-            options.headers['Authorization'] = `Bearer ${RPC_CONFIG.drpcAccessKey}`;
-          }
-          const r = reqLib.request(options, (resp) => {
-            let data = '';
-            resp.on('data', d => data += d);
-            resp.on('end', () => {
-              try {
-                const parsed = JSON.parse(data);
-                if (!Array.isArray(parsed)) {
-                  reject(new Error('Non-array response for batch request'));
-                } else {
-                  resolve(parsed);
-                }
-              } catch { reject(new Error('Invalid JSON from RPC node')); }
-            });
-          });
-          r.on('error', reject);
-          r.on('timeout', () => { r.destroy(); reject(new Error('RPC timeout')); });
-          r.write(postData);
-          r.end();
-        });
-
-        _markRpcAlive(target);
-        return res.json(result);
-      } catch (err) {
-        lastError = err;
-        _markRpcDead(target);
-        console.warn(`[RPC] Batch upstream ${target} failed: ${err.message} — marked dead 60s`);
-      }
-    }
-
-    // All upstream failed → use mock RPC for each item (read-only methods only)
-    const readOnlyMethods = new Set([
-      'eth_chainId', 'net_version', 'net_listening', 'eth_blockNumber', 'eth_getBalance',
-      'eth_getTransactionCount', 'eth_gasPrice', 'eth_estimateGas', 'eth_maxPriorityFeePerGas',
-      'eth_syncing', 'eth_getCode', 'eth_getStorageAt', 'eth_getLogs', 'eth_call',
-      'eth_getBlockByNumber', 'eth_getBlockByHash', 'eth_getTransactionByHash',
-      'eth_getTransactionReceipt', 'eth_newFilter', 'eth_newBlockFilter', 'eth_getFilterChanges',
-      'eth_uninstallFilter', 'eth_protocolVersion', 'eth_feeHistory', 'web3_clientVersion', 'net_peerCount'
-    ]);
-    const results = body.map(b => {
-      if (readOnlyMethods.has(b.method)) {
-        return _handleMockRpc(b);
-      } else {
-        return { jsonrpc: '2.0', id: b.id ?? null, error: { code: -32000, message: 'Upstream unavailable: cannot perform mutating RPC in offline mode' } };
-      }
-    });
-    console.log(`[RPC] All batch upstream failed (${lastError?.message}) — serving mock response`);
-    return res.json(results);
+  if (Array.isArray(body) && body.length === 0) {
+    return res.status(400).json({ error: 'Invalid JSON-RPC batch request' });
   }
-
-  if (!body.jsonrpc) {
+  const isBatch = Array.isArray(body);
+  const invalidSingle = !isBatch && !body.jsonrpc;
+  const invalidBatch = isBatch && body.some(item => !item || item.jsonrpc !== '2.0' || !item.method);
+  if (invalidSingle || invalidBatch) {
     return res.status(400).json({ error: 'Invalid JSON-RPC request' });
   }
 
-  // Deduplicate targets (drpcUrl may equal fallbackUrl), skip known-dead endpoints
-  const seen = new Set();
-  const targets = [RPC_CONFIG.drpcUrl, RPC_CONFIG.fallbackUrl]
-    .filter(t => t && !seen.has(t) && seen.add(t))
-    .filter(t => !_isRpcDead(t));
+  // mock-only mode always returns deterministic local mock
+  if (RPC_CONFIG.rpcMode === 'mock-only') {
+    return res.json(isBatch ? body.map((item) => _handleMockRpc(item)) : _handleMockRpc(body));
+  }
 
-  // If all upstreams are dead, skip straight to mock (no waiting)
+  const targets = _buildRpcTargets();
+  const payload = body;
+  const buildUnavailableError = (code, message) => (
+    isBatch
+      ? body.map((item) => ({
+          jsonrpc: '2.0',
+          id: item?.id ?? null,
+          error: { code, message },
+        }))
+      : {
+          jsonrpc: '2.0',
+          id: body.id ?? null,
+          error: { code, message },
+        }
+  );
+
+  // If all upstreams are dead, skip straight to mock (or fail hard when disabled)
   if (targets.length === 0) {
-    return res.json(_handleMockRpc(body));
+    if (!RPC_CONFIG.allowMockFallback || RPC_CONFIG.rpcMode === 'upstream-only') {
+      return res.status(503).json(
+        buildUnavailableError(-32098, 'All upstream RPC endpoints are unavailable'),
+      );
+    }
+    return res.json(isBatch ? body.map((item) => _handleMockRpc(item)) : _handleMockRpc(body));
   }
 
   let lastError = null;
   for (const target of targets) {
     try {
-      const url = new URL(target);
-      const isHttps = url.protocol === 'https:';
-      const reqLib  = isHttps ? https : http;
-      const postData = JSON.stringify(body);
-
-      const result = await new Promise((resolve, reject) => {
-        const options = {
-          hostname: url.hostname,
-          port:     url.port || (isHttps ? 443 : 80),
-          path:     url.pathname || '/',
-          method:   'POST',
-          headers:  {
-            'Content-Type':   'application/json',
-            'Content-Length': Buffer.byteLength(postData),
-          },
-          timeout: 3000,  // 3 s — fast fallback to mock
-        };
-        if (RPC_CONFIG.drpcAccessKey && target === RPC_CONFIG.drpcUrl) {
-          options.headers['Authorization'] = `Bearer ${RPC_CONFIG.drpcAccessKey}`;
-        }
-        const r = reqLib.request(options, (resp) => {
-          let data = '';
-          resp.on('data', d => data += d);
-          resp.on('end', () => {
-            try {
-              const parsed = JSON.parse(data);
-              // Reject non-JSON-RPC responses (e.g. HTML error pages, XML errors)
-              if (!parsed.jsonrpc && !parsed.result && !parsed.error) {
-                reject(new Error('Non JSON-RPC response from upstream'));
-              } else {
-                resolve(parsed);
-              }
-            } catch { reject(new Error('Invalid JSON from RPC node')); }
-          });
-        });
-        r.on('error', reject);
-        r.on('timeout', () => { r.destroy(); reject(new Error('RPC timeout')); });
-        r.write(postData);
-        r.end();
-      });
-
+      const result = await _forwardRpcToUpstream(target, payload);
       _markRpcAlive(target);
       return res.json(result);
     } catch (err) {
       lastError = err;
-      _markRpcDead(target);
-      console.warn(`[RPC] Upstream ${target} failed: ${err.message} — marked dead 60s`);
+      _markRpcFailure(target);
+      const state = _rpcHealth[target] || {};
+      console.warn(`[RPC] Upstream ${target} failed: ${err.message} — failures=${state.consecutiveFails || 0}, dead=${!!state.dead}`);
     }
   }
 
-  // All upstream failed → use mock RPC (chain simulation)
+  const containsWriteMethod = isBatch
+    ? body.some((item) => _isWriteRpcMethod(item?.method))
+    : _isWriteRpcMethod(body?.method);
+
+  // All upstream failed
+  if (!RPC_CONFIG.allowMockFallback || RPC_CONFIG.rpcMode === 'upstream-only') {
+    return res.status(503).json(
+      buildUnavailableError(-32097, `RPC upstream unavailable: ${lastError?.message || 'unknown error'}`),
+    );
+  }
+  if (containsWriteMethod) {
+    if (isBatch) {
+      return res.status(503).json(
+        body.map((item) => (
+          _isWriteRpcMethod(item?.method)
+            ? {
+                jsonrpc: '2.0',
+                id: item?.id ?? null,
+                error: {
+                  code: -32096,
+                  message: 'Upstream RPC unavailable for mutating method; mock fallback is read-only',
+                },
+              }
+            : _handleMockRpc(item)
+        )),
+      );
+    }
+    return res.status(503).json(
+      buildUnavailableError(-32096, 'Upstream RPC unavailable for mutating method; mock fallback is read-only'),
+    );
+  }
   console.log(`[RPC] All upstream failed (${lastError?.message}) — serving mock response`);
-  return res.json(_handleMockRpc(body));
+  return res.json(isBatch ? body.map((item) => _handleMockRpc(item)) : _handleMockRpc(body));
 }
 
 app.post('/',    handleRpcProxy);   // rpc.meechain.xyz  POST /
 app.post('/rpc', handleRpcProxy);   // rpc.meechain.xyz  POST /rpc
 
+app.get('/api/rpc/status', (req, res) => {
+  const upstreams = [RPC_CONFIG.drpcUrl, RPC_CONFIG.fallbackUrl]
+    .filter(Boolean)
+    .map((url) => {
+      const h = _rpcHealth[url] || {};
+      return {
+        url,
+        dead: !!h.dead,
+        deadUntil: h.until || 0,
+        consecutiveFails: h.consecutiveFails || 0,
+        lastFailure: h.lastFailure || 0,
+        lastSuccess: h.lastSuccess || 0,
+      };
+    });
+  res.json({
+    mode: RPC_CONFIG.rpcMode,
+    allowMockFallback: RPC_CONFIG.allowMockFallback,
+    timeoutMs: RPC_CONFIG.requestTimeoutMs,
+    breakerCooldownMs: RPC_CONFIG.breakerCooldownMs,
+    breakerFailureThreshold: RPC_CONFIG.breakerFailureThreshold,
+    upstreams,
+  });
+});
+
 // ── API: Health Check ─────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
   res.json({
     status:    'ok',
-    model:     'gpt-5-mini',
+    model:     'gpt-4o-mini',
     bot:       'MeeBot AI',
     web3:      web3.connected,
     chainId:   RPC_CONFIG.chainId,
     rpc:       RPC_CONFIG.drpcUrl,
     contracts: CONTRACTS,
     uptime:    Math.floor(process.uptime()),
+  });
+});
+
+// api config ------
+app.get('/api/config', (req, res) => {
+  res.json({
+    ok: true,
+    chainId: RPC_CONFIG.chainId,
+    rpcUrl: RPC_CONFIG.drpcUrl,
+    contracts: CONTRACTS,
+    features: {
+      openai: Boolean(openai),
+      web3: Boolean(web3?.connected),
+      nodecloudStats: Boolean(RPC_CONFIG.nodecloudStats),
+    },
   });
 });
 
@@ -509,18 +631,16 @@ app.get('/api/network', (req, res) => {
   // Build the local proxy RPC URL so MetaMask can use it as primary RPC
   // This ensures MetaMask connects through THIS server's /rpc proxy (always reachable)
   // even when external rpc.meechain.live is offline.
-  const origin = req.headers.origin || req.headers.referer?.replace(/\/$/, '') || '';
-  const localRpcUrls = [];
-  if (origin && (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('.novita.ai') || origin.includes('.meechain.live') || origin.includes('.meechain.xyz'))) {
-    localRpcUrls.push(`${origin}/rpc`);
-  }
+  const proto = req.get('x-forwarded-proto') || req.protocol || 'https';
+  const host = req.get('x-forwarded-host') || req.get('host') || rpcDomain;
+  const localProxyRpc = `${proto}://${host}/rpc`;
 
   res.json({
     chainId:          `0x${RPC_CONFIG.chainId.toString(16)}`,   // 0x344e = 13390
     chainIdDecimal:   RPC_CONFIG.chainId,
     chainName:        'MeeChain Ritual Chain',
     rpcUrls: [
-      ...localRpcUrls,                    // local proxy first (always online)
+      localProxyRpc,                      // local proxy first (always online)
       `https://${rpcDomain}`,             // primary: rpc.meechain.live
       'https://rpc.meechain.run.place',   // fallback
     ],
@@ -538,15 +658,33 @@ app.get('/api/network', (req, res) => {
 app.get('/api/web3/status', async (req, res) => {
   try {
     const stats = await web3.getChainStats();
+    const upstreams = [RPC_CONFIG.drpcUrl, RPC_CONFIG.fallbackUrl].filter(Boolean);
+    const upstreamHealth = upstreams.map((url) => {
+      const h = _rpcHealth[url] || {};
+      return {
+        url,
+        dead: !!h.dead,
+        deadUntil: h.until || 0,
+        lastSuccess: h.lastSuccess || 0,
+        lastFailure: h.lastFailure || 0,
+      };
+    });
+    const upstreamReady = upstreamHealth.some((u) => !u.dead);
+
     res.json({
       connected:   web3.connected,
       blockNumber: stats.blockNumber || null,
       rpc:         RPC_CONFIG.drpcUrl,
       chainId:     RPC_CONFIG.chainId,
       contracts:   CONTRACTS,
+      upstreamReady,
+      upstreamHealth,
+      diagnostics: web3.connected
+        ? 'upstream-ready'
+        : 'upstream-degraded (check POST JSON-RPC methods: eth_chainId / eth_blockNumber)',
     });
   } catch(e) {
-    res.json({ connected: false, error: e.message });
+    res.json({ connected: false, error: e.message, diagnostics: 'status-check-failed' });
   }
 });
 
@@ -600,7 +738,7 @@ app.get('/api/nft/info', async (req, res) => {
   }
 });
 
-// ── API: NFT Balance ──────────────────────────────────────────────
+// ── API: NFT Balance ──────────────��─����─────────────────────────────
 app.get('/api/nft/balance/:address', async (req, res) => {
   try {
     const balance = await web3.getNFTBalance(req.params.address);
@@ -1214,9 +1352,7 @@ app.get('/api/token/price', (req, res) => {
 });
 
 // GET /api/token/history — price history for chart (48 candles × 30 min)
-app.get('/api/token/history', (req, res) => {
-  const points = parseInt(req.query.points) || 48;
-  const interval = parseInt(req.query.interval) || 1800_000; // 30 min default
+function buildTokenHistory(points = 48, interval = 1800_000) {
   const base  = priceCache.price;
   const now   = Date.now();
   const hist  = [];
@@ -1228,7 +1364,13 @@ app.get('/api/token/history', (req, res) => {
       vol:   Math.floor(10000 + Math.random() * 50000),
     });
   }
-  res.json({ symbol: 'MEE', currency: 'USDT', interval, data: hist });
+  return { symbol: 'MEE', currency: 'USDT', interval, data: hist };
+}
+
+app.get('/api/token/history', (req, res) => {
+  const points = parseInt(req.query.points) || 48;
+  const interval = parseInt(req.query.interval) || 1800_000; // 30 min default
+  res.json(buildTokenHistory(points, interval));
 });
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1565,13 +1707,12 @@ const analytics = {
   counters: { mints: 8432, stakes: 3214, unstakes: 1120, swaps: 5640, bridges: 892 },
 };
 
-// GET /api/analytics/overview — main KPIs
-app.get('/api/analytics/overview', (req, res) => {
+function buildAnalyticsOverview() {
   const tvl     = analytics.tvlHistory.at(-1).tvl;
   const tvlPrev = analytics.tvlHistory.at(-2).tvl;
   const vol24h  = analytics.volumeHistory.at(-1).volume;
   const volPrev = analytics.volumeHistory.at(-2).volume;
-  res.json({
+  return {
     tvl:               { value: tvl,   change: (((tvl - tvlPrev) / tvlPrev) * 100).toFixed(2) + '%' },
     volume24h:         { value: vol24h, change: (((vol24h - volPrev) / volPrev) * 100).toFixed(2) + '%' },
     activeUsers24h:    { value: analytics.hourlyUsers.reduce((s,h) => s + h.users, 0), change: '+5.3%' },
@@ -1583,43 +1724,37 @@ app.get('/api/analytics/overview', (req, res) => {
     meePrice:          { value: priceCache.price, change: priceCache.change24h + '%' },
     marketCap:         { value: (priceCache.price * 100_000_000).toFixed(0), change: priceCache.change24h + '%' },
     timestamp: Date.now(),
-  });
-});
+  };
+}
 
-// GET /api/analytics/tvl — TVL history
-app.get('/api/analytics/tvl', (req, res) => {
-  const days = parseInt(req.query.days) || 30;
-  res.json({
+function buildAnalyticsTvl(days = 30) {
+  return {
     data:     analytics.tvlHistory.slice(-days),
     current:  analytics.tvlHistory.at(-1).tvl,
     currency: 'MEE',
-  });
-});
+  };
+}
 
-// GET /api/analytics/volume — trading volume history
-app.get('/api/analytics/volume', (req, res) => {
-  const days = parseInt(req.query.days) || 30;
-  res.json({
+function buildAnalyticsVolume(days = 30) {
+  return {
     data:    analytics.volumeHistory.slice(-days),
     total:   analytics.volumeHistory.reduce((s, d) => s + d.volume, 0),
     avg24h:  analytics.volumeHistory.at(-1).volume,
-  });
-});
+  };
+}
 
-// GET /api/analytics/users — active users
-app.get('/api/analytics/users', (req, res) => {
-  res.json({
+function buildAnalyticsUsers() {
+  return {
     hourly:       analytics.hourlyUsers,
     daily:        25_614,
     weekly:       58_320,
     monthly:      142_800,
     retention:    '34.2%',
     avgSession:   '8m 42s',
-  });
-});
+  };
+}
 
-// GET /api/analytics/transactions — tx breakdown
-app.get('/api/analytics/transactions', (req, res) => {
+function buildAnalyticsTransactions() {
   const types = ['Transfer', 'NFT Mint', 'Stake', 'Unstake', 'Swap', 'Bridge', 'Claim'];
   const counts = types.map(t => ({
     type: t,
@@ -1628,12 +1763,11 @@ app.get('/api/analytics/transactions', (req, res) => {
   }));
   const total = counts.reduce((s, c) => s + c.count, 0);
   counts.forEach(c => { c.pct = ((c.count / total) * 100).toFixed(1); });
-  res.json({ types: counts, total, period: '24h' });
-});
+  return { types: counts, total, period: '24h' };
+}
 
-// GET /api/analytics/gas — gas price & usage
-app.get('/api/analytics/gas', (req, res) => {
-  res.json({
+function buildAnalyticsGas() {
+  return {
     gasPrice:   { current: '0.0001', unit: 'MEE', trend: 'stable' },
     avgGasUsed: 21000 + Math.floor(Math.random() * 80000),
     totalGasBurned: (4821.5 + Math.random()).toFixed(2),
@@ -1641,12 +1775,10 @@ app.get('/api/analytics/gas', (req, res) => {
       hour: new Date(Date.now() - (23-i) * 3600000).toISOString().slice(0,13),
       gasPrice: (0.00008 + Math.random() * 0.00004).toFixed(6),
     })),
-  });
-});
+  };
+}
 
-// GET /api/analytics/leaderboard — top holders & stakers
-app.get('/api/analytics/leaderboard', (req, res) => {
-  const type = req.query.type || 'holders'; // holders | stakers | nft
+function buildAnalyticsLeaderboard(type = 'holders') {
   const make = (n) => Array.from({ length: 10 }, (_, i) => ({
     rank:    i + 1,
     address: '0x' + randomHex(40),
@@ -1658,14 +1790,13 @@ app.get('/api/analytics/leaderboard', (req, res) => {
     stakers: make(2_000_000),
     nft:     make(500),
   };
-  res.json({ type, leaderboard: data[type] || data.holders, updatedAt: Date.now() });
-});
+  return { type, leaderboard: data[type] || data.holders, updatedAt: Date.now() };
+}
 
-// GET /api/analytics/events — activity feed (last N events)
-app.get('/api/analytics/events', (req, res) => {
-  const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+function buildAnalyticsEvents(limit = 20) {
+  const safeLimit = Math.min(parseInt(limit) || 20, 50);
   const types = ['Transfer', 'NFT Mint', 'Stake', 'Unstake', 'Swap', 'DAO Vote', 'Reward Claim'];
-  const events = Array.from({ length: limit }, (_, i) => ({
+  const events = Array.from({ length: safeLimit }, (_, i) => ({
     id:        randomHex(16),
     type:      types[Math.floor(Math.random() * types.length)],
     from:      '0x' + randomHex(40),
@@ -1675,13 +1806,78 @@ app.get('/api/analytics/events', (req, res) => {
     blockNum:  1_248_753 + Math.floor(Math.random() * 100) - i,
     timestamp: Date.now() - i * Math.round(5000 + Math.random() * 30000),
   }));
-  res.json({ events, total: 485231, limit });
+  return { events, total: 485231, limit: safeLimit };
+}
+
+// GET /api/analytics/overview — main KPIs
+app.get('/api/analytics/overview', (req, res) => {
+  res.json(buildAnalyticsOverview());
 });
 
-// ── Start Server ──────────────────────────────────────────────────
+// GET /api/analytics/tvl — TVL history
+app.get('/api/analytics/tvl', (req, res) => {
+  const days = parseInt(req.query.days) || 30;
+  res.json(buildAnalyticsTvl(days));
+});
+
+// GET /api/analytics/volume — trading volume history
+app.get('/api/analytics/volume', (req, res) => {
+  const days = parseInt(req.query.days) || 30;
+  res.json(buildAnalyticsVolume(days));
+});
+
+// GET /api/analytics/users — active users
+app.get('/api/analytics/users', (req, res) => {
+  res.json(buildAnalyticsUsers());
+});
+
+// GET /api/analytics/transactions — tx breakdown
+app.get('/api/analytics/transactions', (req, res) => {
+  res.json(buildAnalyticsTransactions());
+});
+
+// GET /api/analytics/gas — gas price & usage
+app.get('/api/analytics/gas', (req, res) => {
+  res.json(buildAnalyticsGas());
+});
+
+// GET /api/analytics/leaderboard — top holders & stakers
+app.get('/api/analytics/leaderboard', (req, res) => {
+  const type = req.query.type || 'holders'; // holders | stakers | nft
+  res.json(buildAnalyticsLeaderboard(type));
+});
+
+// GET /api/analytics/events — activity feed (last N events)
+app.get('/api/analytics/events', (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+  res.json(buildAnalyticsEvents(limit));
+});
+
+// GET /api/analytics/snapshot — consolidated payload to minimize frontend API calls
+app.get('/api/analytics/snapshot', (req, res) => {
+  const tvlDays = parseInt(req.query.tvlDays) || 7;
+  const volDays = parseInt(req.query.volDays) || 7;
+  const points = parseInt(req.query.points) || 48;
+  const leaderboardType = req.query.leaderboardType || 'holders';
+  const eventLimit = parseInt(req.query.eventLimit) || 20;
+  res.json({
+    timestamp: Date.now(),
+    overview: buildAnalyticsOverview(),
+    tvl: buildAnalyticsTvl(tvlDays),
+    volume: buildAnalyticsVolume(volDays),
+    price: buildTokenHistory(points),
+    users: buildAnalyticsUsers(),
+    transactions: buildAnalyticsTransactions(),
+    gas: buildAnalyticsGas(),
+    leaderboard: buildAnalyticsLeaderboard(leaderboardType),
+    events: buildAnalyticsEvents(eventLimit),
+  });
+});
+
+// ── Start Server ────────────────────────────────────────────────���─
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ MeeBot AI Server running on http://0.0.0.0:${PORT}`);
-  console.log(`   OpenAI Base URL : ${baseURL}`);
+  console.log(`   OpenAI Base URL : ${openAiBaseUrl || "(default)"}`);
   console.log(`   Model           : gpt-5-mini`);
   console.log(`   dRPC RPC URL    : ${RPC_CONFIG.drpcUrl}`);
   console.log(`   Fallback RPC    : ${RPC_CONFIG.fallbackUrl}`);

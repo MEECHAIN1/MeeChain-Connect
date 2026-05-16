@@ -93,8 +93,8 @@ cloudflared tunnel create meechain-rpc
 
 # 4. สร้าง config
 cat > config.yml << 'EOF'
-tunnel: <TUNNEL_ID>
-credentials-file: ~/.cloudflared/<TUNNEL_ID>.json
+tunnel: 66b8d43c-39f8-4ee1-97db-13cb718825cd
+credentials-file: ~/.cloudflared/66b8d43c-39f8-4ee1-97db-13cb718825cd.json
 ingress:
   - hostname: rpc.meechain.live
     service: http://localhost:8080
@@ -104,11 +104,15 @@ ingress:
 EOF
 
 # 5. Route DNS
-cloudflared tunnel route dns meechain-rpc rpc.meechain.live
+cloudflared tunnel route dns 66b8d43c-39f8-4ee1-97db-13cb718825cd rpc.meechain.live
+cloudflared tunnel route dns 66b8d43c-39f8-4ee1-97db-13cb718825cd app.meechain.live
 
 # 6. Run tunnel
-cloudflared tunnel run meechain-rpc
+cloudflared tunnel run 66b8d43c-39f8-4ee1-97db-13cb718825cd
 ```
+
+> หมายเหตุ: ในหน้า **Connector diagnostics** ค่า `Connector ID` จะต่างจาก `Tunnel ID` ซึ่งเป็นเรื่องปกติ
+> (เช่น Connector ID ในรูปคือ `12b8991d-08ca-4050-8318-d1bac7dad5e2` แต่ Tunnel ID ที่ใช้งานคือ `66b8d43c-39f8-4ee1-97db-13cb718825cd`).
 
 ---
 
@@ -144,12 +148,28 @@ curl https://rpc.meechain.live/api/health
 
 ---
 
-## 📡 สถานะปัจจุบัน (2026-03-28)
+## 📡 สถานะปัจจุบัน (อัปเดต 2026-04-11)
 
-```
-rpc.meechain.live DNS → Cloudflare IP ✅
-SSL Certificate       → Let's Encrypt *.meechain.live ✅
-Cloudflare routing    → R2 bucket "meechain-bucket" ❌ (ต้องแก้)
-Server (local)        → http://localhost:3000 ✅ (ทำงานปกติ)
-Server (public)       → ยังไม่ verify ว่า 58.11.89.11:8080 ตอบได้
-```
+### ภาพรวม endpoint
+
+| Endpoint | สถานะ | หมายเหตุ |
+|---|---|---|
+| `http://localhost:3000/rpc` | ✅ ใช้งานได้ | ตอบ mock < 30ms |
+| `https://rpc.meechain.live/health` | ✅ ใช้งานได้ | Worker v2.1.0 |
+| `https://rpc.meechain.live` (POST `/`) | ❌ 405 | Worker ยังไม่เปิด POST ที่ root |
+| `https://rpc.meechain.live/rpc` (POST) | ❌ Timeout | upstream origin ไม่ตอบ |
+| `https://app.meechain.live/rpc` (POST) | ❌ Timeout | upstream origin ไม่ตอบ |
+| `https://rpc.meechain.run.place` | ❌ No response | DNS/Server ไม่ตอบ |
+| `http://58.11.89.11:8080` | ❌ Offline/Firewall | พอร์ตปิดหรือถูก block |
+
+### สิ่งที่แก้แล้วใน `server.js`
+
+1. ลด timeout ของ upstream จาก `6000ms` เหลือ `3000ms` เพื่อ fallback ให้เร็วขึ้น
+2. เพิ่ม circuit breaker (`_rpcHealth`) เพื่อ mark upstream ที่ล้มเหลวเป็น dead 60 วินาที
+3. แก้รองรับ batch JSON-RPC โดยตรวจ `Array.isArray(body)` ก่อนตรวจ `body.jsonrpc`
+
+### สาเหตุหลักที่ external RPC ยังล้มเหลว
+
+Cloudflare Worker ทำงานได้ แต่ปลายทางจริง (`58.11.89.11:8080`) ยังเข้าไม่ได้จาก internet จึงเกิด timeout เมื่อส่งต่อ request.
+
+> Action ที่ต้องทำต่อ: เปิดพอร์ต/port-forward และอนุญาต firewall ที่ origin server ก่อน แล้วค่อยทดสอบซ้ำผ่าน `rpc.meechain.live/rpc`.

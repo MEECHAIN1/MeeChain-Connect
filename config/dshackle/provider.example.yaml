@@ -1,0 +1,51 @@
+# Dshackle provider example for running local RPC + dRPC in one proxy.
+# Adjust paths/URLs before use.
+version: v1
+port: 12448
+host: 0.0.0.0
+
+tls:
+  enabled: true
+  server:
+    certificate: /etc/dshackle/ssl/provider.crt
+    key: /etc/dshackle/ssl/provider.key
+
+auth:
+  enabled: true
+  publicKeyOwner: drpc
+
+server:
+  keys:
+    provider-private-key: /etc/dshackle/keys/provider-private.p8.key
+    external-public-key: /etc/dshackle/keys/drpc-public.pem
+
+cluster:
+  upstreams:
+    # Primary local node (low-latency inside your infra)
+    - id: localrpc
+      chain: ethereum
+      role: primary
+      connection:
+        generic:
+          rpc:
+            url: "http://127.0.0.1:8545"
+
+    # Backup dRPC upstream
+    - id: drpcnode
+      chain: ethereum
+      role: fallback
+      connection:
+        generic:
+          rpc:
+            url: "https://provider.drpc.org/<your-provider-endpoint>"
+
+routing:
+  methods:
+    - name: trace_*
+      preferredUpstream: drpcnode
+    - name: eth_newFilter
+      preferredUpstream: localrpc
+    - name: eth_getFilterChanges
+      preferredUpstream: localrpc
+    - name: "*"
+      preferredUpstream: localrpc
