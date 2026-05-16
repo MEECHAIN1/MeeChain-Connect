@@ -16,7 +16,8 @@ export async function onRequestGet(ctx) {
     chainId:   config.chainId,
     rpc:       config.rpcPrimary,
     contracts: {
-      ...config.contracts,
+      token: config.contracts.token,
+      nft: config.contracts.nft,
       staking: config.contracts.portal,
     },
     domain:    'meebot.io',
