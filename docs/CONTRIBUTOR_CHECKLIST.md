@@ -1,50 +1,67 @@
-# 📋 Contributor Checklist: Wallet & RPC Onboarding
+# 📝 Contributor Onboarding Checklist (Flow-based)
 
-## 1) Preflight Health Check
-- Endpoint: `GET /rpc/health`
-- Payload: ใช้โครงสร้างเดียวกับ `/health` และเพิ่ม `mode` + `rpcState`
-- Purpose: ให้ Wallet/MetaMask ตรวจ local proxy ก่อนเชื่อมต่อ
-- ✅ ต้องได้ response JSON ที่ถูกต้อง
+Checklist นี้ออกแบบให้ contributor ใหม่ทำตามได้แบบ step-by-step: **Connect Wallet → REST API Test → WebSocket Subscribe → Smart Contract Interaction → DAO Vote**.
 
-## 2) MetaMask Connection Flow
-- Function: `ensureMeeChainNetwork()`
-- รองรับ error code `4200` แบบ explicit
-- Fallback: `wallet_addEthereumChain`
-- มีข้อความแนะนำเมื่อ wallet ไม่รองรับ switch chain อัตโนมัติ
+## 1️⃣ Connect Wallet
+- ติดตั้ง MetaMask หรือ Wallet ที่รองรับ EVM
+- เพิ่ม MeeChain Network
+  - RPC: `https://rpc.meechain.live/rpc`
+  - Chain ID: `13390`
+  - Symbol: `MEE`
+  - Explorer: `https://explorer.meechain.live`
+- ยืนยันว่า wallet เชื่อมต่อกับ dApp ได้
 
-## 3) RPC Proxy Default
-- `wallet.js` ใช้ `rpcUrls[0] = location.origin + '/rpc'`
-- `server.js` (`/api/network`) ส่ง local proxy เป็น RPC URL ลำดับแรกเสมอ
-- README ระบุชัดว่า contributors ต้องใช้ local proxy `/rpc` เป็น default
+## 2️⃣ REST API Quick Test
+ตรวจสอบว่า backend พร้อมใช้งานก่อนเริ่ม flow ถัดไป:
 
-## 4) Celebration Overlay
-- Overlay หลังเชื่อมต่อสำเร็จ:
-  - MetaMask: `✅ RPC Connected → 🎉 Badge Claimed`
-  - Demo Wallet: `✅ RPC Connected → 🎉 Badge Claimed`
-- มี style overlay เพื่อ visual feedback ชัดเจน
+```bash
+curl http://localhost:3000/api/health
+curl http://localhost:3000/api/analytics/snapshot
+```
 
-## 5) External RPC Status
-- ตรวจทั้ง public + origin DNS:
-  - `https://rpc.meechain.live/rpc`
-  - `https://origin-rpc.meechain.live/rpc`
-  (ต้องเช็คทั้ง GET และ POST JSON-RPC)
-- สถานะล่าสุด (April 27, 2026): GET/POST ตอบ `502` (error code: 502)
-- สรุป: endpoint ภายนอกยังไม่พร้อมสำหรับ wallet client จนกว่า POST จะตอบ JSON-RPC ปกติ
-- Contributors ต้องใช้ local proxy `/rpc` เป็น default
+## 3️⃣ WebSocket Subscription
+เชื่อมต่อและ subscribe channel ที่จำเป็น:
 
-## 6) Testing Checklist
-- ✅ `node --check server.js`
-- ✅ `node --check src/js/wallet.js`
-- ✅ `bash -n scripts/test-rpc.sh`
-- ✅ `npm run test:rpc:integration`
-- ⚠️ `node server.js` (หากไม่ตั้ง `OPENAI_API_KEY` จะรันไม่ขึ้น)
-- ✅ `npm run verify:rpc:matrix`
+```bash
+wscat -c ws://localhost:3000/ws
+```
+
+ส่งคำสั่ง subscribe:
+
+```json
+{"type":"subscribe","channels":["blocks","txs","price"]}
+```
+
+ตรวจสอบว่าได้รับ event ต่อไปนี้:
+- `connected`
+- `pong`
+- `new_block`
+- `new_tx`
+- `price_update`
+
+## 4️⃣ Smart Contract Interaction
+ทดสอบ interaction หลักของระบบ:
+- **Token:** `balanceOf`, `transfer`
+- **NFT:** `mint`, `ownerOf`
+- **Staking:** `stake`, `unstake`, `stakedBalance`
+- **DAO:** `vote`, `proposalResult`
+
+ตัวอย่างคำสั่ง:
+
+```bash
+cast call 0xTokenContract "balanceOf(address)(uint256)" 0xYourWallet
+cast send 0xNFTContract "mint(address,uint256)" 0xYourWallet 1
+cast send 0xStakingContract "stake(uint256)" 1000
+cast send 0xDaoContract "vote(uint256,bool)" 1 true
+```
+
+## 5️⃣ Celebrate & Verify 🎉
+- ตรวจสอบธุรกรรมใน Explorer
+- ยืนยันว่า block/tx ถูก broadcast ผ่าน WebSocket
+- แชร์ผลลัพธ์ใน contributor channel พร้อม badge overlay 🏅
 
 ---
 
-## 🎯 Key Takeaways
-- ใช้ local proxy `/rpc` เป็น default เสมอ
-- เช็ค `/rpc/health` ก่อน add/switch network
-- รองรับ code `4200` พร้อม fallback และคำแนะนำ
-- Celebration overlay = ritualized feedback สำหรับ contributors
-- External RPC ยังไม่เสถียร จึงไม่ควรเป็น default
+## 🎯 สรุป
+Checklist นี้ช่วยให้ contributor ใหม่ทำครบทุกขั้นตอนโดยไม่หลงทาง:
+**เชื่อมต่อ Wallet → ทดสอบ API → Subscribe WS → เรียก Contract → Vote DAO**.
