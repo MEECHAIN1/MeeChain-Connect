@@ -19,6 +19,7 @@ const entries = [
   'functions',
   'contracts'
 ];
+const optionalEntries = new Set(['functions', 'contracts']);
 
 async function exists(relPath) {
   try {
@@ -35,11 +36,19 @@ async function build() {
 
   for (const entry of entries) {
     if (!(await exists(entry))) {
-      console.warn(`[build-pages] skipped missing: ${entry}`);
+      const level = optionalEntries.has(entry) ? 'warn' : 'error';
+      console[level](`[build-pages] skipped missing: ${entry}`);
+      if (!optionalEntries.has(entry)) {
+        process.exitCode = 1;
+      }
       continue;
     }
     await cp(path.join(root, entry), path.join(outDir, entry), { recursive: true });
     console.log(`[build-pages] copied: ${entry}`);
+  }
+
+  if (process.exitCode) {
+    throw new Error('[build-pages] one or more required entries are missing');
   }
 
   console.log('[build-pages] complete');
