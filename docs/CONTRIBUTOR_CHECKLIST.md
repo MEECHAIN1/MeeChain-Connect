@@ -84,3 +84,6 @@ flowchart TD
 | Diamond | Ritual Flow Complete | ตั้งค่า environment ที่ใช้งานจริง (Termux/Ubuntu/Cloud Sandbox) และผ่านทุก milestone | checklist 100% + ลิงก์หลักฐานการติดตั้ง |
 
 > แนะนำให้ใช้ตารางนี้ใน PR หรือ onboarding issue template เพื่อให้ contributor เช็คอินความคืบหน้าได้แบบ gamified และตรวจสอบย้อนกลับได้ง่าย
+
+## 📚 Related Docs
+- Smart contract + RPC quick commands: `docs/SMART_CONTRACT_RPC_CHEATSHEET.md`
