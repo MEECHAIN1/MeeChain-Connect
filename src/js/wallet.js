@@ -124,8 +124,23 @@ async function loadContractAddresses() {
     const resp = await fetch('/api/network');
     const data = await resp.json();
     if (Array.isArray(data.rpcUrls) && data.rpcUrls.length > 0) {
-      // Keep only absolute HTTP(S) RPC URLs for wallet providers.
-      MEECHAIN_NETWORK.rpcUrls = data.rpcUrls.filter((u) => /^https?:\/\//i.test(String(u)));
+      // Keep only public absolute HTTP(S) RPC URLs for wallet providers.
+      // Mobile wallets can fail with HTTP 405 when localhost/private RPC is used.
+      const publicRpcUrls = data.rpcUrls.filter((u) => {
+        try {
+          const parsed = new URL(String(u));
+          if (!/^https?:$/i.test(parsed.protocol)) return false;
+          const host = (parsed.hostname || '').toLowerCase();
+          if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return false;
+          if (/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host)) return false;
+          return true;
+        } catch {
+          return false;
+        }
+      });
+      if (publicRpcUrls.length > 0) {
+        MEECHAIN_NETWORK.rpcUrls = publicRpcUrls;
+      }
     }
     if (data.contracts) {
       TOKEN_ADDRESS  = data.contracts.token   || TOKEN_ADDRESS;
