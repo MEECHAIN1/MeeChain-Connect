@@ -973,11 +973,12 @@ async function checkWeb3Status() {
 
     syncContractChips(data.contracts, data.chainId || 13390);
     if (dot) dot.className = `net-dot ${data.connected ? 'online' : 'offline'}`;
-    if (upstream) upstream.textContent = data.connected ? '🟢 Upstream: Ready' : '🟡 Upstream: Degraded';
+    const upstreamReady = data.connected || data.upstreamReady;
+    if (upstream) upstream.textContent = upstreamReady ? '🟢 Upstream: Ready' : '🟡 Upstream: Degraded';
     if (label) {
       label.textContent = data.connected
         ? `🟢 เชื่อมต่อ Ritual Chain สำเร็จ (Chain ID: ${data.chainId || 13390})`
-        : '🟡 RPC upstream ยังไม่พร้อม — ใช้ local/mock data';
+        : '🟡 RPC upstream ยังไม่พร้อม (POST JSON-RPC ยังไม่ครบ) — ใช้ local/mock data';
     }
     if (block && data.blockNumber) {
       block.textContent = '#' + Number(data.blockNumber).toLocaleString();
