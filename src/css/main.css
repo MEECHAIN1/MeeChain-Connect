@@ -1156,8 +1156,8 @@ a { text-decoration: none; color: inherit; }
   font-size: 0.82rem;
 }
 .rpc-connected-overlay-badge code {
-  color: #E0F2FE;
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  color: `#E0F2FE`;
+  font-family: SFMono-Regular, Consolas, "Liberation Mono", monospace;
   font-size: 0.72rem;
   overflow-wrap: anywhere;
   text-align: right;
