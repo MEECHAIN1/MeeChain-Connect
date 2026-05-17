@@ -33,11 +33,12 @@ function buildRpcGateway(env = {}) {
     ],
   };
 }
+import { getMeechainConfig } from './_shared/meechain-config.js';
 
 export async function onRequestGet(ctx) {
   const { env } = ctx;
+  const config = getMeechainConfig(env);
 
-  const chainId = parseInt(env.CHAIN_ID || '13390', 10);
   const data = {
     chainId:          `0x${chainId.toString(16)}`, // 0x344e
     chainName:        'MeeChain Ritual Chain',
@@ -53,6 +54,12 @@ export async function onRequestGet(ctx) {
       portal:  env.VITE_STAKING_CONTRACT_ADDRESS || '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
     },
     rpcGateway: buildRpcGateway(env),
+    chainId: config.chainIdHex,
+    chainName: 'MeeChain Ritual Chain',
+    rpcUrls: config.rpcUrls,
+    nativeCurrency: { name: 'MEE Token', symbol: 'MEE', decimals: 18 },
+    blockExplorerUrls: ['http://explorer.meechain.run.place'],
+    contracts: config.contracts,
   };
 
   return new Response(JSON.stringify(data), {

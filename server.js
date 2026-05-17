@@ -689,15 +689,33 @@ app.get('/api/network', (req, res) => {
 app.get('/api/web3/status', async (req, res) => {
   try {
     const stats = await web3.getChainStats();
+    const upstreams = [RPC_CONFIG.drpcUrl, RPC_CONFIG.fallbackUrl].filter(Boolean);
+    const upstreamHealth = upstreams.map((url) => {
+      const h = _rpcHealth[url] || {};
+      return {
+        url,
+        dead: !!h.dead,
+        deadUntil: h.until || 0,
+        lastSuccess: h.lastSuccess || 0,
+        lastFailure: h.lastFailure || 0,
+      };
+    });
+    const upstreamReady = upstreamHealth.some((u) => !u.dead);
+
     res.json({
       connected:   web3.connected,
       blockNumber: stats.blockNumber || null,
       rpc:         RPC_CONFIG.drpcUrl,
       chainId:     RPC_CONFIG.chainId,
       contracts:   CONTRACTS,
+      upstreamReady,
+      upstreamHealth,
+      diagnostics: web3.connected
+        ? 'upstream-ready'
+        : 'upstream-degraded (check POST JSON-RPC methods: eth_chainId / eth_blockNumber)',
     });
   } catch(e) {
-    res.json({ connected: false, error: e.message });
+    res.json({ connected: false, error: e.message, diagnostics: 'status-check-failed' });
   }
 });
 
