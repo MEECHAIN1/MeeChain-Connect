@@ -94,6 +94,18 @@ curl http://127.0.0.1:3000/api/health
 curl http://127.0.0.1:3000/api/config
 ```
 
+## Cloudflare Gateway RPC Profile
+
+MeeChain exposes a Cloudflare Gateway RPC metadata profile through `GET /api/network` and the reusable `sessions.json` automation template:
+
+- Primary RPC Gateway: IPv4 `172.64.36.1`
+- Secondary RPC Gateway: IPv6 `2a06:98c1:54::4b:43e8`
+- Secure DNS over TLS: `ohsut0yy6x.cloudflare-gateway.com`
+- Secure DNS over HTTPS: `https://ohsut0yy6x.cloudflare-gateway.com/dns-query`
+
+See `docs/RPC_GATEWAY_SETUP.md` for the overlay badge flow and operational checklist.
+
+
 ## PM2
 
 โปรเจกต์นี้มี `ecosystem.config.cjs` สำหรับรันผ่าน PM2 โดยใช้ process name:

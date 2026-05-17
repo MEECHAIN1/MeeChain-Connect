@@ -1,0 +1,41 @@
+{
+  "rpc": {
+    "primary": {
+      "type": "IPv4",
+      "address": "172.64.36.1",
+      "badge": "🥇 Primary RPC"
+    },
+    "secondary": {
+      "type": "IPv6",
+      "address": "2a06:98c1:54::4b:43e8",
+      "badge": "🥈 Secondary RPC"
+    },
+    "dns": {
+      "dot": {
+        "endpoint": "ohsut0yy6x.cloudflare-gateway.com",
+        "badge": "🔒 DoT Secured"
+      },
+      "doh": {
+        "endpoint": "https://ohsut0yy6x.cloudflare-gateway.com/dns-query",
+        "badge": "🔒 DoH Enabled"
+      }
+    }
+  },
+  "ritual_flow": [
+    "✅ Set IPv4 as Primary",
+    "✅ Add IPv6 as Fallback",
+    "✅ Enable DoT",
+    "✅ Enable DoH",
+    "🎉 RPC Connection Tested"
+  ],
+  "overlay_badge": {
+    "title": "🛡️ RPC SETUP COMPLETE",
+    "items": [
+      "🥇 IPv4 Primary Ready",
+      "🥈 IPv6 Fallback Active",
+      "🔒 DoT Secured",
+      "🔒 DoH Enabled",
+      "🎉 RPC Connection Stable"
+    ]
+  }
+}

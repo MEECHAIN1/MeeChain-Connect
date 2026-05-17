@@ -53,6 +53,23 @@ const CONFIG = {
     dao:     '0x0000000000000000000000000000000000000000',
   },
 
+  // ─── Cloudflare Gateway RPC Profile ─────────────────────────────
+  RPC_GATEWAY: {
+    primary: { type: 'IPv4', address: '172.64.36.1', badge: '🥇 Primary RPC' },
+    secondary: { type: 'IPv6', address: '2a06:98c1:54::4b:43e8', badge: '🥈 Secondary RPC' },
+    dns: {
+      dot: { endpoint: 'ohsut0yy6x.cloudflare-gateway.com', badge: '🔒 DoT Secured' },
+      doh: { endpoint: 'https://ohsut0yy6x.cloudflare-gateway.com/dns-query', badge: '🔒 DoH Enabled' },
+    },
+    ritualFlow: [
+      '✅ Set IPv4 as Primary',
+      '✅ Add IPv6 as Fallback',
+      '✅ Enable DoT',
+      '✅ Enable DoH',
+      '🎉 RPC Connection Tested',
+    ],
+  },
+
   // ─── CORS ────────────────────────────────────────────────────────
   ALLOWED_ORIGINS: [
     'https://app.meechain.live',
@@ -293,6 +310,7 @@ export default {
         nativeCurrency: { name: 'MEE Token', symbol: 'MEE', decimals: 18 },
         blockExplorerUrls: ['https://app.meechain.live/explorer.html'],
         contracts:   CONFIG.CONTRACTS,
+        rpcGateway:  CONFIG.RPC_GATEWAY,
       }, 200, cors);
     }
 
@@ -686,6 +704,7 @@ export default {
         nativeCurrency: { name: 'MEE Token', symbol: 'MEE', decimals: 18 },
         blockExplorerUrls: ['https://app.meechain.live/explorer.html'],
         contracts:   CONFIG.CONTRACTS,
+        rpcGateway:  CONFIG.RPC_GATEWAY,
       }, 200, cors);
     }
 

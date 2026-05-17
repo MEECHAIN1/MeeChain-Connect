@@ -90,6 +90,36 @@ if (_isProductionEnv && _requestedAllowMockFallback) {
   console.warn('[RPC] NODE_ENV=production detected, forcing RPC_ALLOW_MOCK_FALLBACK=false');
 }
 
+const RPC_GATEWAY_CONFIG = {
+  primary: {
+    type: 'IPv4',
+    address: process.env.RPC_PRIMARY_IPV4 || '172.64.36.1',
+    badge: '🥇 Primary RPC',
+  },
+  secondary: {
+    type: 'IPv6',
+    address: process.env.RPC_SECONDARY_IPV6 || '2a06:98c1:54::4b:43e8',
+    badge: '🥈 Secondary RPC',
+  },
+  dns: {
+    dot: {
+      endpoint: process.env.RPC_DOT_ENDPOINT || 'ohsut0yy6x.cloudflare-gateway.com',
+      badge: '🔒 DoT Secured',
+    },
+    doh: {
+      endpoint: process.env.RPC_DOH_ENDPOINT || 'https://ohsut0yy6x.cloudflare-gateway.com/dns-query',
+      badge: '🔒 DoH Enabled',
+    },
+  },
+  ritualFlow: [
+    '✅ Set IPv4 as Primary',
+    '✅ Add IPv6 as Fallback',
+    '✅ Enable DoT',
+    '✅ Enable DoH',
+    '🎉 RPC Connection Tested',
+  ],
+};
+
 const RPC_CONFIG = {
   // Primary: dRPC gateway (used by frontend DApp via DRPC_ACCESS_KEY)
   drpcUrl:        process.env.DRPC_RPC_URL          || 'https://rpc.meechain.live',
@@ -651,6 +681,7 @@ app.get('/api/network', (req, res) => {
     ],
     contracts:  CONTRACTS,
     web3Status: web3.connected ? 'connected' : 'mock',
+    rpcGateway: RPC_GATEWAY_CONFIG,
   });
 });
 

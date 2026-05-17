@@ -81,6 +81,38 @@ function json(data, status = 200, extraHeaders = {}) {
   });
 }
 
+function buildRpcGateway(env = {}) {
+  return {
+    primary: {
+      type: 'IPv4',
+      address: env.RPC_PRIMARY_IPV4 || '172.64.36.1',
+      badge: '🥇 Primary RPC',
+    },
+    secondary: {
+      type: 'IPv6',
+      address: env.RPC_SECONDARY_IPV6 || '2a06:98c1:54::4b:43e8',
+      badge: '🥈 Secondary RPC',
+    },
+    dns: {
+      dot: {
+        endpoint: env.RPC_DOT_ENDPOINT || 'ohsut0yy6x.cloudflare-gateway.com',
+        badge: '🔒 DoT Secured',
+      },
+      doh: {
+        endpoint: env.RPC_DOH_ENDPOINT || 'https://ohsut0yy6x.cloudflare-gateway.com/dns-query',
+        badge: '🔒 DoH Enabled',
+      },
+    },
+    ritualFlow: [
+      '✅ Set IPv4 as Primary',
+      '✅ Add IPv6 as Fallback',
+      '✅ Enable DoT',
+      '✅ Enable DoH',
+      '🎉 RPC Connection Tested',
+    ],
+  };
+}
+
 function getConfig(env) {
   const chainId = Number.parseInt(env.CHAIN_ID || '13390', 10) || 13390;
   const upstreamRpcUrl = env.DRPC_RPC_URL || env.VITE_RPC_URL || 'https://rpc.meechain.live';
@@ -99,6 +131,7 @@ function getConfig(env) {
       staking: portal,
       dao: env.GOVERNANCE_DAO_ADDRESS || DEFAULT_CONTRACTS.dao,
     },
+    rpcGateway: buildRpcGateway(env),
   };
 }
 
@@ -321,6 +354,7 @@ async function handleNetwork(env) {
     nativeCurrency: { name: 'MEE Token', symbol: 'MEE', decimals: 18 },
     blockExplorerUrls: ['http://explorer.meechain.run.place', `${config.appOrigin}/explorer.html`],
     contracts: config.contracts,
+    rpcGateway: config.rpcGateway,
   });
 }
 

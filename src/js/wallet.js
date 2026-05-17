@@ -13,6 +13,29 @@
 // Fallback RPC: rpc.meechain.run.place
 // Note: RUNTIME_RPC_URL kept as same-origin proxy for internal requests only
 const RUNTIME_RPC_URL = `${location.origin}/rpc`;
+const RPC_GATEWAY_CONFIG = {
+  primary: {
+    type: 'IPv4',
+    address: '172.64.36.1',
+    badge: '🥇 Primary RPC',
+  },
+  secondary: {
+    type: 'IPv6',
+    address: '2a06:98c1:54::4b:43e8',
+    badge: '🥈 Secondary RPC',
+  },
+  dns: {
+    dot: {
+      endpoint: 'ohsut0yy6x.cloudflare-gateway.com',
+      badge: '🔒 DoT Secured',
+    },
+    doh: {
+      endpoint: 'https://ohsut0yy6x.cloudflare-gateway.com/dns-query',
+      badge: '🔒 DoH Enabled',
+    },
+  },
+};
+
 const MEECHAIN_NETWORK = {
   chainId:        '0x344e',   // 13390 decimal
   chainName:      'MeeChain Ritual Chain',
@@ -131,6 +154,12 @@ async function loadContractAddresses() {
       TOKEN_ADDRESS  = data.contracts.token   || TOKEN_ADDRESS;
       NFT_ADDRESS    = data.contracts.nft     || NFT_ADDRESS;
       PORTAL_ADDRESS = data.contracts.portal  || data.contracts.staking || PORTAL_ADDRESS;
+    }
+    if (data.rpcGateway) {
+      Object.assign(RPC_GATEWAY_CONFIG.primary, data.rpcGateway.primary || {});
+      Object.assign(RPC_GATEWAY_CONFIG.secondary, data.rpcGateway.secondary || {});
+      Object.assign(RPC_GATEWAY_CONFIG.dns.dot, data.rpcGateway.dns?.dot || {});
+      Object.assign(RPC_GATEWAY_CONFIG.dns.doh, data.rpcGateway.dns?.doh || {});
     }
   } catch (_) {
     // Keep defaults including local proxy
@@ -544,17 +573,47 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // Shared wallet hub override layer
+function escapeWalletHtml(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    "'": '&#39;',
+    '"': '&quot;',
+  }[char]));
+}
+
+function rpcGatewayBadgeRows() {
+  const { primary, secondary, dns } = RPC_GATEWAY_CONFIG;
+  return [
+    { label: primary.badge || '🥇 Primary RPC', value: `${primary.type || 'IPv4'}: ${primary.address || '172.64.36.1'}` },
+    { label: secondary.badge || '🥈 Secondary RPC', value: `${secondary.type || 'IPv6'}: ${secondary.address || '2a06:98c1:54::4b:43e8'}` },
+    { label: dns.dot.badge || '🔒 DoT Secured', value: dns.dot.endpoint || 'ohsut0yy6x.cloudflare-gateway.com' },
+    { label: dns.doh.badge || '🔒 DoH Enabled', value: dns.doh.endpoint || 'https://ohsut0yy6x.cloudflare-gateway.com/dns-query' },
+  ];
+}
+
 function showConnectionCelebration(address) {
   if (document.getElementById('rpc-connected-overlay')) return;
+
+  const badgeRows = rpcGatewayBadgeRows()
+    .map((row) => `
+      <div class="rpc-connected-overlay-badge">
+        <span>${escapeWalletHtml(row.label)}</span>
+        <code>${escapeWalletHtml(row.value)}</code>
+      </div>
+    `)
+    .join('');
 
   const overlay = document.createElement('div');
   overlay.id = 'rpc-connected-overlay';
   overlay.className = 'rpc-connected-overlay';
   overlay.innerHTML = `
     <div class="rpc-connected-overlay-card">
-      <div class="rpc-connected-overlay-title">✅ RPC Connected</div>
-      <div class="rpc-connected-overlay-subtitle">🎉 Badge Claimed</div>
-      <div class="rpc-connected-overlay-address">${walletShortHash(address, 10, 6)}</div>
+      <div class="rpc-connected-overlay-title">🛡️ RPC MASTER BADGE</div>
+      <div class="rpc-connected-overlay-subtitle">✅ RPC Connected → 🎉 Badge Claimed</div>
+      <div class="rpc-connected-overlay-address">${escapeWalletHtml(walletShortHash(address, 10, 6))}</div>
+      <div class="rpc-connected-overlay-badges">${badgeRows}</div>
     </div>
   `;
 

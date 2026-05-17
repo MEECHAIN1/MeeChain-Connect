@@ -1138,3 +1138,27 @@ a { text-decoration: none; color: inherit; }
 .rpc-connected-overlay-title { font-size: 1.1rem; font-weight: 700; }
 .rpc-connected-overlay-subtitle { margin-top: 4px; font-size: 1rem; font-weight: 600; }
 .rpc-connected-overlay-address { margin-top: 8px; font-size: 0.82rem; opacity: 0.92; }
+.rpc-connected-overlay-badges {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  text-align: left;
+}
+.rpc-connected-overlay-badge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: rgba(10, 14, 26, 0.22);
+  font-size: 0.82rem;
+}
+.rpc-connected-overlay-badge code {
+  color: #E0F2FE;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
