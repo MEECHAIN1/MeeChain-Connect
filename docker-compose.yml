@@ -1,0 +1,58 @@
+# ============================================================
+# MeeChain Dashboard — Compose File
+# Works with:
+#   docker compose up -d
+#   podman-compose up -d
+# ============================================================
+
+version: "3.9"
+
+services:
+  meechain-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: meechain-dashboard:latest
+    container_name: meechain-dashboard
+
+    # ── Ports ──────────────────────────────────────────────
+    ports:
+      - "${PORT:-3000}:3000"
+
+    # ── Environment ─────────────────────────────────────────
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      CHAIN_ID: ${CHAIN_ID:-13390}
+
+    # ── Volumes ─────────────────────────────────────────────
+    volumes:
+      # Persist PM2 / app logs
+      - meechain_logs:/app/logs
+      # Mount .env at runtime (optional; remove if using env_file only)
+      # - ./.env:/app/.env:ro
+
+    # ── Restart Policy ──────────────────────────────────────
+    restart: unless-stopped
+
+    # ── Health Check ────────────────────────────────────────
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+    # ── Resource Limits (optional — comment out if not needed)
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+
+volumes:
+  meechain_logs:
+    driver: local

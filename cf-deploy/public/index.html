@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MeeChain Dashboard | Mee Ritual Chain</title>
+  <link rel="icon" href="src/assets/images/meechain_logo.png" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="src/css/main.css" />
+  <link rel="stylesheet" href="src/css/animations.css" />
+</head>
+<body>
+  <!-- Loading Screen -->
+  <div id="loading-screen">
+    <div class="loader-content">
+      <div class="loader-logo">
+        <img src="src/assets/images/meechain_logo.png" alt="MeeChain" class="loader-img" onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><circle cx=\"40\" cy=\"40\" r=\"38\" fill=\"%237C3AED\"/><text x=\"40\" y=\"52\" text-anchor=\"middle\" font-size=\"36\" fill=\"white\">🐻</text></svg>'" />
+      </div>
+      <div class="loader-bar-wrap">
+        <div class="loader-bar"></div>
+      </div>
+      <p class="loader-text">กำลังโหลด MeeChain Dashboard...</p>
+    </div>
+  </div>
+
+  <!-- App Wrapper -->
+  <div id="app" class="app-wrapper hidden">
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <img src="src/assets/images/meechain_logo.png" alt="MeeChain Logo" class="sidebar-logo" onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#1A2236,#0D1525)';this.style.padding='8px';" />
+        <span class="sidebar-brand">MeeChain</span>
+        <button id="sidebar-toggle" class="sidebar-toggle-btn" title="Toggle Sidebar">
+          <span class="toggle-icon">☰</span>
+        </button>
+      </div>
+
+      <nav class="sidebar-nav">
+        <ul>
+          <li class="nav-item active" data-page="dashboard">
+            <span class="nav-icon">🏠</span>
+            <span class="nav-label">แดชบอร์ด</span>
+          </li>
+          <li class="nav-item" data-page="nft-market">
+            <span class="nav-icon">🖼️</span>
+            <span class="nav-label">ตลาด NFT</span>
+          </li>
+          <li class="nav-item" data-page="ritual">
+            <span class="nav-icon">🚀</span>
+            <span class="nav-label">Mee Ritual Chain</span>
+          </li>
+          <li class="nav-item" data-page="staking">
+            <span class="nav-icon">⛏️</span>
+            <span class="nav-label">Staking / Mining</span>
+          </li>
+          <li class="nav-item" data-page="wallet">
+            <span class="nav-icon">👛</span>
+            <span class="nav-label">กระเป๋าเงิน</span>
+          </li>
+          <li class="nav-item" data-page="meebot">
+            <span class="nav-icon">🤖</span>
+            <span class="nav-label">MeeBot</span>
+          </li>
+          <li class="nav-item" data-page="settings">
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-label">ตั้งค่า</span>
+          </li>
+        </ul>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-status">
+          <div class="status-dot online"></div>
+          <span>เชื่อมต่อแล้ว</span>
+        </div>
+        <div class="network-badge">
+          <span class="net-dot"></span>
+          <span>MeeChain Mainnet</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+
+      <!-- Network Status Bar -->
+      <div id="network-status-bar" class="network-status-bar">
+        <div class="net-status-left">
+          <span class="net-dot" id="net-dot">●</span>
+          <span id="net-label">กำลังเชื่อมต่อ Ritual Chain...</span>
+        </div>
+        <div class="net-status-right">
+          <span class="net-chip">⛓️ Chain ID: <strong id="net-chain-id">13390</strong></span>
+          <span class="net-chip">📦 Block: <strong id="net-block">—</strong></span>
+          <span class="net-chip">🔗 RPC: <strong id="net-rpc-label">rpc.meechain.run.place</strong></span>
+          <span class="net-chip net-chip-contract" title="MEE Token Contract">📋 Token: <strong id="net-token">0x5FbD...80aa3</strong></span>
+        </div>
+      </div>
+
+      <!-- Top Header -->
+      <header class="top-header">
+        <div class="header-left">
+          <button id="mobile-menu-btn" class="mobile-menu-btn">☰</button>
+          <div class="breadcrumb" id="breadcrumb">แดชบอร์ด</div>
+        </div>
+        <div class="header-right">
+          <div class="header-search">
+            <input type="text" placeholder="ค้นหา NFT, Token..." id="search-input" />
+            <span class="search-icon">🔍</span>
+          </div>
+          <button class="notification-btn" id="notif-btn">
+            🔔
+            <span class="notif-badge">3</span>
+          </button>
+          <button class="connect-wallet-btn" id="connect-wallet-btn">
+            <span class="wallet-icon">👛</span>
+            <span id="wallet-btn-text">เชื่อมต่อกระเป๋า</span>
+          </button>
+          <div class="user-avatar">
+            <img src="src/assets/images/meebot.png" alt="MeeBot" onerror="this.onerror=null;this.style.display='none';this.parentElement.innerHTML='🤖';" />
+          </div>
+        </div>
+      </header>
+
+      <!-- Notification Dropdown -->
+      <div class="notif-dropdown hidden" id="notif-dropdown">
+        <div class="notif-header">การแจ้งเตือน</div>
+        <div class="notif-item unread">
+          <span class="notif-dot"></span>
+          <div>
+            <p>NFT ของคุณถูกขายแล้ว!</p>
+            <small>2 นาทีที่แล้ว</small>
+          </div>
+        </div>
+        <div class="notif-item unread">
+          <span class="notif-dot"></span>
+          <div>
+            <p>Staking รางวัลพร้อมรับแล้ว</p>
+            <small>1 ชั่วโมงที่แล้ว</small>
+          </div>
+        </div>
+        <div class="notif-item">
+          <span class="notif-dot read"></span>
+          <div>
+            <p>ยินดีต้อนรับสู่ MeeChain!</p>
+            <small>1 วันที่แล้ว</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Page: Dashboard -->
+      <section id="page-dashboard" class="page-section active">
+        <!-- Hero Banner -->
+        <div class="hero-banner">
+          <div class="hero-content">
+            <div class="hero-text">
+              <div class="hero-badges">
+                <span class="badge badge-live">🔴 LIVE</span>
+                <span class="badge badge-chain">MeeChain Mainnet</span>
+              </div>
+              <h1 class="hero-title">ยินดีต้อนรับสู่ <br/><span class="highlight">MeeChain</span> Dashboard</h1>
+              <p class="hero-subtitle">แพลตฟอร์ม Blockchain ที่ทันสมัย — ซื้อขาย NFT, Staking, และอีกมากมาย</p>
+              <div class="hero-actions">
+                <button class="btn btn-primary" onclick="switchPage('nft-market')">เข้าสู่ตลาด NFT 🖼️</button>
+                <button class="btn btn-outline" onclick="switchPage('ritual')">Mee Ritual Chain 🚀</button>
+              </div>
+            </div>
+            <div class="hero-mascot">
+              <img src="src/assets/images/meebot.png" alt="MeeBot" class="mascot-img float-anim" onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#1A2236,#0D1525)';this.style.padding='8px';" />
+            </div>
+          </div>
+          <div class="hero-particles" id="hero-particles"></div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+          <div class="stat-card" data-color="purple">
+            <div class="stat-icon">💰</div>
+            <div class="stat-info">
+              <span class="stat-label">มูลค่าตลาดรวม</span>
+              <span class="stat-value" data-count="1248750">0</span>
+              <span class="stat-currency">MEE</span>
+              <span class="stat-change positive">▲ +12.5%</span>
+            </div>
+          </div>
+          <div class="stat-card" data-color="orange">
+            <div class="stat-icon">🖼️</div>
+            <div class="stat-info">
+              <span class="stat-label">NFT ทั้งหมด</span>
+              <span class="stat-value" data-count="8432">0</span>
+              <span class="stat-currency">ชิ้น</span>
+              <span class="stat-change positive">▲ +8.3%</span>
+            </div>
+          </div>
+          <div class="stat-card" data-color="blue">
+            <div class="stat-icon">👥</div>
+            <div class="stat-info">
+              <span class="stat-label">ผู้ใช้งานทั้งหมด</span>
+              <span class="stat-value" data-count="25614">0</span>
+              <span class="stat-currency">คน</span>
+              <span class="stat-change positive">▲ +5.1%</span>
+            </div>
+          </div>
+          <div class="stat-card" data-color="green">
+            <div class="stat-icon">⛏️</div>
+            <div class="stat-info">
+              <span class="stat-label">รางวัล Staking</span>
+              <span class="stat-value" data-count="52840">0</span>
+              <span class="stat-currency">MEE/วัน</span>
+              <span class="stat-change positive">▲ +3.2%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts & Activity Row -->
+        <div class="dashboard-row">
+          <!-- Price Chart -->
+          <div class="card chart-card">
+            <div class="card-header">
+              <h3>📈 ราคา MEE Token</h3>
+              <div class="chart-period-btns">
+                <button class="period-btn active" data-period="1D">1D</button>
+                <button class="period-btn" data-period="7D">7D</button>
+                <button class="period-btn" data-period="1M">1M</button>
+                <button class="period-btn" data-period="1Y">1Y</button>
+              </div>
+            </div>
+            <div class="chart-container">
+              <canvas id="priceChart"></canvas>
+            </div>
+            <div class="chart-footer">
+              <span class="current-price">ราคาปัจจุบัน: <strong>0.0842 USDT</strong></span>
+              <span class="price-change positive">+12.5% (24h)</span>
+            </div>
+          </div>
+
+          <!-- Recent Activity -->
+          <div class="card activity-card">
+            <div class="card-header">
+              <h3>⚡ กิจกรรมล่าสุด</h3>
+              <button class="see-all-btn">ดูทั้งหมด</button>
+            </div>
+            <ul class="activity-list" id="activity-list">
+              <!-- Populated by JS -->
+            </ul>
+          </div>
+        </div>
+
+        <!-- NFT Trending + Rituals Row -->
+        <div class="dashboard-row">
+          <!-- Trending NFTs -->
+          <div class="card nft-trending-card">
+            <div class="card-header">
+              <h3>🔥 NFT ยอดนิยม</h3>
+              <button class="see-all-btn" onclick="switchPage('nft-market')">ดูทั้งหมด</button>
+            </div>
+            <div class="nft-trending-grid" id="trending-nft-grid">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <!-- Ritual Chain Info -->
+          <div class="card ritual-info-card">
+            <div class="card-header">
+              <h3>🚀 Mee Ritual Chain</h3>
+            </div>
+            <div class="ritual-content">
+              <img src="src/assets/images/ritual_chain.png" alt="Mee Ritual Chain" class="ritual-logo" onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#1A2236,#0D1525)';this.style.padding='8px';" />
+              <div class="ritual-stats">
+                <div class="ritual-stat-item">
+                  <span class="rstat-label">Block ล่าสุด</span>
+                  <span class="rstat-value" id="block-number">1,248,753</span>
+                </div>
+                <div class="ritual-stat-item">
+                  <span class="rstat-label">TPS</span>
+                  <span class="rstat-value">2,400</span>
+                </div>
+                <div class="ritual-stat-item">
+                  <span class="rstat-label">Validators</span>
+                  <span class="rstat-value">128</span>
+                </div>
+                <div class="ritual-stat-item">
+                  <span class="rstat-label">Network Fee</span>
+                  <span class="rstat-value">0.0001 MEE</span>
+                </div>
+              </div>
+              <button class="btn btn-primary w-full" onclick="switchPage('ritual')">ดูรายละเอียด</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Page: NFT Market -->
+      <section id="page-nft-market" class="page-section">
+        <div class="page-title-row">
+          <h2 class="page-title">🖼️ ตลาด NFT</h2>
+          <button class="btn btn-primary" id="create-nft-btn">+ สร้าง NFT ใหม่</button>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+          <div class="filter-tabs">
+            <button class="filter-tab active" data-filter="all">ทั้งหมด</button>
+            <button class="filter-tab" data-filter="art">ศิลปะ</button>
+            <button class="filter-tab" data-filter="avatar">Avatar</button>
+            <button class="filter-tab" data-filter="gaming">เกม</button>
+            <button class="filter-tab" data-filter="music">เพลง</button>
+          </div>
+          <div class="filter-controls">
+            <select class="filter-select" id="sort-select">
+              <option value="recent">ล่าสุด</option>
+              <option value="price-asc">ราคา: ต่ำ → สูง</option>
+              <option value="price-desc">ราคา: สูง → ต่ำ</option>
+              <option value="popular">ยอดนิยม</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- NFT Grid -->
+        <div class="nft-grid" id="nft-grid">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination" id="nft-pagination">
+          <button class="page-btn active">1</button>
+          <button class="page-btn">2</button>
+          <button class="page-btn">3</button>
+          <button class="page-btn next-btn">ถัดไป →</button>
+        </div>
+      </section>
+
+      <!-- Page: Mee Ritual Chain -->
+      <section id="page-ritual" class="page-section">
+        <div class="ritual-hero">
+          <div class="ritual-hero-content">
+            <img src="src/assets/images/ritual_chain.png" alt="Mee Ritual Chain" class="ritual-hero-logo" onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#1A2236,#0D1525)';this.style.padding='8px';" />
+            <div class="ritual-hero-text">
+              <h2>Mee Ritual Chain</h2>
+              <p>บล็อกเชนสำหรับพิธีกรรมและศิลปะดิจิทัล</p>
+              <div class="live-badge"><span class="pulse-dot"></span> Network กำลังทำงาน</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chain Stats -->
+        <div class="chain-stats-grid">
+          <div class="chain-stat-card">
+            <div class="cscard-icon">🔗</div>
+            <div class="cscard-label">Block ทั้งหมด</div>
+            <div class="cscard-value" id="total-blocks">1,248,753</div>
+          </div>
+          <div class="chain-stat-card">
+            <div class="cscard-icon">⚡</div>
+            <div class="cscard-label">Transactions (24h)</div>
+            <div class="cscard-value">485,231</div>
+          </div>
+          <div class="chain-stat-card">
+            <div class="cscard-icon">🌐</div>
+            <div class="cscard-label">Nodes ที่ใช้งาน</div>
+            <div class="cscard-value">1,024</div>
+          </div>
+          <div class="chain-stat-card">
+            <div class="cscard-icon">🔒</div>
+            <div class="cscard-label">Smart Contracts</div>
+            <div class="cscard-value">12,840</div>
+          </div>
+        </div>
+
+        <!-- Block Explorer -->
+        <div class="card block-explorer-card">
+          <div class="card-header">
+            <h3>🔍 Block Explorer</h3>
+            <div class="explorer-search">
+              <input type="text" placeholder="ค้นหา Block Hash / TX Hash / Address..." id="explorer-search" />
+              <button class="btn btn-primary btn-sm" id="explorer-search-btn">ค้นหา</button>
+            </div>
+          </div>
+          <div class="recent-blocks" id="recent-blocks">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Recent Transactions -->
+        <div class="card tx-card">
+          <div class="card-header">
+            <h3>💸 Transactions ล่าสุด</h3>
+          </div>
+          <table class="tx-table">
+            <thead>
+              <tr>
+                <th>TX Hash</th>
+                <th>จาก</th>
+                <th>ถึง</th>
+                <th>จำนวน</th>
+                <th>สถานะ</th>
+                <th>เวลา</th>
+              </tr>
+            </thead>
+            <tbody id="tx-table-body">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Page: Staking -->
+      <section id="page-staking" class="page-section">
+        <div class="page-title-row">
+          <h2 class="page-title">⛏️ Staking & Mining</h2>
+          <div class="staking-apy-badge">APY สูงสุด <strong>248%</strong></div>
+        </div>
+
+        <div class="staking-overview">
+          <div class="staking-hero-card">
+            <img src="src/assets/images/meechain_logo.png" alt="MeeChain Bear" class="staking-mascot" onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#1A2236,#0D1525)';this.style.padding='8px';" />
+            <div class="staking-hero-info">
+              <h3>MEE Staking Pool</h3>
+              <p>วาง MEE Token ของคุณเพื่อรับรางวัลทุกวัน</p>
+              <div class="staking-rates">
+                <div class="rate-item">
+                  <span>APR</span>
+                  <strong>85%</strong>
+                </div>
+                <div class="rate-item">
+                  <span>APY</span>
+                  <strong>248%</strong>
+                </div>
+                <div class="rate-item">
+                  <span>Lock Period</span>
+                  <strong>30 วัน</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Staking Pools -->
+        <div class="staking-pools-grid" id="staking-pools">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- My Stakes -->
+        <div class="card my-stakes-card">
+          <div class="card-header">
+            <h3>📊 การ Staking ของฉัน</h3>
+          </div>
+          <div class="my-stakes-content" id="my-stakes">
+            <div class="empty-state">
+              <img src="src/assets/images/meechain_logo.png" alt="Empty" class="empty-img" onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#1A2236,#0D1525)';this.style.padding='8px';" />
+              <p>ยังไม่มีการ Staking</p>
+              <button class="btn btn-primary">เริ่ม Staking ตอนนี้</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Page: Wallet -->
+      <section id="page-wallet" class="page-section">
+        <div class="page-title-row">
+          <h2 class="page-title">👛 กระเป๋าเงิน</h2>
+          <button class="btn btn-primary" id="add-wallet-btn">+ เพิ่มกระเป๋าเงิน</button>
+        </div>
+
+        <!-- Wallet Card -->
+        <div class="wallet-card-3d">
+          <div class="wallet-card-inner">
+            <div class="wallet-card-front">
+              <div class="wcard-header">
+                <img src="src/assets/images/meechain_logo.png" alt="MeeChain" class="wcard-logo" onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#1A2236,#0D1525)';this.style.padding='8px';" />
+                <span class="wcard-network">MeeChain Mainnet</span>
+              </div>
+              <div class="wcard-balance">
+                <span class="wcard-balance-label">ยอดเงินรวม</span>
+                <span class="wcard-balance-value">0.00 MEE</span>
+                <span class="wcard-balance-usd">≈ $0.00 USD</span>
+              </div>
+              <div class="wcard-address">
+                <span id="wallet-address-display">ยังไม่ได้เชื่อมต่อ</span>
+                <button class="copy-btn" id="copy-address-btn" title="คัดลอก">📋</button>
+              </div>
+              <div class="wcard-chip"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Wallet Actions -->
+        <div class="wallet-actions">
+          <button class="wallet-action-btn" id="send-btn">
+            <span class="wa-icon">↗️</span>
+            <span>ส่ง</span>
+          </button>
+          <button class="wallet-action-btn" id="receive-btn">
+            <span class="wa-icon">↙️</span>
+            <span>รับ</span>
+          </button>
+          <button class="wallet-action-btn" id="swap-btn">
+            <span class="wa-icon">🔄</span>
+            <span>แลกเปลี่ยน</span>
+          </button>
+          <button class="wallet-action-btn" id="buy-btn">
+            <span class="wa-icon">💳</span>
+            <span>ซื้อ</span>
+          </button>
+        </div>
+
+        <!-- Token Balances -->
+        <div class="card token-balances-card">
+          <div class="card-header">
+            <h3>💎 ยอดคงเหลือ Token</h3>
+          </div>
+          <div class="token-list" id="token-list">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Transaction History -->
+        <div class="card tx-history-card">
+          <div class="card-header">
+            <h3>📜 ประวัติการทำธุรกรรม</h3>
+          </div>
+          <div class="tx-history-list" id="wallet-tx-history">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Page: MeeBot -->
+      <section id="page-meebot" class="page-section">
+        <div class="page-title-row">
+          <h2 class="page-title">🤖 MeeBot NFT</h2>
+          <button class="btn btn-primary">สร้าง MeeBot ของคุณ</button>
+        </div>
+
+        <div class="meebot-intro">
+          <div class="meebot-intro-content">
+            <img src="src/assets/images/meebot.png" alt="MeeBot" class="meebot-hero-img float-anim" onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#1A2236,#0D1525)';this.style.padding='8px';" />
+            <div class="meebot-intro-text">
+              <h3>MeeChain_MeeBot NFT</h3>
+              <p>NFT ที่เป็นตัวแทนสิทธิพิเศษในการเข้าถึงเนื้อหาพิเศษ หรือการมีส่วนร่วมในกิจกรรมพิเศษบนแพลตฟอร์ม MeeChain</p>
+              <div class="nft-info-grid">
+                <div class="nft-info-item">
+                  <strong>NFT คืออะไร?</strong>
+                  <p>โทเคนที่ไม่สามารถเปลี่ยนหรือทดแทนได้ มีลักษณะเฉพาะที่ไปเหมือนใคร</p>
+                </div>
+                <div class="nft-info-item">
+                  <strong>วิธีสร้าง NFT</strong>
+                  <p>เข้าไปที่เมนู "สร้าง NFT" และดึงชื่อ NFT ของคุณ อัปโหลดภาพหรือวิดีโอ</p>
+                </div>
+                <div class="nft-info-item">
+                  <strong>วิธีซื้อขาย NFT</strong>
+                  <p>เข้าไปที่เมนู "ตลาด NFT" เลือก NFT และกำหนดราคา</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- MeeBot Collection -->
+        <div class="card">
+          <div class="card-header">
+            <h3>🤖 คอลเลกชัน MeeBot</h3>
+          </div>
+          <div class="meebot-collection" id="meebot-collection">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Page: Settings -->
+      <section id="page-settings" class="page-section">
+        <div class="page-title-row">
+          <h2 class="page-title">⚙️ ตั้งค่า</h2>
+        </div>
+        <div class="settings-grid">
+          <div class="card settings-card">
+            <div class="card-header"><h3>👤 โปรไฟล์</h3></div>
+            <div class="settings-form">
+              <div class="form-group">
+                <label>ชื่อผู้ใช้</label>
+                <input type="text" class="form-input" value="MeeUser_001" />
+              </div>
+              <div class="form-group">
+                <label>อีเมล</label>
+                <input type="email" class="form-input" value="user@meechain.io" />
+              </div>
+              <div class="form-group">
+                <label>ภาษา</label>
+                <select class="form-input">
+                  <option value="th" selected>ภาษาไทย</option>
+                  <option value="en">English</option>
+                </select>
+              </div>
+              <button class="btn btn-primary">บันทึก</button>
+            </div>
+          </div>
+          <div class="card settings-card">
+            <div class="card-header"><h3>🔔 การแจ้งเตือน</h3></div>
+            <div class="settings-toggles">
+              <div class="toggle-row">
+                <span>การขาย NFT</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" checked />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="toggle-row">
+                <span>รางวัล Staking</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" checked />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="toggle-row">
+                <span>อัปเดตเครือข่าย</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="toggle-row">
+                <span>ข่าวสาร</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" checked />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="card settings-card">
+            <div class="card-header"><h3>🔒 ความปลอดภัย</h3></div>
+            <div class="settings-form">
+              <div class="form-group">
+                <label>เปิดใช้ 2FA</label>
+                <label class="toggle-switch">
+                  <input type="checkbox" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="form-group">
+                <label>เปลี่ยนรหัสผ่าน</label>
+                <input type="password" class="form-input" placeholder="รหัสผ่านใหม่" />
+              </div>
+              <button class="btn btn-outline">อัปเดตความปลอดภัย</button>
+            </div>
+          </div>
+          <div class="card settings-card">
+            <div class="card-header"><h3>🌐 เครือข่าย</h3></div>
+            <div class="settings-form">
+              <div class="network-option active">
+                <span class="net-status-dot"></span>
+                <span>MeeChain Mainnet</span>
+                <span class="active-badge">ใช้งานอยู่</span>
+              </div>
+              <div class="network-option">
+                <span class="net-status-dot testnet"></span>
+                <span>MeeChain Testnet</span>
+                <button class="btn btn-outline btn-sm">สลับ</button>
+              </div>
+              <div class="network-option">
+                <span class="net-status-dot ritual"></span>
+                <span>Mee Ritual Chain</span>
+                <button class="btn btn-outline btn-sm">สลับ</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Modal: Connect Wallet -->
+  <div class="modal-overlay hidden" id="wallet-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>👛 เชื่อมต่อกระเป๋าเงิน</h3>
+        <button class="modal-close" id="wallet-modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-subtitle">เลือกกระเป๋าเงินที่ต้องการเชื่อมต่อ</p>
+        <div class="wallet-options">
+          <button class="wallet-option" data-wallet="metamask">
+            <span class="wo-icon">🦊</span>
+            <span>MetaMask</span>
+          </button>
+          <button class="wallet-option" data-wallet="walletconnect">
+            <span class="wo-icon">🔗</span>
+            <span>WalletConnect</span>
+          </button>
+          <button class="wallet-option" data-wallet="coinbase">
+            <span class="wo-icon">🔵</span>
+            <span>Coinbase Wallet</span>
+          </button>
+          <button class="wallet-option demo" data-wallet="demo">
+            <span class="wo-icon">🤖</span>
+            <span>MeeBot Demo Wallet</span>
+            <span class="demo-tag">Demo</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: NFT Detail -->
+  <div class="modal-overlay hidden" id="nft-modal">
+    <div class="modal modal-large">
+      <div class="modal-header">
+        <h3 id="nft-modal-title">NFT Detail</h3>
+        <button class="modal-close" id="nft-modal-close">✕</button>
+      </div>
+      <div class="modal-body" id="nft-modal-body">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Create NFT -->
+  <div class="modal-overlay hidden" id="create-nft-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>🎨 สร้าง NFT ใหม่</h3>
+        <button class="modal-close" id="create-nft-modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="create-nft-form">
+          <div class="nft-upload-area" id="nft-upload-area">
+            <span class="upload-icon">📁</span>
+            <p>ลากไฟล์มาที่นี่หรือคลิกเพื่ออัปโหลด</p>
+            <small>รองรับ: PNG, JPG, GIF, MP4, MP3</small>
+            <input type="file" id="nft-file-input" hidden accept="image/*,video/*,audio/*" />
+          </div>
+          <div class="form-group">
+            <label>ชื่อ NFT *</label>
+            <input type="text" class="form-input" id="nft-name" placeholder="ชื่อ NFT ของคุณ" />
+          </div>
+          <div class="form-group">
+            <label>คำอธิบาย</label>
+            <textarea class="form-input" id="nft-desc" rows="3" placeholder="อธิบาย NFT ของคุณ..."></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>ราคา (MEE)</label>
+              <input type="number" class="form-input" id="nft-price" placeholder="0.00" />
+            </div>
+            <div class="form-group">
+              <label>หมวดหมู่</label>
+              <select class="form-input" id="nft-category">
+                <option value="art">ศิลปะ</option>
+                <option value="avatar">Avatar</option>
+                <option value="gaming">เกม</option>
+                <option value="music">เพลง</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn btn-primary w-full" id="mint-nft-btn">Mint NFT 🚀</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Send Token -->
+  <div class="modal-overlay hidden" id="send-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>📤 ส่ง MEE Token</h3>
+        <button class="modal-close" onclick="document.getElementById('send-modal').classList.add('hidden')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="send-wallet-info" style="background:rgba(124,58,237,0.1);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px;">
+          <div>👛 กระเป๋า: <span id="send-from-addr" style="color:#A78BFA;font-family:monospace">-</span></div>
+          <div>💰 ยอด: <span id="send-from-bal" style="color:#10B981">- MEE</span></div>
+        </div>
+        <div class="form-group">
+          <label>ที่อยู่ผู้รับ *</label>
+          <input type="text" class="form-input" id="send-to-address" placeholder="0x..." style="font-family:monospace" />
+        </div>
+        <div class="form-group">
+          <label>จำนวน MEE *</label>
+          <input type="number" class="form-input" id="send-amount" placeholder="100" min="0.0001" step="any" />
+        </div>
+        <div id="send-fee-info" style="font-size:12px;color:#64748B;margin:8px 0">
+          ค่าธรรมเนียมประมาณ: 0.001 MEE
+        </div>
+        <div id="send-tx-status" style="display:none;padding:10px;border-radius:8px;margin-top:12px"></div>
+        <button class="btn-primary" id="send-confirm-btn" onclick="executeSendToken()" style="width:100%;margin-top:16px">
+          📤 ยืนยันการส่ง
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Receive Token -->
+  <div class="modal-overlay hidden" id="receive-modal">
+    <div class="modal" style="text-align:center">
+      <div class="modal-header">
+        <h3>📥 รับ MEE Token</h3>
+        <button class="modal-close" onclick="document.getElementById('receive-modal').classList.add('hidden')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="color:#94A3B8;margin-bottom:16px">แสดง QR Code และที่อยู่ wallet ของคุณเพื่อรับ MEE</p>
+        <div id="receive-qr-container" style="display:flex;justify-content:center;margin-bottom:16px">
+          <canvas id="receive-qr-canvas" style="border:4px solid #1F2E47;border-radius:12px"></canvas>
+        </div>
+        <div style="background:#111827;border-radius:8px;padding:12px;word-break:break-all;font-family:monospace;font-size:13px;color:#A78BFA" id="receive-address-box">
+          -
+        </div>
+        <button class="btn-outline" onclick="copyReceiveAddress()" style="margin-top:12px;width:100%">
+          📋 คัดลอกที่อยู่
+        </button>
+        <div style="margin-top:12px;font-size:12px;color:#64748B">
+          Network: MeeChain Ritual Chain (Chain ID: 13390)
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script src="src/js/data.js"></script>
+  <script src="src/js/chart.js"></script>
+  <script src="src/js/wallet.js"></script>
+  <script src="src/js/app.js"></script>
+  <!-- MeeBot AI Chat Widget -->
+  <script src="src/js/chat-widget.js"></script>
+</body>
+</html>

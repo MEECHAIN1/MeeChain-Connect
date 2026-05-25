@@ -1,20 +1,142 @@
 // ===== MeeChain Dashboard - Mock Data =====
 
+// ── NFT Art Generator ──────────────────────────────────────────
+// Generate unique SVG art for each NFT (fallback when images fail)
+function generateNFTArt(id, name, rarity) {
+  const palettes = {
+    legendary: ['#FFD700', '#FF6B00', '#FF3E00', '#FFA500', '#FFED4E'],
+    rare:      ['#7C3AED', '#A855F7', '#6366F1', '#8B5CF6', '#C084FC'],
+    common:    ['#0EA5E9', '#06B6D4', '#3B82F6', '#22D3EE', '#60A5FA'],
+  };
+  const colors = palettes[rarity] || palettes.common;
+  const c1 = colors[id % colors.length];
+  const c2 = colors[(id + 1) % colors.length];
+  const c3 = colors[(id + 2) % colors.length];
+
+  const shapes = [
+    // Robot/MeeBot style
+    `<circle cx="120" cy="90" r="40" fill="${c2}" opacity="0.8"/>
+     <rect x="90" y="90" width="60" height="70" rx="8" fill="${c1}"/>
+     <circle cx="107" cy="82" r="8" fill="white" opacity="0.9"/>
+     <circle cx="133" cy="82" r="8" fill="white" opacity="0.9"/>
+     <circle cx="107" cy="82" r="4" fill="${c3}"/>
+     <circle cx="133" cy="82" r="4" fill="${c3}"/>
+     <rect x="105" y="120" width="30" height="6" rx="3" fill="white" opacity="0.6"/>`,
+
+    // Bear style
+    `<circle cx="120" cy="100" r="55" fill="${c1}" opacity="0.9"/>
+     <circle cx="88" cy="62" r="20" fill="${c1}"/>
+     <circle cx="152" cy="62" r="20" fill="${c1}"/>
+     <circle cx="108" cy="93" r="8" fill="${c3}"/>
+     <circle cx="132" cy="93" r="8" fill="${c3}"/>
+     <ellipse cx="120" cy="108" rx="12" ry="8" fill="${c2}"/>
+     <rect x="100" y="130" width="40" height="12" rx="6" fill="${c2}" opacity="0.7"/>`,
+
+    // Astronaut style
+    `<circle cx="120" cy="100" r="50" fill="${c1}" opacity="0.3"/>
+     <circle cx="120" cy="95" r="35" fill="${c2}"/>
+     <rect x="85" y="125" width="70" height="50" rx="12" fill="${c1}"/>
+     <circle cx="120" cy="95" r="28" fill="#0D1117" opacity="0.6"/>
+     <circle cx="120" cy="95" r="20" fill="${c3}" opacity="0.5"/>
+     <ellipse cx="112" cy="88" rx="8" ry="6" fill="white" opacity="0.8"/>`,
+
+    // Crystal/Art style
+    `<polygon points="120,30 180,100 150,175 90,175 60,100" fill="${c1}" opacity="0.7"/>
+     <polygon points="120,50 165,105 142,165 98,165 75,105" fill="${c2}" opacity="0.6"/>
+     <polygon points="120,70 148,108 136,148 104,148 92,108" fill="${c3}" opacity="0.8"/>
+     <circle cx="120" cy="108" r="15" fill="white" opacity="0.4"/>`,
+
+    // Guardian/Warrior style
+    `<rect x="85" y="60" width="70" height="90" rx="10" fill="${c1}"/>
+     <polygon points="120,40 95,65 145,65" fill="${c2}"/>
+     <circle cx="107" cy="93" r="8" fill="${c3}"/>
+     <circle cx="133" cy="93" r="8" fill="${c3}"/>
+     <rect x="100" y="115" width="40" height="8" rx="4" fill="white" opacity="0.5"/>
+     <rect x="110" y="150" width="20" height="30" rx="5" fill="${c2}"/>`,
+
+    // Music/Sound style
+    `<circle cx="120" cy="100" r="60" fill="${c1}" opacity="0.2"/>
+     <circle cx="120" cy="100" r="45" fill="${c2}" opacity="0.4"/>
+     <circle cx="120" cy="100" r="30" fill="${c3}" opacity="0.6"/>
+     <circle cx="120" cy="100" r="15" fill="${c1}"/>
+     <line x1="120" y1="40" x2="120" y2="160" stroke="white" stroke-width="2" opacity="0.4"/>
+     <line x1="60" y1="100" x2="180" y2="100" stroke="white" stroke-width="2" opacity="0.4"/>`,
+
+    // Cosmic style
+    `<circle cx="120" cy="100" r="60" fill="${c1}" opacity="0.15"/>
+     <circle cx="80" cy="70" r="15" fill="${c2}" opacity="0.7"/>
+     <circle cx="160" cy="130" r="20" fill="${c3}" opacity="0.7"/>
+     <circle cx="140" cy="65" r="10" fill="${c1}" opacity="0.9"/>
+     <circle cx="90" cy="140" r="12" fill="${c2}" opacity="0.9"/>
+     <circle cx="120" cy="100" r="25" fill="${c3}" opacity="0.8"/>
+     <circle cx="120" cy="100" r="8" fill="white" opacity="0.9"/>`,
+
+    // Lotus/Ritual style
+    `<ellipse cx="120" cy="110" rx="50" ry="60" fill="${c1}" opacity="0.3"/>
+     <ellipse cx="120" cy="100" rx="35" ry="45" fill="${c2}" opacity="0.5"/>
+     <ellipse cx="120" cy="90" rx="20" ry="30" fill="${c3}" opacity="0.7"/>
+     <ellipse cx="120" cy="95" rx="8" ry="12" fill="${c1}" opacity="0.9"/>
+     <circle cx="120" cy="80" r="10" fill="white" opacity="0.8"/>`,
+  ];
+
+  const bgGradient = `
+    <defs>
+      <radialGradient id="bg${id}" cx="50%" cy="50%" r="70%">
+        <stop offset="0%" stop-color="${c1}" stop-opacity="0.3"/>
+        <stop offset="100%" stop-color="#0D1117"/>
+      </radialGradient>
+      <filter id="glow${id}">
+        <feGaussianBlur stdDeviation="3" result="blur"/>
+        <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+      </filter>
+    </defs>`;
+
+  const shapeIdx = (id - 1) % shapes.length;
+  const rarityBadge = rarity === 'legendary'
+    ? `<text x="10" y="188" font-size="11" fill="#FFD700" font-family="sans-serif">⭐ LEGENDARY</text>`
+    : rarity === 'rare'
+    ? `<text x="10" y="188" font-size="11" fill="#A855F7" font-family="sans-serif">💜 RARE</text>`
+    : `<text x="10" y="188" font-size="11" fill="#60A5FA" font-family="sans-serif">⬜ COMMON</text>`;
+
+  const svg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 200" width="240" height="200">
+    ${bgGradient}
+    <rect width="240" height="200" fill="url(%23bg${id})" rx="12"/>
+    <g filter="url(%23glow${id})" transform="translate(0,-10)">
+      ${shapes[shapeIdx]}
+    </g>
+    <text x="120" y="175" text-anchor="middle" font-size="10" fill="white" opacity="0.7" font-family="sans-serif">${name}</text>
+    ${rarityBadge}
+    <text x="230" y="188" text-anchor="end" font-size="9" fill="${c1}" font-family="sans-serif" opacity="0.8">#${String(id).padStart(3,'0')}</text>
+  </svg>`;
+
+  return svg.replace(/#/g, '%23').replace(/"/g, "'");
+}
+
 const MEECHAIN_DATA = {
   // Brand Assets
   logos: {
-    meechain: 'https://www.genspark.ai/api/files/s/djHvsw51',
-    ritual: 'https://www.genspark.ai/api/files/s/sXVY2ZKL',
-    meebot: 'https://www.genspark.ai/api/files/s/7KwFcyZ0',
-    nftInfo: 'https://www.genspark.ai/api/files/s/hTnbvS3e',
+    meechain: 'src/assets/images/meechain_logo.png',
+    ritual:   'src/assets/images/ritual_chain.png',
+    meebot:   'src/assets/images/meebot.png',
+    nftInfo:  'src/assets/images/nft_info.png',
   },
 
-  // NFT Collections
+  // Smart Contract Addresses (Ritual Chain)
+  contracts: {
+    token:   '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9',
+    nft:     '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707',
+    staking: '0xa513E6E4b8f2a923D98304ec87F64353C4D5C853',
+    portal:  '0xa513E6E4b8f2a923D98304ec87F64353C4D5C853',
+    rpc:     `${window.location.origin}/rpc`,
+  },
+
+  // NFT Collections (uses local brand images with SVG fallback art)
   nfts: [
     {
       id: 1, name: 'MeeBot Alpha #001', category: 'avatar',
       price: 240, likes: 342, creator: 'MeeCreator_01',
-      image: 'https://www.genspark.ai/api/files/s/7KwFcyZ0',
+      image: 'src/assets/images/meebot.png',
+      artColor: '#7C3AED',
       desc: 'MeeBot Alpha ตัวแรกของคอลเลกชัน เต็มไปด้วยพลังพิเศษจาก Ritual Chain',
       attributes: [
         { type: 'ประเภท', value: 'Alpha Bot' },
@@ -29,7 +151,8 @@ const MEECHAIN_DATA = {
     {
       id: 2, name: 'Ritual Bear #042', category: 'avatar',
       price: 185, likes: 217, creator: 'BearMaster',
-      image: 'https://www.genspark.ai/api/files/s/djHvsw51',
+      image: 'src/assets/images/meechain_logo.png',
+      artColor: '#A855F7',
       desc: 'Ritual Bear นักขุดบล็อกเชนผู้เชี่ยวชาญ พร้อมหมวกนิรภัยทอง',
       attributes: [
         { type: 'ประเภท', value: 'Mining Bear' },
@@ -44,7 +167,8 @@ const MEECHAIN_DATA = {
     {
       id: 3, name: 'Space Astronaut #007', category: 'art',
       price: 320, likes: 489, creator: 'SpaceArtist',
-      image: 'https://www.genspark.ai/api/files/s/sXVY2ZKL',
+      image: 'src/assets/images/ritual_chain.png',
+      artColor: '#FF6B00',
       desc: 'นักบินอวกาศสุดน่ารักจาก Mee Ritual Chain ผจญภัยในห้วงอวกาศ',
       attributes: [
         { type: 'ประเภท', value: 'Space Explorer' },
@@ -59,7 +183,8 @@ const MEECHAIN_DATA = {
     {
       id: 4, name: 'MeeBot Lotus #128', category: 'art',
       price: 95, likes: 156, creator: 'LotusArt',
-      image: 'https://www.genspark.ai/api/files/s/7KwFcyZ0',
+      image: 'src/assets/images/meebot.png',
+      artColor: '#10B981',
       desc: 'MeeBot ถือดอกบัวแห่งการตรัสรู้ พิเศษจากคอลเลกชัน Ritual',
       attributes: [
         { type: 'ประเภท', value: 'Ritual Bot' },
@@ -74,7 +199,8 @@ const MEECHAIN_DATA = {
     {
       id: 5, name: 'Chain Guardian #003', category: 'gaming',
       price: 560, likes: 891, creator: 'GuardianDev',
-      image: 'https://www.genspark.ai/api/files/s/sXVY2ZKL',
+      image: 'src/assets/images/ritual_chain.png',
+      artColor: '#EF4444',
       desc: 'ผู้พิทักษ์บล็อกเชนผู้ทรงพลัง ออกแบบพิเศษสำหรับเกม MeeRealm',
       attributes: [
         { type: 'ประเภท', value: 'Guardian' },
@@ -89,7 +215,8 @@ const MEECHAIN_DATA = {
     {
       id: 6, name: 'Mee Sound #022', category: 'music',
       price: 72, likes: 134, creator: 'SoundMee',
-      image: 'https://www.genspark.ai/api/files/s/djHvsw51',
+      image: 'src/assets/images/meechain_logo.png',
+      artColor: '#F59E0B',
       desc: 'ดนตรีแห่งบล็อกเชน เสียงพิเศษที่สร้างขึ้นด้วย AI',
       attributes: [
         { type: 'ประเภท', value: 'Music NFT' },
@@ -104,7 +231,8 @@ const MEECHAIN_DATA = {
     {
       id: 7, name: 'MeeBot Warrior #055', category: 'gaming',
       price: 280, likes: 376, creator: 'WarriorCraft',
-      image: 'https://www.genspark.ai/api/files/s/7KwFcyZ0',
+      image: 'src/assets/images/meebot.png',
+      artColor: '#06B6D4',
       desc: 'นักรบ MeeBot สำหรับเกม P2E บน MeeChain Mainnet',
       attributes: [
         { type: 'ประเภท', value: 'Battle Bot' },
@@ -119,7 +247,8 @@ const MEECHAIN_DATA = {
     {
       id: 8, name: 'Cosmic Ritual #011', category: 'art',
       price: 145, likes: 203, creator: 'CosmicMee',
-      image: 'https://www.genspark.ai/api/files/s/sXVY2ZKL',
+      image: 'src/assets/images/ritual_chain.png',
+      artColor: '#8B5CF6',
       desc: 'ศิลปะดิจิทัลแห่งจักรวาล ผสมผสานระหว่างอวกาศและพิธีกรรม',
       attributes: [
         { type: 'ประเภท', value: 'Cosmic Art' },
@@ -132,6 +261,17 @@ const MEECHAIN_DATA = {
       rarity: 'common'
     },
   ],
+
+  // Get NFT display image: uses local file with SVG art as fallback
+  getNFTImageHTML(nft, cssClass = '') {
+    const fallbackSVG = generateNFTArt(nft.id, nft.name, nft.rarity);
+    return `<img src="${nft.image}" 
+      alt="${nft.name}" 
+      class="${cssClass}"
+      loading="lazy"
+      onerror="this.onerror=null;this.src='${fallbackSVG}'"
+    />`;
+  },
 
   // Recent Activity
   activities: [
@@ -149,19 +289,22 @@ const MEECHAIN_DATA = {
       name: 'MEE Standard Pool', apy: '85%',
       minStake: '100 MEE', lockPeriod: '30 วัน',
       totalStaked: '8,524,100 MEE', capacity: 72,
-      icon: '🟣'
+      icon: '🟣',
+      contractAddr: '0xa513E6E4b8f2a923D98304ec87F64353C4D5C853'
     },
     {
       name: 'MEE Premium Pool', apy: '148%',
       minStake: '1,000 MEE', lockPeriod: '90 วัน',
       totalStaked: '12,840,500 MEE', capacity: 58,
-      icon: '🟠'
+      icon: '🟠',
+      contractAddr: '0xa513E6E4b8f2a923D98304ec87F64353C4D5C853'
     },
     {
       name: 'Ritual Chain Pool', apy: '248%',
       minStake: '5,000 MEE', lockPeriod: '180 วัน',
       totalStaked: '24,120,000 MEE', capacity: 34,
-      icon: '🔵'
+      icon: '🔵',
+      contractAddr: '0xa513E6E4b8f2a923D98304ec87F64353C4D5C853'
     },
   ],
 
@@ -200,14 +343,14 @@ const MEECHAIN_DATA = {
     { hash: '0x8e5d2a4b...', from: '0xa12b...7d5e', to: '0x9c8b...3e7f', amount: '1000 MEE', status: 'success', time: '52 วิ' },
   ],
 
-  // MEE Bot Collection
+  // MeeBot NFT Collection — unique image for each
   meebotNFTs: [
-    { id: 1, name: 'Alpha MeeBot', rarity: 'legendary', image: 'https://www.genspark.ai/api/files/s/7KwFcyZ0' },
-    { id: 2, name: 'Ritual MeeBot', rarity: 'rare', image: 'https://www.genspark.ai/api/files/s/7KwFcyZ0' },
-    { id: 3, name: 'Space MeeBot', rarity: 'legendary', image: 'https://www.genspark.ai/api/files/s/7KwFcyZ0' },
-    { id: 4, name: 'Fire MeeBot', rarity: 'rare', image: 'https://www.genspark.ai/api/files/s/7KwFcyZ0' },
-    { id: 5, name: 'Ice MeeBot', rarity: 'common', image: 'https://www.genspark.ai/api/files/s/7KwFcyZ0' },
-    { id: 6, name: 'Thunder MeeBot', rarity: 'common', image: 'https://www.genspark.ai/api/files/s/7KwFcyZ0' },
+    { id: 1,  name: 'Alpha MeeBot',   rarity: 'legendary', image: 'src/assets/images/meebot.png' },
+    { id: 2,  name: 'Ritual MeeBot',  rarity: 'rare',      image: 'src/assets/images/meechain_logo.png' },
+    { id: 3,  name: 'Space MeeBot',   rarity: 'legendary', image: 'src/assets/images/ritual_chain.png' },
+    { id: 4,  name: 'Fire MeeBot',    rarity: 'rare',      image: 'src/assets/images/nft_info.png' },
+    { id: 5,  name: 'Ice MeeBot',     rarity: 'common',    image: 'src/assets/images/meebot.png' },
+    { id: 6,  name: 'Thunder MeeBot', rarity: 'common',    image: 'src/assets/images/meechain_logo.png' },
   ],
 
   // Price Chart Data
@@ -235,7 +378,6 @@ const MEECHAIN_DATA = {
         labels.push(months[i]);
       }
     }
-    // Trend upward for last few
     data[data.length - 1] = 0.0842;
     data[data.length - 2] = 0.0810;
     data[data.length - 3] = 0.0795;
@@ -243,3 +385,70 @@ const MEECHAIN_DATA = {
     return { labels, data };
   }
 };
+
+// ═══════════════════════════════════════════════════
+//  Live Price Feed — fetches /api/token/price every 60s
+//  Updates all elements with [data-live-price] attribute
+// ═══════════════════════════════════════════════════
+const LivePrice = {
+  current: { price: 0.0842, change24h: 12.5 },
+
+  async fetch() {
+    try {
+      const res = await fetch('/api/token/price');
+      if (!res.ok) return;
+      const data = await res.json();
+      this.current.price     = data.price;
+      this.current.change24h = parseFloat(data.change24h);
+      this.updateDOM();
+    } catch { /* keep current */ }
+  },
+
+  updateDOM() {
+    const { price, change24h } = this.current;
+    const priceStr  = '$' + price.toFixed(4);
+    const changeStr = (change24h >= 0 ? '+' : '') + change24h.toFixed(2) + '%';
+    const isUp      = change24h >= 0;
+    const colorClass = isUp ? 'price-up' : 'price-down';
+
+    // [data-live-price] — generic price elements
+    document.querySelectorAll('[data-live-price]').forEach(el => {
+      el.textContent = priceStr;
+    });
+    // [data-live-price-change] — change badge elements
+    document.querySelectorAll('[data-live-price-change]').forEach(el => {
+      el.textContent = changeStr;
+      el.className   = el.className.replace(/price-(up|down)/g, '') + ' ' + colorClass;
+    });
+    // [data-ws="mee-price"] — websocket-style price elements (index.html network bar)
+    document.querySelectorAll('[data-ws="mee-price"]').forEach(el => {
+      el.textContent = priceStr;
+    });
+    // Live price chip in network bar
+    const livePriceEl  = document.getElementById('mee-price-live');
+    const liveChangeEl = document.getElementById('mee-price-change-live');
+    if (livePriceEl)  livePriceEl.textContent  = priceStr;
+    if (liveChangeEl) {
+      liveChangeEl.textContent = changeStr;
+      liveChangeEl.className   = colorClass;
+    }
+    // Staking card price (used in staking.js)
+    const stakePriceEl = document.getElementById('mee-price');
+    if (stakePriceEl) stakePriceEl.textContent = priceStr;
+    // Dispatch custom event so other modules can react
+    document.dispatchEvent(new CustomEvent('meePriceUpdate', { detail: { price, change24h, priceStr, changeStr } }));
+  },
+
+  start() {
+    this.fetch();
+    setInterval(() => this.fetch(), 60_000);
+  },
+};
+
+// Auto-start when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => LivePrice.start());
+} else {
+  LivePrice.start();
+}
+

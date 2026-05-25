@@ -25,6 +25,81 @@ function truncateHash(hash, start = 6, end = 4) {
   return `${hash.slice(0, start)}...${hash.slice(-end)}`;
 }
 
+function getMintWalletAddress() {
+  return window.WalletState?.address || AppState.walletAddress || '';
+}
+
+function hasRealMintWallet() {
+  const address = getMintWalletAddress();
+  return Boolean(
+    window.WalletState?.connected &&
+    !window.WalletState?.isDemo &&
+    window.ethers?.isAddress?.(address)
+  );
+}
+
+async function requestMeeBotMint(payload) {
+  const response = await fetch('/api/nft/mint', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.success === false) {
+    throw new Error(data.error || data.message || 'Mint failed');
+  }
+  return data;
+}
+
+function resetCreateNFTForm() {
+  const fields = ['#nft-name', '#nft-desc', '#nft-price'];
+  fields.forEach((selector) => {
+    const input = $(selector);
+    if (input) input.value = '';
+  });
+
+  const category = $('#nft-category');
+  if (category) category.value = 'art';
+
+  const fileInput = $('#nft-file-input');
+  if (fileInput) fileInput.value = '';
+
+  const uploadText = $('#nft-upload-area p');
+  if (uploadText) uploadText.textContent = 'ลากไฟล์มาที่นี่หรือคลิกเพื่ออัปโหลด';
+}
+
+function syncContractChips(contracts = {}, chainId = 13390) {
+  const chainEl  = $('#net-chain-id');
+  const tokenEl  = $('#net-token');
+  const nftEl    = $('#net-nft');
+  const portalEl = $('#net-portal');
+
+  if (chainEl && chainId) chainEl.textContent = String(chainId);
+
+  if (tokenEl && contracts.token) {
+    tokenEl.textContent = truncateHash(contracts.token);
+    tokenEl.parentElement.title = contracts.token;
+  }
+  if (nftEl && contracts.nft) {
+    nftEl.textContent = truncateHash(contracts.nft);
+    nftEl.parentElement.title = contracts.nft;
+  }
+  if (portalEl && (contracts.portal || contracts.staking)) {
+    const portalAddress = contracts.portal || contracts.staking;
+    portalEl.textContent = truncateHash(portalAddress);
+    portalEl.parentElement.title = portalAddress;
+  }
+
+  if (window.MEECHAIN_DATA?.contracts) {
+    Object.assign(window.MEECHAIN_DATA.contracts, contracts);
+    if (contracts.portal || contracts.staking) {
+      window.MEECHAIN_DATA.contracts.portal = contracts.portal || contracts.staking;
+      window.MEECHAIN_DATA.contracts.staking = contracts.staking || contracts.portal;
+    }
+  }
+}
+
 function animateCounter(el, target, duration = 1500) {
   const start = 0;
   const startTime = performance.now();
@@ -147,7 +222,7 @@ function renderTrendingNFTs() {
   grid.innerHTML = trending.map(nft => `
     <div class="nft-card" onclick="openNFTModal(${nft.id})">
       <div class="nft-img-wrap">
-        <img src="${nft.image}" alt="${nft.name}" loading="lazy" />
+        ${MEECHAIN_DATA.getNFTImageHTML(nft)}
         <div class="nft-overlay">
           <button class="nft-buy-btn" onclick="event.stopPropagation(); handleBuyNFT(${nft.id})">ซื้อเลย</button>
         </div>
@@ -173,7 +248,7 @@ function renderMainNFTGrid(filter = 'all') {
   grid.innerHTML = filtered.map(nft => `
     <div class="nft-grid-card" onclick="openNFTModal(${nft.id})">
       <div class="nft-grid-img">
-        <img src="${nft.image}" alt="${nft.name}" loading="lazy" />
+        ${MEECHAIN_DATA.getNFTImageHTML(nft)}
       </div>
       <div class="nft-grid-info">
         <div class="nft-grid-name">${nft.name}</div>
@@ -301,7 +376,7 @@ function renderMeeBotCollection() {
   container.innerHTML = MEECHAIN_DATA.meebotNFTs.map(bot => `
     <div class="meebot-nft-card">
       <div class="meebot-nft-img">
-        <img src="${bot.image}" alt="${bot.name}" loading="lazy" />
+        ${MEECHAIN_DATA.getNFTImageHTML(bot)}
       </div>
       <div class="meebot-nft-info">
         <div class="meebot-nft-name">${bot.name}</div>
@@ -324,8 +399,10 @@ function initCounters() {
 }
 
 let blockNumber = 1248753;
+let liveChainConnected = false;
 function startLiveBlockUpdate() {
   setInterval(() => {
+    if (liveChainConnected) return;
     blockNumber++;
     const el = $('#block-number');
     const totalEl = $('#total-blocks');
@@ -360,7 +437,7 @@ function openNFTModal(nftId) {
   $('#nft-modal-body').innerHTML = `
     <div class="nft-modal-grid">
       <div class="nft-modal-img">
-        <img src="${nft.image}" alt="${nft.name}" />
+        ${MEECHAIN_DATA.getNFTImageHTML(nft)}
       </div>
       <div class="nft-modal-details">
         <div class="nft-modal-name">${nft.name}</div>
@@ -429,38 +506,42 @@ const AppState = {
 };
 
 function openWalletModal() {
+  if (typeof switchPage === 'function') switchPage('wallet');
   $('#wallet-modal').classList.remove('hidden');
 }
 
-function connectWallet(type) {
+// Fallback only — the real handler should come from wallet.js via window.connectWallet
+function fallbackConnectWallet(type) {
   const loadingMsg = {
     metamask: 'กำลังเชื่อมต่อ MetaMask...',
-    walletconnect: 'กำลังสร้าง QR Code...',
-    coinbase: 'กำลังเปิด Coinbase Wallet...',
+    walletconnect: 'WalletConnect ยังไม่เปิดใช้งานบนหน้าเว็บตอนนี้',
+    coinbase: 'Coinbase Wallet ยังไม่เปิดใช้งานบนหน้าเว็บตอนนี้',
     demo: 'กำลังสร้าง Demo Wallet...',
   };
+  if (type === 'walletconnect' || type === 'coinbase') {
+    showToast(loadingMsg[type], 'warning');
+    return;
+  }
   showToast(loadingMsg[type] || 'กำลังเชื่อมต่อ...', 'info');
 
   setTimeout(() => {
     AppState.walletConnected = true;
     AppState.walletAddress = `0x${Math.random().toString(16).slice(2,10)}...${Math.random().toString(16).slice(2,6)}`;
-    AppState.walletBalance = (Math.random() * 1000 + 50).toFixed(2);
+    AppState.walletBalance = (Math.random() * 10000 + 1000).toFixed(2);
 
     const walletBtnText = $('#wallet-btn-text');
-    const connectBtn = $('#connect-wallet-btn');
-    if (walletBtnText) walletBtnText.textContent = truncateHash(AppState.walletAddress, 6, 4);
-    if (connectBtn) connectBtn.classList.add('connected');
+    const connectBtn    = $('#connect-wallet-btn');
+    if (walletBtnText) walletBtnText.textContent = `🤖 ${truncateHash(AppState.walletAddress, 6, 4)} (${AppState.walletBalance} MEE)`;
+    if (connectBtn) connectBtn.style.background = 'linear-gradient(135deg,#10B981,#059669)';
 
     const walletDisplay = $('#wallet-address-display');
     if (walletDisplay) walletDisplay.textContent = AppState.walletAddress;
 
-    // Update wallet balance display
     const balanceEl = $('.wcard-balance-value');
-    const usdEl = $('.wcard-balance-usd');
+    const usdEl     = $('.wcard-balance-usd');
     if (balanceEl) balanceEl.textContent = `${AppState.walletBalance} MEE`;
-    if (usdEl) usdEl.textContent = `≈ $${(AppState.walletBalance * 0.0842).toFixed(2)} USD`;
+    if (usdEl)     usdEl.textContent     = `≈ $${(AppState.walletBalance * 0.0842).toFixed(2)} USD`;
 
-    // Update token list
     MEECHAIN_DATA.tokens[0].amount = AppState.walletBalance;
     MEECHAIN_DATA.tokens[0].usd = `$${(AppState.walletBalance * 0.0842).toFixed(2)}`;
     renderTokenList();
@@ -468,6 +549,10 @@ function connectWallet(type) {
     $('#wallet-modal').classList.add('hidden');
     showToast(`เชื่อมต่อกระเป๋าเงินสำเร็จ! 🎉`, 'success');
   }, 1500);
+}
+
+if (typeof window.connectWallet !== 'function') {
+  window.connectWallet = fallbackConnectWallet;
 }
 
 // ============================================================
@@ -576,36 +661,70 @@ function initCreateNFT() {
   }
 
   if (mintBtn) {
-    mintBtn.addEventListener('click', () => {
+    mintBtn.addEventListener('click', async () => {
       const name = $('#nft-name')?.value.trim();
+      const description = $('#nft-desc')?.value.trim() || '';
+      const category = $('#nft-category')?.value || 'art';
       const price = $('#nft-price')?.value;
+      const walletAddress = getMintWalletAddress();
       if (!name) { showToast('กรุณาใส่ชื่อ NFT', 'warning'); return; }
-      if (!AppState.walletConnected) { showToast('กรุณาเชื่อมต่อกระเป๋าเงินก่อน', 'warning'); return; }
+      if (!hasRealMintWallet()) {
+        showToast('กรุณาเชื่อมต่อ MetaMask เพื่อ mint NFT แบบ on-chain จริง', 'warning');
+        return;
+      }
 
+      const originalLabel = mintBtn.dataset.defaultLabel || mintBtn.innerHTML;
+      mintBtn.dataset.defaultLabel = originalLabel;
       mintBtn.innerHTML = '<span class="loading-spinner"></span> กำลัง Mint...';
       mintBtn.disabled = true;
 
-      setTimeout(() => {
-        mintBtn.innerHTML = 'Mint NFT 🚀';
+      try {
+        showToast('กำลังส่งธุรกรรมไปยัง MeeChain Ritual Chain...', 'info');
+        const result = await requestMeeBotMint({
+          name,
+          description,
+          category,
+          price,
+          toAddress: walletAddress,
+        });
+
+        mintBtn.innerHTML = originalLabel;
         mintBtn.disabled = false;
         $('#create-nft-modal').classList.add('hidden');
-        showToast(`Mint NFT "${name}" สำเร็จ! 🎉`, 'success');
+        resetCreateNFTForm();
 
-        // Add to NFT list
         const newNFT = {
-          id: Date.now(),
-          name, category: $('#nft-category')?.value || 'art',
+          id: result.tokenId || Date.now(),
+          name,
+          category,
           price: parseFloat(price) || 0,
-          likes: 0, creator: 'You',
-          image: MEECHAIN_DATA.logos.meebot,
-          desc: $('#nft-desc')?.value || '',
-          attributes: [],
-          rarity: 'common'
+          likes: 0,
+          creator: 'You',
+          owner: walletAddress,
+          image: result.metadata?.image || MEECHAIN_DATA.logos.meebot,
+          artColor: '#7C3AED',
+          desc: description || result.metadata?.description || '',
+          attributes: Array.isArray(result.attributes) ? result.attributes : [],
+          rarity: result.rarity || 'common',
+          txHash: result.txHash,
+          tokenUri: result.tokenUri,
+          contract: result.contract,
         };
         MEECHAIN_DATA.nfts.unshift(newNFT);
         renderMainNFTGrid();
         renderTrendingNFTs();
-      }, 2000);
+
+        const mintedLabel = result.tokenId !== null && result.tokenId !== undefined
+          ? `Token #${result.tokenId}`
+          : 'MeeBotNFT';
+        showToast(`Mint สำเร็จแล้ว: ${mintedLabel}`, 'success');
+        console.log('[MeeBot Mint] On-chain success:', result);
+      } catch (error) {
+        console.error('[MeeBot Mint] Failed:', error);
+        showToast(`Mint ไม่สำเร็จ: ${error.message}`, 'error');
+        mintBtn.innerHTML = originalLabel;
+        mintBtn.disabled = false;
+      }
     });
   }
 }
@@ -614,21 +733,27 @@ function initCreateNFT() {
 // WALLET ACTIONS
 // ============================================================
 function initWalletActions() {
+  // Helper: check wallet using WalletState (from wallet.js) or AppState fallback
+  const isConnected = () =>
+    (window.WalletState && window.WalletState.connected) || AppState.walletConnected;
+
   const actions = {
     'send-btn': () => {
-      if (!AppState.walletConnected) { showToast('กรุณาเชื่อมต่อกระเป๋าเงินก่อน', 'warning'); return; }
-      showToast('เปิดหน้าต่างส่ง MEE...', 'info');
+      if (!isConnected()) { showToast('กรุณาเชื่อมต่อกระเป๋าเงินก่อน', 'warning'); return; }
+      if (window.openSendModal) window.openSendModal();
+      else showToast('เปิดหน้าต่างส่ง MEE...', 'info');
     },
     'receive-btn': () => {
-      if (!AppState.walletConnected) { showToast('กรุณาเชื่อมต่อกระเป๋าเงินก่อน', 'warning'); return; }
-      showToast('คัดลอก Address เพื่อรับ MEE', 'info');
+      if (!isConnected()) { showToast('กรุณาเชื่อมต่อกระเป๋าเงินก่อน', 'warning'); return; }
+      if (window.openReceiveModal) window.openReceiveModal();
+      else showToast('คัดลอก Address เพื่อรับ MEE', 'info');
     },
     'swap-btn': () => {
-      if (!AppState.walletConnected) { showToast('กรุณาเชื่อมต่อกระเป๋าเงินก่อน', 'warning'); return; }
-      showToast('เปิดหน้าต่าง Swap...', 'info');
+      if (!isConnected()) { showToast('กรุณาเชื่อมต่อกระเป๋าเงินก่อน', 'warning'); return; }
+      showToast('🔄 Swap feature — coming soon!', 'info');
     },
     'buy-btn': () => {
-      showToast('เปิดหน้าต่างซื้อ MEE ด้วยบัตรเครดิต...', 'info');
+      showToast('🛒 เปิดหน้าต่างซื้อ MEE...', 'info');
     },
   };
 
@@ -640,14 +765,47 @@ function initWalletActions() {
   const copyBtn = $('#copy-address-btn');
   if (copyBtn) {
     copyBtn.addEventListener('click', () => {
-      if (!AppState.walletConnected) { showToast('ยังไม่ได้เชื่อมต่อกระเป๋าเงิน', 'warning'); return; }
-      navigator.clipboard.writeText(AppState.walletAddress).then(() => {
-        showToast('คัดลอก Address แล้ว!', 'success');
-      }).catch(() => {
-        showToast('คัดลอก Address แล้ว!', 'success');
+      if (!isConnected()) { showToast('ยังไม่ได้เชื่อมต่อกระเป๋าเงิน', 'warning'); return; }
+      const addr = (window.WalletState && window.WalletState.address) || AppState.walletAddress;
+      navigator.clipboard.writeText(addr).then(() => {
+        showToast('📋 คัดลอก Address แล้ว!', 'success');
       });
     });
   }
+
+  // Sync WalletState → AppState when wallet.js fires walletConnected event
+  window.addEventListener('walletConnected', (e) => {
+    const { address, balanceMEE } = e.detail;
+    AppState.walletConnected = true;
+    AppState.walletAddress   = address;
+    AppState.walletBalance   = parseFloat(balanceMEE).toFixed(2);
+
+    const walletDisplay = $('#wallet-address-display');
+    const balanceEl     = $('.wcard-balance-value');
+    const usdEl         = $('.wcard-balance-usd');
+
+    if (walletDisplay) walletDisplay.textContent = address;
+    if (balanceEl)     balanceEl.textContent = `${AppState.walletBalance} MEE`;
+    if (usdEl)         usdEl.textContent = `≈ $${(AppState.walletBalance * 0.0842).toFixed(2)} USD`;
+
+    MEECHAIN_DATA.tokens[0].amount = AppState.walletBalance;
+    MEECHAIN_DATA.tokens[0].usd = `$${(AppState.walletBalance * 0.0842).toFixed(2)}`;
+    renderTokenList();
+  });
+
+  window.addEventListener('walletDisconnected', () => {
+    AppState.walletConnected = false;
+    AppState.walletAddress = '';
+    AppState.walletBalance = 0;
+
+    const walletDisplay = $('#wallet-address-display');
+    const balanceEl     = $('.wcard-balance-value');
+    const usdEl         = $('.wcard-balance-usd');
+
+    if (walletDisplay) walletDisplay.textContent = 'ยังไม่ได้เชื่อมต่อ';
+    if (balanceEl)     balanceEl.textContent = '0.00 MEE';
+    if (usdEl)         usdEl.textContent = '≈ $0.00 USD';
+  });
 }
 
 // ============================================================
@@ -661,7 +819,12 @@ function initModals() {
   if (walletModalClose) walletModalClose.addEventListener('click', () => $('#wallet-modal').classList.add('hidden'));
 
   $$('.wallet-option').forEach(opt => {
-    opt.addEventListener('click', () => connectWallet(opt.dataset.wallet));
+    opt.addEventListener('click', () => {
+      const handler = typeof window.connectWallet === 'function'
+        ? window.connectWallet
+        : fallbackConnectWallet;
+      handler(opt.dataset.wallet);
+    });
   });
 
   // NFT modal close
@@ -787,6 +950,62 @@ function initKeyboardShortcuts() {
 }
 
 // ============================================================
+// WEB3 / NETWORK STATUS BAR
+// ============================================================
+async function checkWeb3Status() {
+  try {
+    const res = await fetch('/api/web3/status');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    liveChainConnected = Boolean(data.connected);
+
+    // ── Update the top network status bar ──────────────────
+    const dot   = $('#net-dot');
+    const label = $('#net-label');
+    const block = $('#net-block');
+    syncContractChips(data.contracts, data.chainId || 13390);
+
+    if (dot) {
+      dot.className = `net-dot ${data.connected ? 'online' : 'offline'}`;
+    }
+    if (label) {
+      label.textContent = data.connected
+        ? `🟢 เชื่อมต่อ Ritual Chain สำเร็จ (Chain ID: ${data.chainId || 13390})`
+        : '🔴 Ritual Chain: Offline — ใช้ข้อมูล Mock';
+    }
+    if (block && data.blockNumber) {
+      block.textContent = '#' + Number(data.blockNumber).toLocaleString();
+    }
+
+    // ── Also update live block counter ─────────────────────
+    if (data.connected && data.blockNumber) {
+      blockNumber = Number(data.blockNumber);
+      const el      = $('#block-number');
+      const totalEl = $('#total-blocks');
+      if (el)      el.textContent      = blockNumber.toLocaleString('th-TH');
+      if (totalEl) totalEl.textContent = blockNumber.toLocaleString('th-TH');
+    }
+
+    if (data.connected) {
+      showToast(`✅ เชื่อมต่อ Ritual Chain | Block #${data.blockNumber || '—'}`, 'success');
+    }
+  } catch(e) {
+    console.warn('Web3 status check failed:', e.message);
+    liveChainConnected = false;
+    const dot   = $('#net-dot');
+    const label = $('#net-label');
+    if (dot)   dot.className   = 'net-dot offline';
+    if (label) label.textContent = '🔴 ไม่สามารถเชื่อมต่อ Server ได้';
+  }
+}
+
+// Poll network status every 30 seconds
+function startNetworkStatusPoll() {
+  checkWeb3Status();
+  setInterval(checkWeb3Status, 30000);
+}
+
+// ============================================================
 // MAIN INIT
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
@@ -822,6 +1041,11 @@ document.addEventListener('DOMContentLoaded', () => {
     initCounters();
   }, 300);
 
+  const initialHash = (window.location.hash || '').replace(/^#/, '').toLowerCase();
+  if (initialHash === 'wallet' || initialHash === 'page-wallet') {
+    switchPage('wallet');
+  }
+
   // Live updates
   startLiveBlockUpdate();
 
@@ -841,6 +1065,9 @@ document.addEventListener('DOMContentLoaded', () => {
   setTimeout(() => {
     showToast('ยินดีต้อนรับสู่ MeeChain Dashboard! 🚀', 'success');
   }, 2800);
+
+  // Web3 / network status polling
+  startNetworkStatusPoll();
 
   console.log('✅ MeeChain Dashboard initialized successfully!');
 });

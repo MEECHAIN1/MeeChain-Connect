@@ -14,7 +14,7 @@
 +cd MeeChain-Connect
 +
 # Start local server
-+python -m http.server 8000
++python3 -m http.server 8000
 # OR
 npx serve
 \```
@@ -38,5 +38,5 @@ Open your browser and navigate to `http://localhost:8000`
 
 ## Prerequisites
 - Modern web browser (Chrome, Firefox, Safari, Edge)
-- Local web server (e.g., `python -m http.server` or `npx serve`)
+- Local web server (e.g., `python3 -m http.server` or `npx serve`)
 

@@ -1,0 +1,20 @@
+name = "meechain-connect"
+main = "worker.js"
+compatibility_date = "2026-04-03"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+CHAIN_ID = "13390"
+DRPC_RPC_URL = "https://rpc.meechain.live"
+VITE_RPC_URL = "https://rpc.meechain.live"
+APP_DOMAIN = "app.meechain.live"
+APP_ORIGIN = "https://app.meechain.live"
+RPC_DOMAIN = "rpc.meechain.live"
+STATIC_REPO_BASE = "https://raw.githubusercontent.com/MEECHAIN1/MeeChain-Connect/main"
+VITE_TOKEN_CONTRACT_ADDRESS = "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"
+VITE_NFT_CONTRACT_ADDRESS = "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707"
+VITE_STAKING_CONTRACT_ADDRESS = "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853"
+MEECHAIN_TOKEN_ADDRESS = "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"
+MEEBOT_NFT_ADDRESS = "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707"
+NEONOVA_PORTAL_ADDRESS = "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853"
+GOVERNANCE_DAO_ADDRESS = "0x0165878A594ca255338adfa4d48449f69242Eb8F"

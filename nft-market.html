@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>MeeChain NFT Marketplace</title>
+  <link rel="icon" href="src/assets/images/meechain_logo.png"/>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#7C3AED"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <link rel="apple-touch-icon" href="src/assets/images/meechain_logo.png"/>
+  <style>
+    :root{
+      --bg:#0D1525;--bg2:#131c30;--card:#1a2439;--input:#1e2c45;
+      --border:rgba(255,255,255,0.08);--text:#e8eaf0;--muted:#8892a4;
+      --purple:#7C3AED;--cyan:#06B6D4;--green:#10b981;--orange:#F97316;
+      --red:#ef4444;--yellow:#f59e0b;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;font-size:14px;min-height:100vh}
+
+    /* ── Navbar ── */
+    .navbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200}
+    .nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+    .nav-logo img{width:32px;height:32px;border-radius:8px}
+    .nav-logo-text{font-size:17px;font-weight:700}
+    .nav-logo-sub{font-size:11px;color:var(--muted)}
+    .nav-links{display:flex;gap:8px}
+    .nav-link{background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px;text-decoration:none;transition:.2s}
+    .nav-link:hover,.nav-link.active{border-color:var(--purple);color:var(--text);background:rgba(124,58,237,.1)}
+    .wallet-btn{background:var(--purple);color:#fff;border:none;border-radius:8px;padding:8px 18px;cursor:pointer;font-size:13px;font-weight:600;transition:.2s}
+    .wallet-btn:hover{opacity:.85}
+    .wallet-btn.connected{background:var(--green)}
+
+    /* ── Hero ── */
+    .hero{background:linear-gradient(135deg,#1a1040 0%,#0a1830 60%,#0D1525 100%);padding:48px 24px 36px;text-align:center}
+    .hero h1{font-size:36px;font-weight:800;margin-bottom:10px}
+    .hero h1 span{background:linear-gradient(90deg,var(--purple),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .hero p{color:var(--muted);font-size:15px;margin-bottom:28px}
+    .hero-stats{display:flex;justify-content:center;gap:32px;flex-wrap:wrap}
+    .hstat{text-align:center}
+    .hstat strong{display:block;font-size:22px;font-weight:800;color:var(--cyan)}
+    .hstat span{font-size:12px;color:var(--muted)}
+
+    /* ── Tabs & Filters ── */
+    .toolbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;gap:0;overflow-x:auto}
+    .tab-btn{background:none;border:none;color:var(--muted);padding:14px 18px;cursor:pointer;font-size:13px;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap;transition:.2s}
+    .tab-btn.active{color:var(--purple);border-bottom-color:var(--purple)}
+    .tab-btn:hover:not(.active){color:var(--text)}
+
+    .filter-bar{padding:16px 24px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;background:var(--bg2);border-bottom:1px solid var(--border)}
+    .search-wrap{flex:1;min-width:200px;position:relative}
+    .search-wrap input{width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 36px 9px 14px;font-size:13px;outline:none}
+    .search-wrap input:focus{border-color:var(--cyan)}
+    .search-icon{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--muted)}
+    .filter-select{background:var(--input);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 14px;font-size:13px;cursor:pointer;outline:none}
+    .rarity-filters{display:flex;gap:6px}
+    .rarity-chip{background:none;border:1px solid var(--border);border-radius:20px;color:var(--muted);padding:5px 12px;font-size:12px;cursor:pointer;transition:.2s;white-space:nowrap}
+    .rarity-chip.active{border-color:var(--purple);color:var(--text);background:rgba(124,58,237,.15)}
+    .rarity-chip.legendary.active{border-color:var(--orange);color:var(--orange);background:rgba(249,115,22,.15)}
+    .rarity-chip.rare.active{border-color:var(--cyan);color:var(--cyan);background:rgba(6,182,212,.15)}
+    .rarity-chip.common.active{border-color:var(--green);color:var(--green);background:rgba(16,185,129,.15)}
+
+    /* ── Grid ── */
+    .main{max-width:1400px;margin:0 auto;padding:24px}
+    .nft-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:20px}
+
+    /* ── NFT Card ── */
+    .nft-card{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:.25s;cursor:pointer}
+    .nft-card:hover{transform:translateY(-4px);border-color:var(--purple);box-shadow:0 8px 32px rgba(124,58,237,.2)}
+    .nft-img-wrap{position:relative;aspect-ratio:1;overflow:hidden;background:#0a1020}
+    .nft-img-wrap img{width:100%;height:100%;object-fit:cover;transition:.3s}
+    .nft-card:hover .nft-img-wrap img{transform:scale(1.05)}
+    .nft-img-wrap svg{width:100%;height:100%}
+    .rarity-badge{position:absolute;top:10px;left:10px;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700}
+    .rarity-badge.Legendary{background:rgba(249,115,22,.9);color:#fff}
+    .rarity-badge.Rare{background:rgba(6,182,212,.9);color:#fff}
+    .rarity-badge.Common{background:rgba(16,185,129,.9);color:#fff}
+    .like-btn{position:absolute;top:10px;right:10px;background:rgba(0,0,0,.5);border:none;border-radius:20px;color:#fff;padding:4px 10px;font-size:12px;cursor:pointer;transition:.2s;backdrop-filter:blur(4px)}
+    .like-btn:hover,.like-btn.liked{color:#ef4444}
+    .nft-info{padding:14px}
+    .nft-name{font-size:14px;font-weight:700;margin-bottom:4px}
+    .nft-creator{font-size:11px;color:var(--muted);margin-bottom:10px}
+    .nft-attrs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+    .attr-chip{background:var(--input);border-radius:6px;padding:3px 8px;font-size:11px;color:var(--muted)}
+    .attr-chip span{color:var(--text);font-weight:600}
+    .nft-footer{display:flex;align-items:center;justify-content:space-between}
+    .nft-price{font-size:16px;font-weight:800;color:var(--cyan)}
+    .nft-price small{display:block;font-size:11px;color:var(--muted);font-weight:400}
+    .buy-btn{background:var(--purple);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;transition:.2s}
+    .buy-btn:hover{opacity:.85}
+
+    /* ── Pagination ── */
+    .pagination{display:flex;justify-content:center;gap:8px;margin-top:32px;flex-wrap:wrap}
+    .page-btn{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px;transition:.2s}
+    .page-btn:hover,.page-btn.active{background:var(--purple);border-color:var(--purple);color:#fff}
+
+    /* ── Mint Section ── */
+    .mint-section{background:linear-gradient(135deg,rgba(124,58,237,.1),rgba(6,182,212,.05));border:1px solid rgba(124,58,237,.3);border-radius:16px;padding:32px;margin-bottom:28px;display:none}
+    .mint-section.active{display:block}
+    .mint-title{font-size:20px;font-weight:700;margin-bottom:20px;display:flex;align-items:center;gap:10px}
+    .mint-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+    @media(max-width:700px){.mint-grid{grid-template-columns:1fr}}
+    .mint-preview{background:var(--card);border-radius:12px;overflow:hidden;aspect-ratio:1;display:flex;align-items:center;justify-content:center;position:relative}
+    .mint-preview svg{width:80%;height:80%}
+    .mint-preview-placeholder{color:var(--muted);text-align:center;padding:20px}
+    .form-group{margin-bottom:16px}
+    .form-label{display:block;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+    .form-input{width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 14px;font-size:13px;outline:none;transition:.2s}
+    .form-input:focus{border-color:var(--purple)}
+    .form-select{width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 14px;font-size:13px;outline:none;cursor:pointer}
+    .rarity-selector{display:flex;gap:8px}
+    .rarity-sel-btn{flex:1;background:var(--input);border:1px solid var(--border);border-radius:8px;color:var(--muted);padding:8px;font-size:12px;cursor:pointer;text-align:center;transition:.2s}
+    .rarity-sel-btn.active{border-color:var(--purple);color:var(--text);background:rgba(124,58,237,.15)}
+    .mint-cost{background:var(--input);border-radius:10px;padding:14px;margin-bottom:16px}
+    .cost-row{display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px}
+    .cost-row:last-child{margin-bottom:0;font-weight:700;color:var(--cyan);border-top:1px solid var(--border);padding-top:8px;margin-top:8px}
+    .mint-btn{width:100%;background:linear-gradient(135deg,var(--purple),var(--cyan));color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;transition:.2s}
+    .mint-btn:hover{opacity:.9;transform:translateY(-1px)}
+    .mint-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+    .ai-gen-btn{background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.3);color:var(--purple);border-radius:8px;padding:8px 14px;cursor:pointer;font-size:12px;transition:.2s;width:100%;margin-bottom:12px}
+    .ai-gen-btn:hover{background:rgba(124,58,237,.25)}
+
+    /* ── Detail Modal ── */
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;opacity:0;pointer-events:none;transition:.25s}
+    .modal-overlay.open{opacity:1;pointer-events:all}
+    .modal-box{background:var(--card);border:1px solid var(--border);border-radius:16px;max-width:700px;width:100%;max-height:90vh;overflow-y:auto;transform:scale(.95);transition:.25s}
+    .modal-overlay.open .modal-box{transform:scale(1)}
+    .modal-header{padding:20px 24px 0;display:flex;justify-content:space-between;align-items:center}
+    .modal-close{background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 12px;cursor:pointer;font-size:13px}
+    .modal-body{padding:24px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
+    @media(max-width:600px){.modal-body{grid-template-columns:1fr}}
+    .modal-img{border-radius:12px;overflow:hidden;background:#0a1020;aspect-ratio:1}
+    .modal-img img,.modal-img svg{width:100%;height:100%;object-fit:cover}
+    .modal-info h2{font-size:20px;font-weight:800;margin-bottom:4px}
+    .modal-creator{font-size:12px;color:var(--muted);margin-bottom:16px}
+    .modal-price-box{background:var(--input);border-radius:10px;padding:14px;margin-bottom:16px}
+    .modal-price{font-size:28px;font-weight:800;color:var(--cyan)}
+    .modal-price-usd{font-size:13px;color:var(--muted)}
+    .modal-attrs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+    .modal-attr{background:var(--input);border-radius:8px;padding:10px;text-align:center}
+    .modal-attr-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+    .modal-attr-value{font-size:13px;font-weight:700}
+    .modal-history{margin-top:16px;grid-column:1/-1}
+    .history-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
+    .history-row:last-child{border-bottom:none}
+    .modal-buy-btn{width:100%;background:linear-gradient(135deg,var(--purple),var(--cyan));color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;transition:.2s}
+    .modal-buy-btn:hover{opacity:.9}
+    .modal-buy-btn:disabled{opacity:.5;cursor:not-allowed}
+
+    /* ── Toast ── */
+    .toast-wrap{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+    .toast{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 18px;font-size:13px;max-width:320px;animation:slideIn .3s}
+    .toast.success{border-color:var(--green);color:var(--green)}
+    .toast.error{border-color:var(--red);color:var(--red)}
+    .toast.info{border-color:var(--cyan);color:var(--cyan)}
+    @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+
+    /* ── Loading ── */
+    .skeleton{background:linear-gradient(90deg,var(--card) 25%,var(--input) 50%,var(--card) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:8px}
+    @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+    /* ── Empty state ── */
+    .empty-state{text-align:center;padding:60px 20px;color:var(--muted)}
+    .empty-state .emoji{font-size:48px;margin-bottom:16px}
+
+    /* ── My NFTs section ── */
+    .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+    .section-title{font-size:18px;font-weight:700}
+
+    /* ── Stats bar ── */
+    .stats-bar{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;overflow-x:auto}
+    .stat-item{padding:14px 24px;min-width:140px;border-right:1px solid var(--border)}
+    .stat-item strong{display:block;font-size:20px;font-weight:800;color:var(--cyan)}
+    .stat-item span{font-size:11px;color:var(--muted)}
+    .stat-item .up{color:var(--green);font-size:11px}
+
+    /* ── Footer ── */
+    .footer{text-align:center;padding:24px;color:var(--muted);font-size:12px;border-top:1px solid var(--border);margin-top:40px}
+  </style>
+</head>
+<body>
+
+<!-- ── Navbar ── -->
+<nav class="navbar">
+  <a class="nav-logo" href="index.html">
+    <img src="src/assets/images/meechain_logo.png" alt="MeeChain" onerror="this.style.display='none'"/>
+    <div><div class="nav-logo-text">MeeChain</div><div class="nav-logo-sub">NFT Marketplace</div></div>
+  </a>
+  <div class="nav-links">
+    <a class="nav-link" href="index.html">🏠 Dashboard</a>
+    <a class="nav-link active" href="nft-market.html">🖼️ Marketplace</a>
+    <a class="nav-link" href="explorer.html">🔍 Explorer</a>
+    <a class="nav-link" href="dao.html">🏛️ DAO</a>
+    <a class="nav-link" href="analytics.html">📊 Analytics</a>
+  </div>
+  <button class="wallet-btn" id="wallet-btn" onclick="connectWallet()">👛 <span data-i18n="wallet.connect">เชื่อมต่อ Wallet</span></button>
+</nav>
+
+<!-- ── Hero ── -->
+<div class="hero">
+  <h1>🖼️ <span>MeeBot NFT</span> Marketplace</h1>
+  <p>ซื้อ ขาย และสร้าง NFT บน Ritual Chain (Chain ID: 13390)</p>
+  <div class="hero-stats">
+    <div class="hstat"><strong id="stat-total">10,000</strong><span>Total NFTs</span></div>
+    <div class="hstat"><strong id="stat-floor">50 MEE</strong><span>Floor Price</span></div>
+    <div class="hstat"><strong id="stat-vol">1.2M MEE</strong><span>Total Volume</span></div>
+    <div class="hstat"><strong id="stat-owners">3,241</strong><span>Owners</span></div>
+  </div>
+</div>
+
+<!-- ── Stats Bar ── -->
+<div class="stats-bar">
+  <div class="stat-item"><strong id="sb-listed">247</strong><span>Listed Now</span></div>
+  <div class="stat-item"><strong id="sb-legendary">48</strong><span>🟠 Legendary</span></div>
+  <div class="stat-item"><strong id="sb-rare">189</strong><span>🔵 Rare</span></div>
+  <div class="stat-item"><strong id="sb-common">--</strong><span>🟢 Common</span></div>
+  <div class="stat-item"><strong>$0.0842</strong><span>MEE Price <span class="up">▲+12.5%</span></span></div>
+  <div class="stat-item"><strong id="sb-mint">MINT PRICE</strong><span>5 MEE / NFT</span></div>
+</div>
+
+<!-- ── Tabs ── -->
+<div class="toolbar">
+  <button class="tab-btn active" onclick="switchTab('market',this)">🏪 ตลาด NFT</button>
+  <button class="tab-btn" onclick="switchTab('mint',this)">⚡ Mint NFT</button>
+  <button class="tab-btn" onclick="switchTab('my',this)">👤 NFT ของฉัน</button>
+</div>
+
+<!-- ── Filter Bar ── -->
+<div class="filter-bar" id="filter-bar">
+  <div class="search-wrap">
+    <input type="text" id="search-input" placeholder="ค้นหา NFT..." oninput="filterNFTs()"/>
+    <span class="search-icon">🔍</span>
+  </div>
+  <select class="filter-select" id="sort-select" onchange="filterNFTs()">
+    <option value="recent">ล่าสุด</option>
+    <option value="price_asc">ราคา ต่ำ→สูง</option>
+    <option value="price_desc">ราคา สูง→ต่ำ</option>
+    <option value="rarity">Rarity</option>
+  </select>
+  <div class="rarity-filters">
+    <button class="rarity-chip active" data-rarity="all" onclick="setRarity('all',this)">ทั้งหมด</button>
+    <button class="rarity-chip legendary" data-rarity="Legendary" onclick="setRarity('Legendary',this)">🟠 Legendary</button>
+    <button class="rarity-chip rare" data-rarity="Rare" onclick="setRarity('Rare',this)">🔵 Rare</button>
+    <button class="rarity-chip common" data-rarity="Common" onclick="setRarity('Common',this)">🟢 Common</button>
+  </div>
+</div>
+
+<!-- ── Main ── -->
+<div class="main">
+
+  <!-- Mint Section -->
+  <div class="mint-section" id="mint-section">
+    <div class="mint-title">⚡ Mint NFT ใหม่ บน MeeChain</div>
+    <div class="mint-grid">
+      <!-- Preview -->
+      <div>
+        <div class="mint-preview" id="mint-preview">
+          <div class="mint-preview-placeholder">
+            <div style="font-size:48px;margin-bottom:8px">🎨</div>
+            <div>กรอกข้อมูลเพื่อ Preview</div>
+          </div>
+        </div>
+      </div>
+      <!-- Form -->
+      <div>
+        <div class="form-group">
+          <label class="form-label">ชื่อ NFT</label>
+          <input class="form-input" id="mint-name" placeholder="เช่น MeeBot Alpha #042" oninput="updateMintPreview()"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">หมวดหมู่</label>
+          <select class="form-select" id="mint-category" onchange="updateMintPreview()">
+            <option value="avatar">Avatar</option>
+            <option value="art">ศิลปะ</option>
+            <option value="gaming">Gaming</option>
+            <option value="music">เพลง</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Element</label>
+          <select class="form-select" id="mint-element" onchange="updateMintPreview()">
+            <option value="Fire">🔥 Fire</option>
+            <option value="Water">💧 Water</option>
+            <option value="Earth">🌍 Earth</option>
+            <option value="Wind">💨 Wind</option>
+            <option value="Lightning">⚡ Lightning</option>
+            <option value="Void">🌀 Void</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Rarity</label>
+          <div class="rarity-selector">
+            <button class="rarity-sel-btn active" data-r="Common" onclick="selectRarity('Common',this)">🟢 Common</button>
+            <button class="rarity-sel-btn" data-r="Rare" onclick="selectRarity('Rare',this)">🔵 Rare</button>
+            <button class="rarity-sel-btn" data-r="Legendary" onclick="selectRarity('Legendary',this)">🟠 Legendary</button>
+          </div>
+        </div>
+        <button class="ai-gen-btn" onclick="generateAIDesc()">✨ สร้างคำอธิบายด้วย AI</button>
+        <div class="form-group">
+          <label class="form-label">คำอธิบาย</label>
+          <textarea class="form-input" id="mint-desc" rows="3" placeholder="คำอธิบาย NFT..."></textarea>
+        </div>
+        <div class="mint-cost">
+          <div class="cost-row"><span>Mint Price</span><span>5 MEE</span></div>
+          <div class="cost-row"><span>Portal Fee</span><span>0.001 MEE</span></div>
+          <div class="cost-row"><span>Network Gas</span><span>~0.0001 MEE</span></div>
+          <div class="cost-row"><span>รวมทั้งหมด</span><span>~5.0011 MEE</span></div>
+        </div>
+        <button class="mint-btn" id="mint-btn" onclick="executeMint()">⚡ Mint NFT ทันที</button>
+        <p style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center">
+          NFT จะถูก mint บน MeeChain Ritual Chain (Chain ID: 13390)<br/>ต้องเชื่อมต่อ MetaMask ก่อน
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- My NFTs Section -->
+  <div id="my-section" style="display:none">
+    <div class="section-header">
+      <div class="section-title">👤 NFT ของฉัน</div>
+      <button class="wallet-btn" id="my-connect-btn" onclick="connectWallet()">🔌 เชื่อมต่อ Wallet</button>
+    </div>
+    <div id="my-nft-grid" class="nft-grid">
+      <div class="empty-state" style="grid-column:1/-1">
+        <div class="emoji">👛</div>
+        <div>เชื่อมต่อ Wallet เพื่อดู NFT ของคุณ</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Market Section -->
+  <div id="market-section">
+    <div class="section-header">
+      <div class="section-title">🏪 NFT ทั้งหมด <span id="result-count" style="font-size:13px;color:var(--muted);font-weight:400"></span></div>
+    </div>
+    <div class="nft-grid" id="nft-grid">
+      <!-- Skeleton loaders -->
+      ${[...Array(8)].map(()=>`
+        <div class="nft-card">
+          <div class="nft-img-wrap skeleton" style="aspect-ratio:1"></div>
+          <div class="nft-info">
+            <div class="skeleton" style="height:16px;width:70%;margin-bottom:8px"></div>
+            <div class="skeleton" style="height:12px;width:50%;margin-bottom:16px"></div>
+            <div class="nft-footer">
+              <div class="skeleton" style="height:24px;width:80px"></div>
+              <div class="skeleton" style="height:32px;width:70px;border-radius:8px"></div>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+    <div class="pagination" id="pagination"></div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- ── NFT Detail Modal ── -->
+<div class="modal-overlay" id="nft-modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="modal-title">NFT Detail</h3>
+      <button class="modal-close" onclick="closeModal()">✕ ปิด</button>
+    </div>
+    <div class="modal-body" id="modal-body">
+      <!-- filled by JS -->
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast Container ── -->
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<div class="footer">
+  MeeChain NFT Marketplace v2.0 — Ritual Chain (Chain ID: 13390) —
+  <a href="index.html" style="color:var(--cyan)">← กลับสู่ Dashboard</a>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  MeeChain NFT Marketplace — Full Client JS
+// ═══════════════════════════════════════════════════════
+const API = '';
+const CHAIN_ID      = 13390;
+const NFT_CONTRACT  = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512';
+const TOKEN_CONTRACT= '0x5FbDB2315678afecb367f032d93F642f64180aa3';
+const MINT_PRICE_WEI= BigInt('5000000000000000000'); // 5 MEE
+const PORTAL_FEE_WEI= BigInt('1000000000000000');    // 0.001 MEE
+const MEE_PRICE_USD = 0.0842;
+
+// ── State ──
+let walletAddress = null;
+let allNFTs       = [];
+let filteredNFTs  = [];
+let currentPage   = 1;
+const PAGE_SIZE   = 12;
+let selectedRarity = 'all';
+let mintRarity    = 'Common';
+let likedSet      = new Set(JSON.parse(localStorage.getItem('mee_liked')||'[]'));
+
+// ── Toast ──
+function toast(msg, type='info', ms=4000){
+  const wrap = document.getElementById('toast-wrap');
+  const el   = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(()=>el.remove(), ms);
+}
+
+// ── Tab Switcher ──
+function switchTab(tab, btn){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('market-section').style.display = tab==='market' ? '' : 'none';
+  document.getElementById('mint-section').classList.toggle('active', tab==='mint');
+  document.getElementById('my-section').style.display    = tab==='my'   ? '' : 'none';
+  document.getElementById('filter-bar').style.display    = tab==='market'? '' : 'none';
+  if(tab==='my') loadMyNFTs();
+}
+
+// ── Wallet Connect ──
+async function connectWallet(){
+  // Use wallet.js if available (handles chain-switch, updateWalletUI, events)
+  if(typeof window.connectMetaMask === 'function'){
+    const ok = await window.connectMetaMask();
+    if(ok && window.WalletState?.address){
+      walletAddress = window.WalletState.address;
+      // Apply same local state updates as fallback path
+      loadMyNFTs();
+      const btn = document.getElementById('wallet-btn');
+      if(btn){ btn.textContent = '🦊✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4); btn.classList.add('connected'); btn.style.background='#10B981'; }
+      const myBtn = document.getElementById('my-connect-btn');
+      if(myBtn){ myBtn.textContent = '🦊✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4); }
+    }
+    return;
+  }
+  // Fallback inline connect
+  if(!window.ethereum){ toast('❌ MetaMask ไม่พบ กรุณาติดตั้ง','error'); return; }
+  try{
+    const accounts = await window.ethereum.request({method:'eth_requestAccounts'});
+    walletAddress  = accounts[0];
+    // Switch to MeeChain
+    try{
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{chainId:'0x' + CHAIN_ID.toString(16)}]
+      });
+    }catch(e){
+      if(e.code===4902 || e.code===-32603){
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params:[{
+            chainId: '0x' + CHAIN_ID.toString(16),
+            chainName: 'MeeChain Ritual Chain',
+            rpcUrls: ['https://rpc.meechain.live','https://rpc.meechain.run.place'],
+            nativeCurrency:{name:'MEE Token',symbol:'MEE',decimals:18},
+            blockExplorerUrls:['https://app.meechain.live/explorer.html']
+          }]
+        });
+      }
+    }
+    const btn = document.getElementById('wallet-btn');
+    if(btn){ btn.textContent = '🦊✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4); btn.classList.add('connected'); btn.style.background='#10B981'; }
+    const myBtn = document.getElementById('my-connect-btn');
+    if(myBtn){ myBtn.textContent = '🦊✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4); }
+    toast('✅ เชื่อมต่อ MeeChain สำเร็จ!','success');
+  }catch(e){
+    if(e.code!==4001) toast('❌ '+e.message?.slice(0,60),'error');
+  }
+}
+
+// ── Sync with wallet.js events ──
+window.addEventListener('walletConnected', (e) => {
+  if(e.detail?.address){
+    walletAddress = e.detail.address;
+    loadMyNFTs();
+    const btn = document.getElementById('wallet-btn');
+    if(btn){ btn.textContent = '🦊✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4); btn.classList.add('connected'); btn.style.background='#10B981'; }
+    const myBtn = document.getElementById('my-connect-btn');
+    if(myBtn){ myBtn.textContent = '🦊✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4); }
+  }
+});
+window.addEventListener('walletUIUpdated', (e) => {
+  if(e.detail?.address){
+    walletAddress = e.detail.address;
+    loadMyNFTs();
+    const btn = document.getElementById('wallet-btn');
+    if(btn){ btn.textContent = '🦊✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4); btn.classList.add('connected'); btn.style.background='#10B981'; }
+    const myBtn = document.getElementById('my-connect-btn');
+    if(myBtn){ myBtn.textContent = '🦊✅ ' + walletAddress.slice(0,6)+'...'+walletAddress.slice(-4); }
+  }
+});
+
+// ── Load NFTs from API ──
+async function loadNFTs(page=1){
+  try{
+    const sort = document.getElementById('sort-select').value;
+    const res  = await fetch(`${API}/api/nft/marketplace?page=${page}&limit=${PAGE_SIZE}&sort=${sort}`);
+    const data = await res.json();
+    allNFTs     = data.listings || [];
+    filteredNFTs= [...allNFTs];
+    renderNFTs();
+    renderPagination(data.total, page);
+    document.getElementById('result-count').textContent = `(${data.total} รายการ)`;
+    document.getElementById('sb-listed').textContent   = data.total;
+  }catch(e){
+    document.getElementById('nft-grid').innerHTML =
+      `<div class="empty-state" style="grid-column:1/-1"><div class="emoji">⚠️</div><div>โหลดข้อมูลไม่ได้ กรุณาลองใหม่</div></div>`;
+  }
+}
+
+// ── SVG Art Generator ──
+const PALETTES = {
+  Legendary:['#FF6B35','#FFD700','#FF4500','#FFA500'],
+  Rare:     ['#06B6D4','#7C3AED','#0EA5E9','#8B5CF6'],
+  Common:   ['#10b981','#059669','#34D399','#6EE7B7'],
+};
+const ELEMENTS_SVG = {
+  Fire:     (c)=>`<circle cx="120" cy="90" r="45" fill="${c[0]}" opacity=".8"/><polygon points="120,20 100,80 140,80" fill="${c[1]}" opacity=".9"/><circle cx="120" cy="90" r="20" fill="${c[2]}" opacity=".7"/>`,
+  Water:    (c)=>`<ellipse cx="120" cy="110" rx="60" ry="50" fill="${c[0]}" opacity=".7"/><path d="M80,90 Q120,50 160,90 Q120,130 80,90" fill="${c[1]}" opacity=".8"/>`,
+  Earth:    (c)=>`<rect x="60" y="80" width="120" height="80" rx="10" fill="${c[0]}" opacity=".8"/><polygon points="120,30 70,80 170,80" fill="${c[1]}" opacity=".9"/>`,
+  Wind:     (c)=>`<path d="M40,100 Q80,60 120,100 Q160,140 200,100" stroke="${c[0]}" stroke-width="8" fill="none"/><path d="M40,80 Q80,40 120,80 Q160,120 200,80" stroke="${c[1]}" stroke-width="6" fill="none" opacity=".6"/>`,
+  Lightning:(c)=>`<polygon points="130,20 100,100 120,100 90,180 160,90 135,90 165,20" fill="${c[0]}" opacity=".9"/><polygon points="130,20 100,100 120,100 90,180 160,90 135,90 165,20" fill="${c[1]}" opacity=".3" transform="translate(5,5)"/>`,
+  Void:     (c)=>`<circle cx="120" cy="100" r="60" fill="${c[0]}" opacity=".6"/><circle cx="120" cy="100" r="40" fill="black" opacity=".8"/><circle cx="120" cy="100" r="20" fill="${c[2]}" opacity=".7"/>`,
+};
+function genSVG(element='Fire', rarity='Common', seed=1){
+  const pal  = PALETTES[rarity] || PALETTES.Common;
+  const art  = (ELEMENTS_SVG[element]||ELEMENTS_SVG.Fire)(pal);
+  const bg1  = pal[0]; const bg2=pal[1];
+  return `<svg viewBox="0 0 240 200" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="bg${seed}" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="${bg1}" stop-opacity=".15"/>
+      <stop offset="100%" stop-color="${bg2}" stop-opacity=".3"/>
+    </linearGradient></defs>
+    <rect width="240" height="200" fill="url(#bg${seed})" rx="4"/>
+    ${art}
+    <circle cx="${50+seed*30%140}" cy="${30+seed*20%60}" r="${3+seed%5}" fill="${pal[2]}" opacity=".5"/>
+    <circle cx="${150+seed*20%60}" cy="${20+seed*15%50}" r="${2+seed%4}" fill="${pal[3]||pal[0]}" opacity=".4"/>
+  </svg>`;
+}
+
+// ── Render NFT Cards ──
+function renderNFTs(){
+  const grid   = document.getElementById('nft-grid');
+  const search = (document.getElementById('search-input').value||'').toLowerCase();
+  const rarity = selectedRarity;
+  let data     = [...allNFTs];
+
+  if(rarity!=='all') data = data.filter(n=>n.rarity===rarity);
+  if(search)         data = data.filter(n=>(n.name||'').toLowerCase().includes(search));
+
+  const total  = data.length;
+  const start  = (currentPage-1)*PAGE_SIZE;
+  const page   = data.slice(start, start+PAGE_SIZE);
+
+  if(page.length===0){
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="emoji">🔍</div><div>ไม่พบ NFT ที่ค้นหา</div></div>`;
+    return;
+  }
+
+  grid.innerHTML = page.map((n,i)=>{
+    const svg    = genSVG(n.element, n.rarity, n.tokenId);
+    const liked  = likedSet.has(n.tokenId);
+    return `
+    <div class="nft-card" onclick="showDetail(${n.tokenId})">
+      <div class="nft-img-wrap">
+        ${svg}
+        <span class="rarity-badge ${n.rarity}">${n.rarity==='Legendary'?'🟠':n.rarity==='Rare'?'🔵':'🟢'} ${n.rarity}</span>
+        <button class="like-btn ${liked?'liked':''}" onclick="event.stopPropagation();toggleLike(${n.tokenId},this)">
+          ${liked?'❤️':'🤍'} <span class="like-count">${n.likes||Math.floor(Math.random()*200+10)}</span>
+        </button>
+      </div>
+      <div class="nft-info">
+        <div class="nft-name">${n.name}</div>
+        <div class="nft-creator">⚡ ${n.element} · 💥 Power ${n.power?.toLocaleString()}</div>
+        <div class="nft-attrs">
+          <span class="attr-chip">Type: <span>${n.botType||'Alpha Bot'}</span></span>
+          <span class="attr-chip">Speed: <span>${n.speed?.toLocaleString()}</span></span>
+        </div>
+        <div class="nft-footer">
+          <div class="nft-price">
+            ${n.price} MEE
+            <small>≈ $${n.priceUsd||((n.price||0)*MEE_PRICE_USD).toFixed(2)}</small>
+          </div>
+          <button class="buy-btn" onclick="event.stopPropagation();buyNFT(${n.tokenId})">
+            🛒 ซื้อ
+          </button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Pagination ──
+function renderPagination(total, page){
+  const pages = Math.ceil(total/PAGE_SIZE);
+  const nav   = document.getElementById('pagination');
+  if(pages<=1){nav.innerHTML='';return;}
+  let html='';
+  if(page>1) html+=`<button class="page-btn" onclick="goPage(${page-1})">← ก่อน</button>`;
+  for(let p=Math.max(1,page-2);p<=Math.min(pages,page+2);p++){
+    html+=`<button class="page-btn ${p===page?'active':''}" onclick="goPage(${p})">${p}</button>`;
+  }
+  if(page<pages) html+=`<button class="page-btn" onclick="goPage(${page+1})">ถัดไป →</button>`;
+  nav.innerHTML=html;
+}
+function goPage(p){ currentPage=p; renderNFTs(); window.scrollTo({top:300,behavior:'smooth'}); }
+
+// ── Filter ──
+function filterNFTs(){ currentPage=1; renderNFTs(); }
+function setRarity(r, btn){
+  selectedRarity=r;
+  document.querySelectorAll('.rarity-chip').forEach(c=>c.classList.remove('active'));
+  btn.classList.add('active');
+  filterNFTs();
+}
+
+// ── Like ──
+function toggleLike(id, btn){
+  if(likedSet.has(id)){
+    likedSet.delete(id);
+    btn.innerHTML='🤍 <span class="like-count">'+(parseInt(btn.querySelector('.like-count').textContent)-1)+'</span>';
+    btn.classList.remove('liked');
+  }else{
+    likedSet.add(id);
+    btn.innerHTML='❤️ <span class="like-count">'+(parseInt(btn.querySelector('.like-count').textContent)+1)+'</span>';
+    btn.classList.add('liked');
+  }
+  localStorage.setItem('mee_liked',JSON.stringify([...likedSet]));
+}
+
+// ── Detail Modal ──
+async function showDetail(tokenId){
+  document.getElementById('nft-modal').classList.add('open');
+  document.getElementById('modal-title').textContent = 'กำลังโหลด...';
+  document.getElementById('modal-body').innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">⏳ กำลังโหลด...</div>';
+
+  try{
+    const res = await fetch(`${API}/api/nft/token/${tokenId}`);
+    const n   = await res.json();
+    const svg = genSVG(n.element, n.rarity, n.tokenId);
+    document.getElementById('modal-title').textContent = n.name;
+    document.getElementById('modal-body').innerHTML = `
+      <div class="modal-img">${svg}</div>
+      <div class="modal-info">
+        <h2>${n.name}</h2>
+        <div class="modal-creator">🏷️ Contract: ${NFT_CONTRACT.slice(0,8)}...${NFT_CONTRACT.slice(-6)}</div>
+        <div class="modal-price-box">
+          <div class="modal-price">${n.rarity==='Legendary'?500+n.tokenId*10:n.rarity==='Rare'?200+n.tokenId*5:50+n.tokenId*2} MEE</div>
+          <div class="modal-price-usd">≈ $${((n.rarity==='Legendary'?500+n.tokenId*10:n.rarity==='Rare'?200+n.tokenId*5:50+n.tokenId*2)*MEE_PRICE_USD).toFixed(2)} USD</div>
+        </div>
+        <div class="modal-attrs">
+          <div class="modal-attr"><div class="modal-attr-label">Rarity</div><div class="modal-attr-value">${n.rarity==='Legendary'?'🟠':n.rarity==='Rare'?'🔵':'🟢'} ${n.rarity}</div></div>
+          <div class="modal-attr"><div class="modal-attr-label">Element</div><div class="modal-attr-value">${n.element}</div></div>
+          <div class="modal-attr"><div class="modal-attr-label">Power</div><div class="modal-attr-value" style="color:var(--orange)">${n.power?.toLocaleString()}</div></div>
+          <div class="modal-attr"><div class="modal-attr-label">Speed</div><div class="modal-attr-value" style="color:var(--cyan)">${n.speed?.toLocaleString()}</div></div>
+          <div class="modal-attr"><div class="modal-attr-label">Type</div><div class="modal-attr-value">${n.botType}</div></div>
+          <div class="modal-attr"><div class="modal-attr-label">Chain</div><div class="modal-attr-value">Ritual #13390</div></div>
+        </div>
+        <button class="modal-buy-btn" onclick="buyNFT(${n.tokenId})">🛒 ซื้อ NFT นี้</button>
+        <div style="font-size:11px;color:var(--muted);text-align:center">ต้องเชื่อมต่อ MetaMask และมี MEE เพียงพอ</div>
+      </div>
+      <div class="modal-history">
+        <div style="font-size:14px;font-weight:700;margin-bottom:12px">📜 Transaction History</div>
+        ${(n.history||[]).map(h=>`
+          <div class="history-row">
+            <span>${h.event}</span>
+            <span style="color:var(--muted)">${h.from?.slice(0,8)}...→${h.to?.slice(0,8)}...</span>
+            <span style="color:var(--cyan)">${h.price||0} MEE</span>
+            <span style="color:var(--muted)">${new Date(h.time).toLocaleDateString('th-TH')}</span>
+          </div>
+        `).join('')}
+      </div>`;
+  }catch(e){
+    document.getElementById('modal-body').innerHTML=`<div style="color:var(--red);padding:20px">❌ โหลดข้อมูลไม่ได้</div>`;
+  }
+}
+function closeModal(){ document.getElementById('nft-modal').classList.remove('open'); }
+
+// ── Buy NFT ──
+async function buyNFT(tokenId){
+  if(!walletAddress){ toast('⚠️ กรุณาเชื่อมต่อ Wallet ก่อน','info'); connectWallet(); return; }
+  const nft     = allNFTs.find(n=>n.tokenId===tokenId) || {price:50};
+  const priceWei= BigInt(Math.round(nft.price)) * BigInt('1000000000000000000');
+  toast(`🛒 ยืนยันซื้อ ${nft.name||'NFT #'+tokenId} ใน MetaMask...`,'info');
+  try{
+    const txHash = await window.ethereum.request({
+      method:'eth_sendTransaction',
+      params:[{
+        from:  walletAddress,
+        to:    NFT_CONTRACT,
+        value: '0x' + priceWei.toString(16),
+        gas:   '0x30D40',
+      }]
+    });
+    closeModal();
+    toast(`✅ ซื้อสำเร็จ! TX: ${txHash.slice(0,12)}...`,'success',6000);
+  }catch(e){
+    if(e.code!==4001) toast(`❌ ${e.message?.slice(0,60)}`,'error');
+    else toast('❌ ยกเลิกการซื้อ','error');
+  }
+}
+
+// ── Mint ──
+function selectRarity(r, btn){
+  mintRarity=r;
+  document.querySelectorAll('.rarity-sel-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  updateMintPreview();
+}
+function updateMintPreview(){
+  const el  = document.getElementById('mint-element').value;
+  const preview = document.getElementById('mint-preview');
+  preview.innerHTML = genSVG(el, mintRarity, Date.now()%1000);
+}
+async function generateAIDesc(){
+  const name = document.getElementById('mint-name').value||'MeeBot';
+  const cat  = document.getElementById('mint-category').value;
+  const btn  = event.target;
+  btn.textContent='⏳ กำลังสร้าง...'; btn.disabled=true;
+  try{
+    const res  = await fetch(`${API}/api/nft/describe`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({name, category:cat, traits:`Rarity:${mintRarity},Element:${document.getElementById('mint-element').value}`})
+    });
+    const data = await res.json();
+    document.getElementById('mint-desc').value = data.description||'';
+    toast('✨ AI สร้างคำอธิบายสำเร็จ!','success');
+  }catch(e){ toast('❌ AI ไม่สามารถสร้างได้ตอนนี้','error'); }
+  finally{ btn.textContent='✨ สร้างคำอธิบายด้วย AI'; btn.disabled=false; }
+}
+async function executeMint(){
+  const name = document.getElementById('mint-name').value.trim();
+  if(!name){ toast('❌ กรุณาใส่ชื่อ NFT','error'); return; }
+  if(!walletAddress){ toast('⚠️ กรุณาเชื่อมต่อ Wallet ก่อน','info'); connectWallet(); return; }
+
+  const btn = document.getElementById('mint-btn');
+  btn.disabled=true; btn.textContent='⏳ กำลัง Mint...';
+
+  try{
+    const totalWei = MINT_PRICE_WEI + PORTAL_FEE_WEI;
+    const txHash = await window.ethereum.request({
+      method:'eth_sendTransaction',
+      params:[{
+        from:  walletAddress,
+        to:    NFT_CONTRACT,
+        value: '0x' + totalWei.toString(16),
+        gas:   '0x493E0',
+      }]
+    });
+    toast(`✅ Mint สำเร็จ! "${name}" TX: ${txHash.slice(0,12)}...`,'success',8000);
+    setTimeout(()=>{ switchTab('my',document.querySelectorAll('.tab-btn')[2]); },2000);
+  }catch(e){
+    if(e.code!==4001) toast(`❌ ${e.message?.slice(0,60)}`,'error');
+    else toast('❌ ยกเลิก Mint','error');
+  }finally{
+    btn.disabled=false; btn.textContent='⚡ Mint NFT ทันที';
+  }
+}
+
+// ── My NFTs ──
+async function loadMyNFTs(){
+  if(!walletAddress){ return; }
+  const grid = document.getElementById('my-nft-grid');
+  grid.innerHTML='<div style="color:var(--muted);padding:20px">⏳ กำลังโหลด...</div>';
+  try{
+    const res  = await fetch(`${API}/api/nft/balance/${walletAddress}`);
+    const data = await res.json();
+    const count= parseInt(data.balance)||0;
+    if(count===0){
+      grid.innerHTML=`<div class="empty-state" style="grid-column:1/-1"><div class="emoji">🖼️</div><div>คุณยังไม่มี NFT กรุณา Mint หรือซื้อก่อน</div></div>`;
+      return;
+    }
+    // Generate mock display for owned NFTs
+    const myNFTs = [...Array(count)].map((_,i)=>({
+      tokenId:i+1,name:`MeeBot #${String(i+1).padStart(3,'0')}`,
+      rarity:['Common','Rare','Legendary'][i%3],
+      element:['Fire','Water','Lightning'][i%3],
+      price:50+i*20,power:2000+i*100,speed:1800+i*80,botType:'Alpha Bot'
+    }));
+    grid.innerHTML = myNFTs.map(n=>`
+      <div class="nft-card" onclick="showDetail(${n.tokenId})">
+        <div class="nft-img-wrap">${genSVG(n.element,n.rarity,n.tokenId)}
+          <span class="rarity-badge ${n.rarity}">${n.rarity==='Legendary'?'🟠':n.rarity==='Rare'?'🔵':'🟢'} ${n.rarity}</span>
+        </div>
+        <div class="nft-info">
+          <div class="nft-name">${n.name}</div>
+          <div class="nft-creator">⚡ ${n.element} · 💥 ${n.power.toLocaleString()}</div>
+          <div class="nft-footer">
+            <div class="nft-price">${n.price} MEE</div>
+            <button class="buy-btn" style="background:var(--orange)" onclick="event.stopPropagation();toast('🔜 Listing feature coming soon','info')">📤 List</button>
+          </div>
+        </div>
+      </div>`).join('');
+  }catch(e){
+    grid.innerHTML=`<div class="empty-state" style="grid-column:1/-1"><div class="emoji">⚠️</div><div>โหลดข้อมูลไม่ได้</div></div>`;
+  }
+}
+
+// ── Live price update via WS ──
+(function wsConnect(){
+  const wsUrl = `${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws`;
+  try{
+    const ws = new WebSocket(wsUrl);
+    ws.onmessage=(ev)=>{
+      try{
+        const d=JSON.parse(ev.data);
+        if(d.type==='price_update'){
+          document.querySelectorAll('[data-mee-price]').forEach(el=>el.textContent='$'+d.price);
+        }
+      }catch{}
+    };
+    ws.onclose=()=>setTimeout(wsConnect,5000);
+  }catch{}
+})();
+
+// ── Init ──
+(async function init(){
+  updateMintPreview();
+  await loadNFTs(1);
+  // Load stats from API
+  try{
+    const r=await fetch('/api/nft/info');
+    const d=await r.json();
+    if(d.totalSupply) document.getElementById('stat-total').textContent=Number(d.totalSupply).toLocaleString();
+  }catch{}
+  // Auto-connect if already approved
+  if(window.ethereum){
+    window.ethereum.request({method:'eth_accounts'}).then(accounts=>{
+      if(accounts[0]){
+        walletAddress=accounts[0];
+        // wallet.js updateWalletUI will handle UI if loaded, else fallback
+        if(typeof updateWalletUI==='function' && window.WalletState){
+          window.WalletState.connected=true; window.WalletState.address=accounts[0];
+          updateWalletUI();
+        } else {
+          const btn=document.getElementById('wallet-btn');
+          if(btn){btn.textContent='🦊✅ '+walletAddress.slice(0,6)+'...'+walletAddress.slice(-4);btn.classList.add('connected');btn.style.background='#10B981';}
+        }
+      }
+    });
+    window.ethereum.on('accountsChanged',accounts=>{
+      walletAddress=accounts[0]||null;
+      if(typeof updateWalletUI==='function' && window.WalletState){
+        window.WalletState.connected=!!walletAddress; window.WalletState.address=walletAddress;
+        updateWalletUI();
+      } else {
+        const btn=document.getElementById('wallet-btn');
+        if(btn){
+          btn.innerHTML=walletAddress?'🦊✅ '+walletAddress.slice(0,6)+'...'+walletAddress.slice(-4):'👛 <span data-i18n="wallet.connect">เชื่อมต่อ Wallet</span>';
+          btn.classList.toggle('connected',!!walletAddress);
+          btn.style.background=walletAddress?'#10B981':'';
+        }
+      }
+    });
+  }
+})();
+</script>
+  <!-- Ethers.js + Wallet Integration -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+  <script src="src/js/wallet.js"></script>
+  <!-- Shared Components -->
+  <script src="src/js/chat-widget.js"></script>
+  <script src="src/js/i18n.js"></script>
+  <!-- PWA Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>

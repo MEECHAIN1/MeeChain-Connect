@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MeeChain Block Explorer</title>
+  <link rel="icon" href="src/assets/images/meechain_logo.png" type="image/png" />
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#7C3AED"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <link rel="apple-touch-icon" href="src/assets/images/meechain_logo.png"/>
+  <style>
+    /* ══════════════════════════════════════════════════
+       MeeChain Block Explorer — Standalone Dark Theme
+    ══════════════════════════════════════════════════ */
+    :root {
+      --bg-primary:   #0D1525;
+      --bg-secondary: #131c30;
+      --bg-card:      #1a2439;
+      --bg-input:     #1e2c45;
+      --border:       rgba(255,255,255,0.08);
+      --text-primary: #e8eaf0;
+      --text-muted:   #8892a4;
+      --accent:       #7C3AED;
+      --accent2:      #06B6D4;
+      --green:        #10b981;
+      --orange:       #F97316;
+      --red:          #ef4444;
+      --yellow:       #f59e0b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { background: var(--bg-primary); color: var(--text-primary); font-family: 'Segoe UI', sans-serif; font-size: 14px; min-height: 100vh; }
+
+    /* ── Top Bar ────────────────────────────────────── */
+    .top-bar {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .logo img { width: 32px; height: 32px; border-radius: 8px; }
+    .logo-title { font-size: 18px; font-weight: 700; color: var(--text-primary); }
+    .logo-sub   { font-size: 11px; color: var(--text-muted); }
+    .net-badge  { background: rgba(16,185,129,0.15); color: var(--green); border: 1px solid rgba(16,185,129,0.3); border-radius: 20px; padding: 4px 12px; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+    .pulse-dot  { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(1.4)} }
+    .back-btn   { background: none; border: 1px solid var(--border); color: var(--text-primary); border-radius: 8px; padding: 6px 14px; cursor: pointer; font-size: 13px; transition: background .2s; }
+    .back-btn:hover { background: var(--bg-card); }
+    .wallet-btn { background: #7C3AED; color: #fff; border: none; border-radius: 8px; padding: 7px 16px; cursor: pointer; font-size: 13px; font-weight: 600; transition: .2s; }
+    .wallet-btn:hover { opacity: .85; }
+    .wallet-btn.connected { background: #10B981; }
+
+    /* ── Hero Search ────────────────────────────────── */
+    .hero-search {
+      background: linear-gradient(135deg, #1a1040 0%, #0a2040 100%);
+      padding: 40px 24px;
+      text-align: center;
+    }
+    .hero-search h1 { font-size: 28px; margin-bottom: 8px; }
+    .hero-search h1 span { color: var(--accent2); }
+    .hero-search p  { color: var(--text-muted); margin-bottom: 24px; }
+    .search-box {
+      display: flex;
+      max-width: 700px;
+      margin: 0 auto;
+      gap: 0;
+    }
+    .search-box input {
+      flex: 1;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-right: none;
+      border-radius: 10px 0 0 10px;
+      color: var(--text-primary);
+      padding: 12px 18px;
+      font-size: 14px;
+      outline: none;
+      transition: border .2s;
+    }
+    .search-box input:focus { border-color: var(--accent2); }
+    .search-box button {
+      background: var(--accent2);
+      color: #fff;
+      border: none;
+      border-radius: 0 10px 10px 0;
+      padding: 12px 24px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: opacity .2s;
+    }
+    .search-box button:hover { opacity: 0.85; }
+
+    /* ── Stats Bar ──────────────────────────────────── */
+    .stats-bar {
+      display: flex;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      overflow-x: auto;
+    }
+    .stat-chip {
+      padding: 12px 20px;
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      border-right: 1px solid var(--border);
+    }
+    .stat-chip strong { color: var(--text-primary); display: block; font-size: 16px; margin-bottom: 2px; }
+
+    /* ── Layout ─────────────────────────────────────── */
+    .main-content { max-width: 1400px; margin: 0 auto; padding: 24px; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media(max-width:900px){ .two-col { grid-template-columns: 1fr; } }
+
+    /* ── Card ───────────────────────────────────────── */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-header h3 { font-size: 15px; font-weight: 600; }
+    .card-body { padding: 0; }
+
+    /* ── Table ──────────────────────────────────────── */
+    .explorer-table { width: 100%; border-collapse: collapse; }
+    .explorer-table th {
+      padding: 10px 16px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: rgba(0,0,0,0.15);
+      border-bottom: 1px solid var(--border);
+    }
+    .explorer-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .explorer-table tr:last-child td { border-bottom: none; }
+    .explorer-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+    /* ── Hash / Address ─────────────────────────────── */
+    .hash-link {
+      color: var(--accent2);
+      text-decoration: none;
+      font-family: monospace;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .hash-link:hover { text-decoration: underline; }
+    .short-hash { font-family: monospace; font-size: 12px; color: var(--accent2); }
+
+    /* ── Badges ─────────────────────────────────────── */
+    .badge { display: inline-block; border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 600; }
+    .badge-success { background: rgba(16,185,129,0.15); color: var(--green); }
+    .badge-pending { background: rgba(245,158,11,0.15); color: var(--yellow); }
+    .badge-failed  { background: rgba(239,68,68,0.15);  color: var(--red);    }
+    .badge-block   { background: rgba(124,58,237,0.15); color: var(--accent); }
+    .badge-transfer  { background: rgba(6,182,212,0.15); color: var(--accent2); }
+    .badge-mint      { background: rgba(249,115,22,0.15); color: var(--orange); }
+    .badge-stake     { background: rgba(16,185,129,0.15); color: var(--green);  }
+
+    /* ── Detail Panel ───────────────────────────────── */
+    .detail-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin-top: 20px;
+      display: none;
+    }
+    .detail-panel.active { display: block; }
+    .detail-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media(max-width:600px){ .detail-grid { grid-template-columns: 1fr; } }
+    .detail-row { padding: 12px; background: var(--bg-input); border-radius: 8px; }
+    .detail-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+    .detail-value { font-size: 13px; word-break: break-all; }
+    .detail-value.mono { font-family: monospace; color: var(--accent2); }
+    .close-panel { background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 6px; padding: 4px 12px; cursor: pointer; font-size: 12px; float: right; }
+
+    /* ── Tabs ────────────────────────────────────────── */
+    .tab-bar { display: flex; gap: 4px; padding: 16px 20px 0; }
+    .tab-btn { background: none; border: none; color: var(--text-muted); padding: 8px 16px; border-radius: 8px 8px 0 0; cursor: pointer; font-size: 13px; font-weight: 500; transition: all .2s; }
+    .tab-btn.active { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border); border-bottom: none; }
+    .tab-btn:hover:not(.active) { color: var(--text-primary); }
+
+    /* ── Address Detail ─────────────────────────────── */
+    .addr-badge { display: inline-flex; align-items: center; gap: 8px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; font-family: monospace; font-size: 13px; color: var(--text-primary); }
+
+    /* ── Loading spinner ────────────────────────────── */
+    .loading-row td { text-align: center; padding: 30px; color: var(--text-muted); }
+    .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent2); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: middle; margin-right: 8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Footer ─────────────────────────────────────── */
+    .footer { text-align: center; padding: 24px; color: var(--text-muted); font-size: 12px; border-top: 1px solid var(--border); margin-top: 40px; }
+
+    /* ── Toast ──────────────────────────────────────── */
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 18px; font-size: 13px; z-index: 9999; animation: fadeIn .3s; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+    /* ── WS Live dot ────────────────────────────────── */
+    .ws-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--yellow); display: inline-block; }
+    .ws-dot.live { background: var(--green); animation: pulse 1.5s infinite; }
+
+    button.load-more { width: 100%; padding: 12px; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 8px; cursor: pointer; font-size: 13px; margin-top: 12px; transition: all .2s; }
+    button.load-more:hover { background: var(--bg-card); color: var(--text-primary); }
+  </style>
+</head>
+<body>
+
+<!-- ── Top Bar ──────────────────────────────────────────────────── -->
+<nav class="top-bar">
+  <a class="logo" href="index.html">
+    <img src="src/assets/images/meechain_logo.png" alt="MeeChain" onerror="this.style.display='none'" />
+    <div>
+      <div class="logo-title">MeeChain</div>
+      <div class="logo-sub">Block Explorer</div>
+    </div>
+  </a>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+    <a class="back-btn" href="index.html" style="text-decoration:none">🏠 Dashboard</a>
+    <a class="back-btn" href="nft-market.html" style="text-decoration:none">🖼️ NFT</a>
+    <a class="back-btn" href="dao.html" style="text-decoration:none">🏛️ DAO</a>
+    <a class="back-btn" href="analytics.html" style="text-decoration:none">📊 Analytics</a>
+    <div class="net-badge">
+      <span class="pulse-dot" id="live-dot"></span>
+      <span id="live-label">Chain ID 13390</span>
+    </div>
+    <button class="wallet-btn" id="wallet-btn" onclick="window.connectWallet ? window.connectWallet() : alert('กรุณาติดตั้ง MetaMask')">👛 เชื่อมต่อ Wallet</button>
+  </div>
+</nav>
+
+<!-- ── Hero Search ───────────────────────────────────────────────── -->
+<div class="hero-search">
+  <h1>MeeChain <span>Block Explorer</span></h1>
+  <p>ค้นหา Block, Transaction, หรือ Address บน Ritual Chain (Chain ID: 13390)</p>
+  <div class="search-box">
+    <input type="text" id="search-input"
+      placeholder="Block number, TX hash (0x...), หรือ Address (0x...)" />
+    <button onclick="handleSearch()">🔍 ค้นหา</button>
+  </div>
+</div>
+
+<!-- ── Stats Bar ─────────────────────────────────────────────────── -->
+<div class="stats-bar" id="stats-bar">
+  <div class="stat-chip"><strong id="stat-block">—</strong>Latest Block</div>
+  <div class="stat-chip"><strong id="stat-tps">—</strong>TPS</div>
+  <div class="stat-chip"><strong id="stat-tx">—</strong>Total Txs (mock)</div>
+  <div class="stat-chip"><strong id="stat-price">$0.0842</strong>MEE Price</div>
+  <div class="stat-chip"><strong id="stat-validators">128</strong>Validators</div>
+  <div class="stat-chip"><strong id="stat-ws"><span class="ws-dot" id="ws-dot"></span> Connecting</strong>WebSocket</div>
+</div>
+
+<!-- ── Main ──────────────────────────────────────────────────────── -->
+<div class="main-content">
+
+  <!-- Detail Panel (shown on search/click) -->
+  <div class="detail-panel" id="detail-panel">
+    <button class="close-panel" onclick="closeDetail()">✕ ปิด</button>
+    <div class="detail-title" id="detail-title">🔍 ผลการค้นหา</div>
+    <div id="detail-content"></div>
+  </div>
+
+  <!-- Two-column: Blocks + Txs -->
+  <div class="two-col">
+
+    <!-- Recent Blocks -->
+    <div class="card">
+      <div class="card-header">
+        <h3>⬛ Recent Blocks</h3>
+        <span style="font-size:12px;color:var(--text-muted);">อัพเดตอัตโนมัติ ∙ 12s</span>
+      </div>
+      <div class="card-body">
+        <table class="explorer-table">
+          <thead>
+            <tr>
+              <th>Block</th>
+              <th>Hash</th>
+              <th>Txns</th>
+              <th>Time</th>
+              <th>Miner</th>
+            </tr>
+          </thead>
+          <tbody id="blocks-tbody">
+            <tr class="loading-row">
+              <td colspan="5"><span class="spinner"></span> กำลังโหลด Blocks...</td>
+            </tr>
+          </tbody>
+        </table>
+        <button class="load-more" onclick="loadMoreBlocks()">⬇ Load More</button>
+      </div>
+    </div>
+
+    <!-- Recent Transactions -->
+    <div class="card">
+      <div class="card-header">
+        <h3>💸 Recent Transactions</h3>
+        <span style="font-size:12px;color:var(--text-muted);">Live via WebSocket</span>
+      </div>
+      <div class="card-body">
+        <table class="explorer-table">
+          <thead>
+            <tr>
+              <th>TX Hash</th>
+              <th>Type</th>
+              <th>Value</th>
+              <th>From → To</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="txs-tbody">
+            <tr class="loading-row">
+              <td colspan="5"><span class="spinner"></span> รอข้อมูล...</td>
+            </tr>
+          </tbody>
+        </table>
+        <button class="load-more" onclick="loadMoreTxs()">⬇ Load More</button>
+      </div>
+    </div>
+
+  </div><!-- /two-col -->
+
+</div><!-- /main-content -->
+
+<div class="footer">
+  MeeChain Block Explorer v2.0 — Ritual Chain (Chain ID: 13390) —
+  <a href="index.html" style="color:var(--accent2);">← กลับสู่ Dashboard</a>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast" style="display:none;"></div>
+
+<script>
+// ── Config ───────────────────────────────────────────────────────
+const API_BASE = '';
+const WS_URL   = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
+
+// ── Helpers ──────────────────────────────────────────────────────
+function shortHash(h, n=8) {
+  if (!h) return '—';
+  if (h.length <= n * 2 + 2) return h;
+  return h.slice(0,n+2) + '...' + h.slice(-n);
+}
+function timeAgo(ts) {
+  const seconds = Math.floor(Date.now()/1000 - ts);
+  if (seconds < 5)  return 'เมื่อกี้';
+  if (seconds < 60) return `${seconds}s ที่แล้ว`;
+  if (seconds < 3600) return `${Math.floor(seconds/60)}m ที่แล้ว`;
+  return `${Math.floor(seconds/3600)}h ที่แล้ว`;
+}
+function txTypeBadge(t) {
+  const map = { Transfer:'transfer', 'NFT Mint':'mint', Stake:'stake', Unstake:'stake', Swap:'transfer', Portal:'mint' };
+  return `<span class="badge badge-${map[t]||'block'}">${t||'Transfer'}</span>`;
+}
+function showToast(msg, ms=3000) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(() => el.style.display='none', ms);
+}
+
+// ── Blocks ───────────────────────────────────────────────────────
+let blockOffset = 0;
+const blocks = [];
+
+async function loadBlocks(count=10) {
+  try {
+    const res = await fetch(`${API_BASE}/api/blocks?limit=${count}`);
+    const data = await res.json();
+    const newBlocks = data.blocks || [];
+    newBlocks.forEach(b => {
+      if (!blocks.find(x => x.number === b.number)) blocks.push(b);
+    });
+    blocks.sort((a,b) => b.number - a.number);
+    renderBlocks();
+    // Update stat
+    if (blocks[0]) document.getElementById('stat-block').textContent = '#' + Number(blocks[0].number).toLocaleString();
+  } catch(e) {
+    document.getElementById('blocks-tbody').innerHTML = `<tr class="loading-row"><td colspan="5">❌ ไม่สามารถโหลดข้อมูลได้</td></tr>`;
+  }
+}
+
+function renderBlocks() {
+  const tbody = document.getElementById('blocks-tbody');
+  const limit = blockOffset + 15;
+  tbody.innerHTML = blocks.slice(0, limit).map(b => `
+    <tr>
+      <td>
+        <a class="hash-link" onclick="viewBlock(${b.number})">#${Number(b.number).toLocaleString()}</a>
+      </td>
+      <td><span class="short-hash" title="${b.hash}">${shortHash(b.hash,6)}</span></td>
+      <td><span style="color:var(--accent2)">${b.txCount}</span></td>
+      <td>${timeAgo(b.timestamp)}</td>
+      <td><span class="short-hash">${shortHash(b.miner,4)}</span></td>
+    </tr>
+  `).join('');
+}
+
+function loadMoreBlocks() {
+  blockOffset += 15;
+  loadBlocks(blockOffset + 15);
+}
+
+// ── Transactions ─────────────────────────────────────────────────
+const liveTxs = [];
+
+function addLiveTx(tx) {
+  liveTxs.unshift(tx);
+  if (liveTxs.length > 100) liveTxs.pop();
+  renderTxs();
+}
+
+async function loadInitialTxs() {
+  try {
+    const res = await fetch(`${API_BASE}/api/chain/transactions`);
+    const data = await res.json();
+    (data.transactions || []).forEach(tx => addLiveTx(tx));
+  } catch {}
+}
+
+function renderTxs() {
+  const tbody = document.getElementById('txs-tbody');
+  if (liveTxs.length === 0) {
+    tbody.innerHTML = `<tr class="loading-row"><td colspan="5">⏳ รอ Transaction...</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = liveTxs.slice(0,20).map(tx => `
+    <tr>
+      <td>
+        <a class="hash-link" onclick="viewTx('${tx.hash}')">${shortHash(tx.hash||tx.txHash,6)}</a>
+      </td>
+      <td>${txTypeBadge(tx.txType||tx.type||'Transfer')}</td>
+      <td><strong style="color:var(--accent2)">${parseFloat(tx.value||0).toFixed(2)}</strong> <small>MEE</small></td>
+      <td>
+        <span class="short-hash">${shortHash(tx.from,4)}</span>
+        <span style="color:var(--text-muted)"> → </span>
+        <span class="short-hash">${shortHash(tx.to,4)}</span>
+      </td>
+      <td><span class="badge badge-success">✅ Success</span></td>
+    </tr>
+  `).join('');
+}
+
+function loadMoreTxs() {
+  // In production: paginate via API
+  showToast('📊 Fetching more transactions...');
+  loadInitialTxs();
+}
+
+// ── Search ───────────────────────────────────────────────────────
+async function handleSearch() {
+  const q = document.getElementById('search-input').value.trim();
+  if (!q) return;
+
+  // Block number?
+  if (/^\d+$/.test(q)) { viewBlock(parseInt(q)); return; }
+  // TX hash? (0x + 64 hex)
+  if (/^0x[0-9a-fA-F]{64}$/.test(q)) { viewTx(q); return; }
+  // Address? (0x + 40 hex)
+  if (/^0x[0-9a-fA-F]{40}$/.test(q)) { viewAddress(q); return; }
+
+  showToast('❌ ไม่พบ — ลองใช้ Block number, TX hash, หรือ Address');
+}
+
+document.getElementById('search-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') handleSearch();
+});
+
+// ── View Block ───────────────────────────────────────────────────
+async function viewBlock(num) {
+  showDetail('⬛ Block #' + Number(num).toLocaleString(), '<span class="spinner"></span> กำลังโหลด...');
+  try {
+    const res  = await fetch(`${API_BASE}/api/blocks/${num}`);
+    const b    = await res.json();
+    showDetail(`⬛ Block #${Number(b.number).toLocaleString()}`, `
+      <div class="detail-grid">
+        <div class="detail-row"><div class="detail-label">Block Number</div><div class="detail-value">${Number(b.number).toLocaleString()}</div></div>
+        <div class="detail-row"><div class="detail-label">Timestamp</div><div class="detail-value">${new Date(b.timestamp*1000).toLocaleString('th-TH')}</div></div>
+        <div class="detail-row" style="grid-column:1/-1"><div class="detail-label">Block Hash</div><div class="detail-value mono">${b.hash||'—'}</div></div>
+        <div class="detail-row" style="grid-column:1/-1"><div class="detail-label">Parent Hash</div><div class="detail-value mono">${b.parentHash||'—'}</div></div>
+        <div class="detail-row"><div class="detail-label">Transactions</div><div class="detail-value">${b.txCount}</div></div>
+        <div class="detail-row"><div class="detail-label">Gas Used</div><div class="detail-value">${Number(b.gasUsed||0).toLocaleString()}</div></div>
+        <div class="detail-row"><div class="detail-label">Gas Limit</div><div class="detail-value">${Number(b.gasLimit||15000000).toLocaleString()}</div></div>
+        <div class="detail-row"><div class="detail-label">Block Size</div><div class="detail-value">${Number(b.size||0).toLocaleString()} bytes</div></div>
+        <div class="detail-row" style="grid-column:1/-1"><div class="detail-label">Miner</div><div class="detail-value mono">${b.miner||'—'}</div></div>
+        <div class="detail-row"><div class="detail-label">Chain ID</div><div class="detail-value">${b.chainId||13390}</div></div>
+        <div class="detail-row"><div class="detail-label">Source</div><div class="detail-value">${b.live ? '<span class="badge badge-success">🟢 On-Chain</span>' : '<span class="badge badge-pending">🟡 Mock Data</span>'}</div></div>
+      </div>
+    `);
+  } catch(e) {
+    showDetail('❌ ข้อผิดพลาด', `<p style="color:var(--red)">ไม่สามารถโหลดข้อมูล Block #${num} ได้</p>`);
+  }
+}
+
+// ── View TX ──────────────────────────────────────────────────────
+async function viewTx(hash) {
+  showDetail('💸 Transaction', '<span class="spinner"></span> กำลังโหลด...');
+  try {
+    const res = await fetch(`${API_BASE}/api/tx/${hash}`);
+    const tx  = await res.json();
+    showDetail('💸 Transaction Detail', `
+      <div class="detail-grid">
+        <div class="detail-row" style="grid-column:1/-1"><div class="detail-label">TX Hash</div><div class="detail-value mono">${tx.hash}</div></div>
+        <div class="detail-row"><div class="detail-label">Status</div><div class="detail-value"><span class="badge badge-success">✅ Success</span></div></div>
+        <div class="detail-row"><div class="detail-label">Block</div><div class="detail-value"><a class="hash-link" onclick="viewBlock(${tx.blockNumber})">#${Number(tx.blockNumber).toLocaleString()}</a></div></div>
+        <div class="detail-row"><div class="detail-label">Timestamp</div><div class="detail-value">${new Date(tx.timestamp*1000).toLocaleString('th-TH')}</div></div>
+        <div class="detail-row" style="grid-column:1/-1"><div class="detail-label">From</div><div class="detail-value mono"><a class="hash-link" onclick="viewAddress('${tx.from}')">${tx.from}</a></div></div>
+        <div class="detail-row" style="grid-column:1/-1"><div class="detail-label">To</div><div class="detail-value mono"><a class="hash-link" onclick="viewAddress('${tx.to}')">${tx.to}</a></div></div>
+        <div class="detail-row"><div class="detail-label">Value</div><div class="detail-value"><strong style="color:var(--accent2)">${parseFloat(tx.value||0).toFixed(4)} MEE</strong></div></div>
+        <div class="detail-row"><div class="detail-label">TX Type</div><div class="detail-value">${txTypeBadge(tx.txType)}</div></div>
+        <div class="detail-row"><div class="detail-label">Gas Used</div><div class="detail-value">${Number(tx.gas||21000).toLocaleString()}</div></div>
+        <div class="detail-row"><div class="detail-label">Gas Price</div><div class="detail-value">${tx.gasPrice||'0.0001'} MEE</div></div>
+        <div class="detail-row"><div class="detail-label">Chain ID</div><div class="detail-value">${tx.chainId||13390}</div></div>
+        <div class="detail-row"><div class="detail-label">Source</div><div class="detail-value">${tx.live ? '<span class="badge badge-success">🟢 On-Chain</span>' : '<span class="badge badge-pending">🟡 Mock Data</span>'}</div></div>
+      </div>
+    `);
+  } catch(e) {
+    showDetail('❌ TX ไม่พบ', `<p style="color:var(--red)">ไม่พบ TX Hash: ${shortHash(hash)}</p>`);
+  }
+}
+
+// ── View Address ─────────────────────────────────────────────────
+async function viewAddress(addr) {
+  showDetail('👤 Address', '<span class="spinner"></span> กำลังโหลด...');
+  try {
+    const res  = await fetch(`${API_BASE}/api/address/${addr}`);
+    const info = await res.json();
+    showDetail('👤 Address Detail', `
+      <div class="addr-badge" style="margin-bottom:16px;word-break:break-all;">${addr}</div>
+      <div class="detail-grid">
+        <div class="detail-row"><div class="detail-label">MEE Balance</div><div class="detail-value"><strong style="color:var(--accent2)">${parseFloat(info.meeBalance||0).toFixed(4)} MEE</strong></div></div>
+        <div class="detail-row"><div class="detail-label">NFT Count</div><div class="detail-value">${info.nftBalance||0} NFTs</div></div>
+        <div class="detail-row"><div class="detail-label">Total TX</div><div class="detail-value">${Number(info.txCount||0).toLocaleString()}</div></div>
+        <div class="detail-row"><div class="detail-label">First Seen</div><div class="detail-value">${new Date(info.firstSeen||0).toLocaleDateString('th-TH')}</div></div>
+        <div class="detail-row"><div class="detail-label">Source</div><div class="detail-value">${info.live ? '<span class="badge badge-success">🟢 On-Chain</span>' : '<span class="badge badge-pending">🟡 Mock Data</span>'}</div></div>
+        <div class="detail-row"><div class="detail-label">Explorer</div>
+          <div class="detail-value">
+            <a href="http://explorer.meechain.run.place/address/${addr}" target="_blank" class="hash-link">🔗 Official Explorer</a>
+          </div>
+        </div>
+      </div>
+    `);
+  } catch(e) {
+    showDetail('❌ Address ไม่พบ', `<p style="color:var(--red)">ไม่พบ Address: ${shortHash(addr)}</p>`);
+  }
+}
+
+function showDetail(title, html) {
+  document.getElementById('detail-title').innerHTML   = title;
+  document.getElementById('detail-content').innerHTML = html;
+  const panel = document.getElementById('detail-panel');
+  panel.classList.add('active');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function closeDetail() {
+  document.getElementById('detail-panel').classList.remove('active');
+}
+
+// ── WebSocket ────────────────────────────────────────────────────
+let ws, wsRetries = 0;
+function connectWs() {
+  try { ws = new WebSocket(WS_URL); } catch { scheduleWsReconnect(); return; }
+
+  ws.onopen = () => {
+    wsRetries = 0;
+    document.getElementById('ws-dot').classList.add('live');
+    document.getElementById('stat-ws').innerHTML = '<span class="ws-dot live"></span> Live';
+    ws.send(JSON.stringify({ type: 'subscribe', channels: ['blocks','txs','price'] }));
+  };
+
+  ws.onmessage = (ev) => {
+    try {
+      const d = JSON.parse(ev.data);
+      if (d.type === 'connected') {
+        document.getElementById('stat-block').textContent = '#' + Number(d.blockNumber).toLocaleString();
+      }
+      if (d.type === 'new_block') {
+        document.getElementById('stat-block').textContent = '#' + Number(d.blockNumber).toLocaleString();
+        document.getElementById('stat-tps').textContent   = d.tps;
+        const nb = {
+          number: d.blockNumber,
+          hash: d.hash,
+          timestamp: d.timestamp,
+          txCount: d.txCount,
+          miner: d.miner,
+        };
+        if (!blocks.find(b => b.number === nb.number)) {
+          blocks.unshift(nb);
+          if (blocks.length > 200) blocks.pop();
+          renderBlocks();
+        }
+      }
+      if (d.type === 'new_tx') {
+        addLiveTx({ hash: d.hash, from: d.from, to: d.to, value: d.value, txType: d.txType, timestamp: d.timestamp });
+      }
+      if (d.type === 'price_update') {
+        document.getElementById('stat-price').textContent = '$' + d.price;
+      }
+    } catch {}
+  };
+
+  ws.onclose  = () => { document.getElementById('ws-dot').classList.remove('live'); scheduleWsReconnect(); };
+  ws.onerror  = () => {};
+}
+function scheduleWsReconnect() {
+  if (wsRetries++ < 10) setTimeout(connectWs, 3000 * Math.min(wsRetries, 5));
+}
+
+// ── Init ─────────────────────────────────────────────────────────
+(async function init() {
+  await loadBlocks(15);
+  await loadInitialTxs();
+  connectWs();
+
+  // Update stats
+  try {
+    const r = await fetch('/api/chain/stats');
+    const s = await r.json();
+    if (s.blockNumber) document.getElementById('stat-block').textContent = '#' + Number(s.blockNumber).toLocaleString();
+    if (s.tps)         document.getElementById('stat-tps').textContent   = s.tps;
+  } catch {}
+
+  // Refresh blocks every 12s
+  setInterval(() => loadBlocks(15), 12000);
+  // Update stat-tx mock
+  let txMock = 485231;
+  setInterval(() => {
+    txMock += Math.floor(Math.random() * 50 + 10);
+    document.getElementById('stat-tx').textContent = Number(txMock).toLocaleString();
+  }, 15000);
+})();
+</script>
+  <!-- Ethers.js + Wallet Integration -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+  <script src="src/js/wallet.js"></script>
+  <!-- Shared Components -->
+  <script src="src/js/chat-widget.js"></script>
+  <script src="src/js/i18n.js"></script>
+  <!-- PWA Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>

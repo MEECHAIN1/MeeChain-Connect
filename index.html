@@ -4,7 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MeeChain Dashboard | Mee Ritual Chain</title>
-  <link rel="icon" href="https://www.genspark.ai/api/files/s/djHvsw51" type="image/png" />
+  <link rel="icon" href="src/assets/images/meechain_logo.png" type="image/png" />
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#7C3AED"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="MeeChain"/>
+  <link rel="apple-touch-icon" href="src/assets/images/meechain_logo.png"/>
+  <!-- /PWA -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -16,7 +25,7 @@
   <div id="loading-screen">
     <div class="loader-content">
       <div class="loader-logo">
-        <img src="https://www.genspark.ai/api/files/s/djHvsw51" alt="MeeChain" class="loader-img" />
+        <img src="src/assets/images/meechain_logo.png" alt="MeeChain" class="loader-img" onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><circle cx=\"40\" cy=\"40\" r=\"38\" fill=\"%237C3AED\"/><text x=\"40\" y=\"52\" text-anchor=\"middle\" font-size=\"36\" fill=\"white\">🐻</text></svg>'" />
       </div>
       <div class="loader-bar-wrap">
         <div class="loader-bar"></div>
@@ -31,7 +40,7 @@
     <!-- Sidebar -->
     <aside id="sidebar" class="sidebar">
       <div class="sidebar-header">
-        <img src="https://www.genspark.ai/api/files/s/djHvsw51" alt="MeeChain Logo" class="sidebar-logo" />
+        <img src="src/assets/images/meechain_logo.png" alt="MeeChain Logo" class="sidebar-logo" onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#1A2236,#0D1525)';this.style.padding='8px';" />
         <span class="sidebar-brand">MeeChain</span>
         <button id="sidebar-toggle" class="sidebar-toggle-btn" title="Toggle Sidebar">
           <span class="toggle-icon">☰</span>
@@ -42,39 +51,61 @@
         <ul>
           <li class="nav-item active" data-page="dashboard">
             <span class="nav-icon">🏠</span>
-            <span class="nav-label">แดชบอร์ด</span>
+            <span class="nav-label" data-i18n="nav.dashboard">แดชบอร์ด</span>
           </li>
           <li class="nav-item" data-page="nft-market">
             <span class="nav-icon">🖼️</span>
-            <span class="nav-label">ตลาด NFT</span>
+            <span class="nav-label" data-i18n="nav.nft">ตลาด NFT</span>
           </li>
           <li class="nav-item" data-page="ritual">
             <span class="nav-icon">🚀</span>
-            <span class="nav-label">Mee Ritual Chain</span>
+            <span class="nav-label" data-i18n="nav.ritual">Mee Ritual Chain</span>
           </li>
           <li class="nav-item" data-page="staking">
             <span class="nav-icon">⛏️</span>
-            <span class="nav-label">Staking / Mining</span>
+            <span class="nav-label" data-i18n="nav.staking">Staking / Mining</span>
           </li>
           <li class="nav-item" data-page="wallet">
             <span class="nav-icon">👛</span>
-            <span class="nav-label">กระเป๋าเงิน</span>
+            <span class="nav-label" data-i18n="nav.wallet">กระเป๋าเงิน</span>
           </li>
           <li class="nav-item" data-page="meebot">
             <span class="nav-icon">🤖</span>
-            <span class="nav-label">MeeBot</span>
+            <span class="nav-label" data-i18n="nav.meebot">MeeBot</span>
           </li>
           <li class="nav-item" data-page="settings">
             <span class="nav-icon">⚙️</span>
-            <span class="nav-label">ตั้งค่า</span>
+            <span class="nav-label" data-i18n="nav.settings">ตั้งค่า</span>
+          </li>
+          <!-- Phase 2: Block Explorer -->
+          <li class="nav-item" onclick="window.location.href='explorer.html'" style="cursor:pointer;">
+            <span class="nav-icon">🔍</span>
+            <span class="nav-label" data-i18n="nav.explorer">Block Explorer</span>
+          </li>
+          <!-- Phase 3: NFT Marketplace -->
+          <li class="nav-item" onclick="window.location.href='nft-market.html'" style="cursor:pointer;">
+            <span class="nav-icon">🎨</span>
+            <span class="nav-label" data-i18n="nav.nftMarket">NFT Market</span>
+          </li>
+          <!-- Phase 3: DAO Governance -->
+          <li class="nav-item" onclick="window.location.href='dao.html'" style="cursor:pointer;">
+            <span class="nav-icon">🏛️</span>
+            <span class="nav-label" data-i18n="nav.dao">DAO Governance</span>
+          </li>
+          <!-- Phase 4: Analytics -->
+          <li class="nav-item" onclick="window.location.href='analytics.html'" style="cursor:pointer;">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label" data-i18n="nav.analytics">Analytics</span>
           </li>
         </ul>
       </nav>
 
+      <!-- Language Switcher -->
+      <div id="lang-switcher" style="padding:8px 12px;border-top:1px solid rgba(255,255,255,.06)"></div>
       <div class="sidebar-footer">
         <div class="user-status">
           <div class="status-dot online"></div>
-          <span>เชื่อมต่อแล้ว</span>
+          <span data-i18n="wallet.connected">เชื่อมต่อแล้ว</span>
         </div>
         <div class="network-badge">
           <span class="net-dot"></span>
@@ -85,6 +116,27 @@
 
     <!-- Main Content -->
     <main id="main-content" class="main-content">
+
+      <!-- Network Status Bar -->
+      <div id="network-status-bar" class="network-status-bar">
+        <div class="net-status-left">
+          <span class="net-dot" id="net-dot">●</span>
+          <span id="net-label">กำลังเชื่อมต่อ Ritual Chain...</span>
+        </div>
+        <div class="net-status-right">
+          <span class="net-chip">⛓️ Chain ID: <strong id="net-chain-id">13390</strong></span>
+          <span class="net-chip">📦 Block: <strong data-ws="block-number" id="net-block">—</strong></span>
+          <span class="net-chip">⚡ TPS: <strong data-ws="tps" id="network-tps">—</strong></span>
+          <span class="net-chip">💰 MEE: <strong data-ws="mee-price" id="mee-price-live">$0.0842</strong> <small id="mee-price-change-live" class="price-up">+12.5%</small></span>
+          <span class="net-chip">
+            <span class="ws-status-dot ws-offline" data-ws="status-dot"></span>
+            <span data-ws="status-text" style="font-size:11px;">Connecting...</span>
+          </span>
+          <span class="net-chip net-chip-contract" title="MEE Token Contract">📋 Token: <strong id="net-token">0xDc64...F6C9</strong></span>
+          <span class="net-chip net-chip-contract" title="MeeBot NFT Contract">🖼️ NFT: <strong id="net-nft">0x5FC8...5707</strong></span>
+          <span class="net-chip net-chip-contract" title="Neonova Portal Contract">⛩️ Portal: <strong id="net-portal">0xa513...C853</strong></span>
+        </div>
+      </div>
 
       <!-- Top Header -->
       <header class="top-header">
@@ -106,7 +158,7 @@
             <span id="wallet-btn-text">เชื่อมต่อกระเป๋า</span>
           </button>
           <div class="user-avatar">
-            <img src="https://www.genspark.ai/api/files/s/7KwFcyZ0" alt="MeeBot" />
+            <img src="src/assets/images/meebot.png" alt="MeeBot" onerror="this.onerror=null;this.style.display='none';this.parentElement.innerHTML='🤖';" />
           </div>
         </div>
       </header>
@@ -155,7 +207,7 @@
               </div>
             </div>
             <div class="hero-mascot">
-              <img src="https://www.genspark.ai/api/files/s/7KwFcyZ0" alt="MeeBot" class="mascot-img float-anim" />
+              <img src="src/assets/images/meebot.png" alt="MeeBot" class="mascot-img float-anim" onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#1A2236,#0D1525)';this.style.padding='8px';" />
             </div>
           </div>
           <div class="hero-particles" id="hero-particles"></div>
@@ -254,7 +306,7 @@
               <h3>🚀 Mee Ritual Chain</h3>
             </div>
             <div class="ritual-content">
-              <img src="https://www.genspark.ai/api/files/s/sXVY2ZKL" alt="Mee Ritual Chain" class="ritual-logo" />
+              <img src="src/assets/images/ritual_chain.png" alt="Mee Ritual Chain" class="ritual-logo" onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#1A2236,#0D1525)';this.style.padding='8px';" />
               <div class="ritual-stats">
                 <div class="ritual-stat-item">
                   <span class="rstat-label">Block ล่าสุด</span>
@@ -275,6 +327,62 @@
               </div>
               <button class="btn btn-primary w-full" onclick="switchPage('ritual')">ดูรายละเอียด</button>
             </div>
+          </div>
+        </div>
+        <!-- WebSocket Live Feed Row -->
+        <div class="dashboard-row" style="margin-top:20px;">
+          <!-- Live Activity Feed -->
+          <div class="card ws-feed-card">
+            <div class="card-header">
+              <h3>
+                <span class="ws-status-dot ws-offline" data-ws="status-dot" style="display:inline-block;margin-right:6px;"></span>
+                📡 Live Activity Feed
+                <span data-ws="status-text" class="ws-live-label">Connecting...</span>
+              </h3>
+              <button class="btn btn-sm btn-outline" onclick="WsClient.connect()">🔄 Reconnect</button>
+            </div>
+            <div id="ws-activity-feed" class="ws-activity-list">
+              <div class="ws-activity-placeholder">⏳ กำลังรอข้อมูล Real-time...</div>
+            </div>
+          </div>
+
+          <!-- Live Block Stats -->
+          <div class="card ws-block-card">
+            <div class="card-header">
+              <h3>⬛ Latest Block</h3>
+            </div>
+            <div class="ws-block-stats">
+              <div class="ws-block-stat">
+                <span class="ws-block-label">🔢 Block Number</span>
+                <span class="ws-block-value" data-ws="block-number" id="current-block">—</span>
+              </div>
+              <div class="ws-block-stat">
+                <span class="ws-block-label">⚡ TPS</span>
+                <span class="ws-block-value" data-ws="tps">—</span>
+              </div>
+              <div class="ws-block-stat">
+                <span class="ws-block-label">💰 MEE Price</span>
+                <span class="ws-block-value" data-ws="mee-price">$0.0842</span>
+                <span class="price-up" id="mee-price-change-live">+12.5%</span>
+              </div>
+              <div class="ws-block-stat">
+                <span class="ws-block-label">🌐 Network</span>
+                <span class="ws-block-value">Ritual Chain</span>
+              </div>
+              <div class="ws-block-stat">
+                <span class="ws-block-label">🔗 Chain ID</span>
+                <span class="ws-block-value">13390</span>
+              </div>
+              <div class="ws-block-stat">
+                <span class="ws-block-label">🔌 Connection</span>
+                <span class="ws-block-value">
+                  <span class="ws-status-dot ws-offline" data-ws="status-dot"></span>
+                  <span data-ws="status-text">Offline</span>
+                </span>
+              </div>
+            </div>
+            <button class="btn btn-outline w-full" style="margin-top:12px;"
+              onclick="window.open('explorer.html','_blank')">🔍 Open Block Explorer</button>
           </div>
         </div>
       </section>
@@ -323,7 +431,7 @@
       <section id="page-ritual" class="page-section">
         <div class="ritual-hero">
           <div class="ritual-hero-content">
-            <img src="https://www.genspark.ai/api/files/s/sXVY2ZKL" alt="Mee Ritual Chain" class="ritual-hero-logo" />
+            <img src="src/assets/images/ritual_chain.png" alt="Mee Ritual Chain" class="ritual-hero-logo" onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#1A2236,#0D1525)';this.style.padding='8px';" />
             <div class="ritual-hero-text">
               <h2>Mee Ritual Chain</h2>
               <p>บล็อกเชนสำหรับพิธีกรรมและศิลปะดิจิทัล</p>
@@ -393,62 +501,120 @@
         </div>
       </section>
 
-      <!-- Page: Staking -->
+      <!-- Page: Staking (Phase 2 — Real Staking System) -->
       <section id="page-staking" class="page-section">
         <div class="page-title-row">
           <h2 class="page-title">⛏️ Staking & Mining</h2>
           <div class="staking-apy-badge">APY สูงสุด <strong>248%</strong></div>
         </div>
 
-        <div class="staking-overview">
-          <div class="staking-hero-card">
-            <img src="https://www.genspark.ai/api/files/s/djHvsw51" alt="MeeChain Bear" class="staking-mascot" />
-            <div class="staking-hero-info">
-              <h3>MEE Staking Pool</h3>
-              <p>วาง MEE Token ของคุณเพื่อรับรางวัลทุกวัน</p>
-              <div class="staking-rates">
-                <div class="rate-item">
-                  <span>APR</span>
-                  <strong>85%</strong>
-                </div>
-                <div class="rate-item">
-                  <span>APY</span>
-                  <strong>248%</strong>
-                </div>
-                <div class="rate-item">
-                  <span>Lock Period</span>
-                  <strong>30 วัน</strong>
-                </div>
-              </div>
-            </div>
+        <!-- Portal Stats Bar -->
+        <div class="portal-stats-bar" id="portal-stats">
+          <div class="portal-stat"><span>🔒 Total Locked</span><strong>กำลังโหลด...</strong></div>
+          <div class="portal-stat"><span>🎭 Ceremonies</span><strong>—</strong></div>
+          <div class="portal-stat"><span>📡 Live</span><strong style="color:#f59e0b">🟡 LOADING</strong></div>
+        </div>
+
+        <!-- Staking Pools v2 -->
+        <div id="staking-pools-v2" class="staking-pools-v2-grid">
+          <!-- Populated by staking.js -->
+          <div class="loading-pools">⏳ กำลังโหลด Pools...</div>
+        </div>
+
+        <!-- User Position -->
+        <div class="card" style="margin-top:20px;">
+          <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+            <h3>📊 ตำแหน่ง Staking ของฉัน</h3>
+            <button class="btn btn-sm btn-outline" onclick="window.WalletState?.connected && fetchUserStaking(window.WalletState.address)">🔄 รีเฟรช</button>
+          </div>
+          <div id="user-staking-position" class="user-position-wrapper">
+            <div class="connect-prompt">🔌 เชื่อมต่อ Wallet เพื่อดูตำแหน่ง Staking ของคุณ</div>
           </div>
         </div>
 
-        <!-- Staking Pools -->
-        <div class="staking-pools-grid" id="staking-pools">
-          <!-- Populated by JS -->
+        <!-- APY Calculator -->
+        <div class="card" style="margin-top:20px;">
+          <div id="apy-calculator"><!-- Populated by staking.js --></div>
         </div>
 
-        <!-- My Stakes -->
-        <div class="card my-stakes-card">
-          <div class="card-header">
-            <h3>📊 การ Staking ของฉัน</h3>
-          </div>
-          <div class="my-stakes-content" id="my-stakes">
-            <div class="empty-state">
-              <img src="https://www.genspark.ai/api/files/s/djHvsw51" alt="Empty" class="empty-img" />
-              <p>ยังไม่มีการ Staking</p>
-              <button class="btn btn-primary">เริ่ม Staking ตอนนี้</button>
-            </div>
+        <!-- Staking Activity -->
+        <div class="card" style="margin-top:20px;">
+          <div class="card-header"><h3>📋 ประวัติ Staking</h3></div>
+          <div id="staking-activity-log" class="staking-activity-list">
+            <div class="no-activity">ยังไม่มีกิจกรรม Staking</div>
           </div>
         </div>
       </section>
 
+      <!-- ── Stake Modal ────────────────────────────────────────── -->
+      <div class="modal-overlay hidden" id="stake-modal">
+        <div class="modal stake-modal-inner" id="stake-modal-color">
+          <div class="modal-header">
+            <h3 id="stake-modal-title">⛏️ Stake MEE</h3>
+            <button class="modal-close" id="btn-cancel-stake">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="stake-info-row">
+              <span>🎯 APY</span><strong id="stake-modal-apy" style="color:#10b981">—%</strong>
+              <span>⏱ Lock</span><strong id="stake-modal-lock">—</strong>
+              <span>📉 ขั้นต่ำ</span><strong id="stake-modal-min">—</strong>
+            </div>
+            <div class="form-group" style="margin-top:16px;">
+              <label class="form-label">จำนวน MEE ที่ต้องการ Stake</label>
+              <input type="number" id="stake-amount-input" class="form-input"
+                placeholder="ระบุจำนวน MEE..." min="1" step="1">
+            </div>
+            <div id="stake-preview" class="stake-preview-box"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline" id="btn-cancel-stake2" onclick="closeStakeModal()">ยกเลิก</button>
+            <button class="btn btn-primary" id="btn-confirm-stake" onclick="executeStake()">⚡ ยืนยัน Stake</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Page: Wallet -->
       <section id="page-wallet" class="page-section">
         <div class="page-title-row">
-          <h2 class="page-title">👛 กระเป๋าเงิน</h2>
-          <button class="btn btn-primary" id="add-wallet-btn">+ เพิ่มกระเป๋าเงิน</button>
+          <h2 class="page-title">👛 Wallet Hub</h2>
+          <button class="btn btn-primary" id="add-wallet-btn">เชื่อมต่อหรือจัดการ Wallet</button>
+        </div>
+
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+            <h3>ศูนย์จัดการ Wallet</h3>
+            <span id="wallet-hub-status" class="net-chip">ยังไม่ได้เชื่อมต่อ</span>
+          </div>
+          <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:start;">
+            <div>
+              <p id="wallet-hub-detail" style="color:#94A3B8;line-height:1.7;margin-bottom:14px;">
+                เชื่อมต่อ MetaMask, รับและส่ง MEE, คัดลอกที่อยู่, เปิด Explorer และกลับไปหน้าที่เรียก wallet ได้จากจุดเดียว
+              </p>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="btn btn-primary" id="wallet-connect-metamask">เชื่อมต่อ MetaMask</button>
+                <button class="btn btn-outline" id="wallet-connect-demo">MeeBot Demo</button>
+                <button class="btn btn-outline" id="wallet-disconnect-btn">ตัดการเชื่อมต่อ</button>
+                <button class="btn btn-outline" id="wallet-return-btn" style="display:none;">กลับหน้าก่อนหน้า</button>
+              </div>
+            </div>
+            <div style="background:rgba(15,23,42,.7);border:1px solid rgba(148,163,184,.14);border-radius:14px;padding:14px;">
+              <div style="font-size:12px;color:#94A3B8;margin-bottom:10px;">สถานะ Wallet Hub</div>
+              <div style="display:grid;gap:10px;">
+                <div style="display:flex;justify-content:space-between;gap:12px;">
+                  <span style="color:#94A3B8;">Network</span>
+                  <strong id="wallet-hub-network">MeeChain Mainnet</strong>
+                </div>
+                <div style="display:flex;justify-content:space-between;gap:12px;">
+                  <span style="color:#94A3B8;">Address</span>
+                  <strong id="wallet-hub-address">-</strong>
+                </div>
+                <div style="display:flex;justify-content:space-between;gap:12px;">
+                  <span style="color:#94A3B8;">MEE Balance</span>
+                  <strong id="wallet-hub-balance">0.00 MEE</strong>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Wallet Card -->
@@ -456,7 +622,7 @@
           <div class="wallet-card-inner">
             <div class="wallet-card-front">
               <div class="wcard-header">
-                <img src="https://www.genspark.ai/api/files/s/djHvsw51" alt="MeeChain" class="wcard-logo" />
+                <img src="src/assets/images/meechain_logo.png" alt="MeeChain" class="wcard-logo" onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#1A2236,#0D1525)';this.style.padding='8px';" />
                 <span class="wcard-network">MeeChain Mainnet</span>
               </div>
               <div class="wcard-balance">
@@ -523,7 +689,7 @@
 
         <div class="meebot-intro">
           <div class="meebot-intro-content">
-            <img src="https://www.genspark.ai/api/files/s/7KwFcyZ0" alt="MeeBot" class="meebot-hero-img float-anim" />
+            <img src="src/assets/images/meebot.png" alt="MeeBot" class="meebot-hero-img float-anim" onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#1A2236,#0D1525)';this.style.padding='8px';" />
             <div class="meebot-intro-text">
               <h3>MeeChain_MeeBot NFT</h3>
               <p>NFT ที่เป็นตัวแทนสิทธิพิเศษในการเข้าถึงเนื้อหาพิเศษ หรือการมีส่วนร่วมในกิจกรรมพิเศษบนแพลตฟอร์ม MeeChain</p>
@@ -676,10 +842,12 @@
           <button class="wallet-option" data-wallet="walletconnect">
             <span class="wo-icon">🔗</span>
             <span>WalletConnect</span>
+            <span class="demo-tag">Soon</span>
           </button>
           <button class="wallet-option" data-wallet="coinbase">
             <span class="wo-icon">🔵</span>
             <span>Coinbase Wallet</span>
+            <span class="demo-tag">Soon</span>
           </button>
           <button class="wallet-option demo" data-wallet="demo">
             <span class="wo-icon">🤖</span>
@@ -748,13 +916,101 @@
     </div>
   </div>
 
+  <!-- Modal: Send Token -->
+  <div class="modal-overlay hidden" id="send-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>📤 ส่ง MEE Token</h3>
+        <button class="modal-close" onclick="document.getElementById('send-modal').classList.add('hidden')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="send-wallet-info" style="background:rgba(124,58,237,0.1);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px;">
+          <div>👛 กระเป๋า: <span id="send-from-addr" style="color:#A78BFA;font-family:monospace">-</span></div>
+          <div>💰 ยอด: <span id="send-from-bal" style="color:#10B981">- MEE</span></div>
+        </div>
+        <div class="form-group">
+          <label>ที่อยู่ผู้รับ *</label>
+          <input type="text" class="form-input" id="send-to-address" placeholder="0x..." style="font-family:monospace" />
+        </div>
+        <div class="form-group">
+          <label>จำนวน MEE *</label>
+          <input type="number" class="form-input" id="send-amount" placeholder="100" min="0.0001" step="any" />
+        </div>
+        <div id="send-fee-info" style="font-size:12px;color:#64748B;margin:8px 0">
+          ค่าธรรมเนียมประมาณ: 0.001 MEE
+        </div>
+        <div id="send-tx-status" style="display:none;padding:10px;border-radius:8px;margin-top:12px"></div>
+        <button class="btn-primary" id="send-confirm-btn" onclick="executeSendToken()" style="width:100%;margin-top:16px">
+          📤 ยืนยันการส่ง
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Receive Token -->
+  <div class="modal-overlay hidden" id="receive-modal">
+    <div class="modal" style="text-align:center">
+      <div class="modal-header">
+        <h3>📥 รับ MEE Token</h3>
+        <button class="modal-close" onclick="document.getElementById('receive-modal').classList.add('hidden')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="color:#94A3B8;margin-bottom:16px">แสดง QR Code และที่อยู่ wallet ของคุณเพื่อรับ MEE</p>
+        <div id="receive-qr-container" style="display:flex;justify-content:center;margin-bottom:16px">
+          <canvas id="receive-qr-canvas" style="border:4px solid #1F2E47;border-radius:12px"></canvas>
+        </div>
+        <div style="background:#111827;border-radius:8px;padding:12px;word-break:break-all;font-family:monospace;font-size:13px;color:#A78BFA" id="receive-address-box">
+          -
+        </div>
+        <button class="btn-outline" onclick="copyReceiveAddress()" style="margin-top:12px;width:100%">
+          📋 คัดลอกที่อยู่
+        </button>
+        <div style="margin-top:12px;font-size:12px;color:#64748B">
+          Network: MeeChain Ritual Chain (Chain ID: 13390)
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification -->
   <div class="toast-container" id="toast-container"></div>
 
   <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <script src="src/js/data.js"></script>
   <script src="src/js/chart.js"></script>
+  <script src="src/js/wallet-hub.js"></script>
+  <script src="src/js/wallet.js"></script>
+  <script src="src/js/staking.js"></script>
+  <script src="src/js/websocket.js"></script>
   <script src="src/js/app.js"></script>
+  <!-- MeeBot AI Chat Widget -->
+  <script src="src/js/chat-widget.js"></script>
+  <!-- i18n Multi-language -->
+  <script src="src/js/i18n.js"></script>
+  <!-- PWA Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').then(reg => {
+          console.log('[PWA] Service Worker registered:', reg.scope);
+        }).catch(err => console.warn('[PWA] SW registration failed:', err));
+      });
+    }
+    // PWA Install Prompt
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const btn = document.createElement('button');
+      btn.textContent = '📲 ติดตั้ง App';
+      btn.style.cssText = 'position:fixed;bottom:80px;right:20px;z-index:9999;background:#7C3AED;color:#fff;border:none;border-radius:20px;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(124,58,237,.4)';
+      btn.onclick = () => { deferredPrompt.prompt(); btn.remove(); };
+      document.body.appendChild(btn);
+      setTimeout(() => btn.remove(), 15000);
+    });
+  </script>
 </body>
 </html>
