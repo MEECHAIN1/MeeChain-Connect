@@ -1,41 +1,44 @@
 'use strict';
 /**
- * Tests for cf-deploy/functions/api/network.js
+ * Tests for the Cloudflare Pages Function: cf-deploy/functions/api/network.js
  *
- * Tests the Cloudflare Pages Function that returns EVM network configuration
- * for MeeChain Ritual Chain. Logic is replicated from the source file to
- * enable unit testing without ESM module loading.
+ * Handler under test: onRequestGet(ctx) — cf-deploy/functions/api/network.js
  *
- * Function under test: onRequestGet(ctx)
- * - Computes chainId hex from CHAIN_ID env (default: 13390)
- * - Returns rpcUrls array with DRPC_RPC_URL and VITE_RPC_URL (with defaults)
- * - Returns nativeCurrency with name/symbol/decimals
- * - Returns blockExplorerUrls
- * - Returns contracts with token/nft/portal
+ * NOTE: This is separate from test/server-api-network.test.js which tests
+ * the server.js /api/network route. This file tests the new CF Pages Function.
+ *
+ * Behaviour:
+ *  - chainId: hex string derived from env.CHAIN_ID (default 13390 → '0x344e')
+ *  - chainName: always 'MeeChain Ritual Chain'
+ *  - rpcUrls: two entries — DRPC_RPC_URL (or default) and VITE_RPC_URL (or default)
+ *  - nativeCurrency: { name: 'MEE Token', symbol: 'MEE', decimals: 18 }
+ *  - blockExplorerUrls: single entry 'http://explorer.meechain.run.place'
+ *  - contracts: token, nft, portal — each from env or hardcoded default
+ *  - Headers: Content-Type application/json, CORS *
  */
 
 const assert = require('assert');
 const { describe, it } = require('mocha');
 
-// ── Replicate handler logic from cf-deploy/functions/api/network.js ────────
+// ── Replicate handler logic from cf-deploy/functions/api/network.js ───────
 
 async function onRequestGet(ctx) {
   const { env } = ctx;
 
   const chainId = parseInt(env.CHAIN_ID || '13390', 10);
   const data = {
-    chainId:           `0x${chainId.toString(16)}`,
-    chainName:         'MeeChain Ritual Chain',
-    rpcUrls:           [
-      env.DRPC_RPC_URL || 'http://rpc.meechain.run.place',
-      env.VITE_RPC_URL || 'https://ritual-chain--pouaun2499.replit.app',
+    chainId:          `0x${chainId.toString(16)}`,
+    chainName:        'MeeChain Ritual Chain',
+    rpcUrls:          [
+      env.DRPC_RPC_URL    || 'http://rpc.meechain.run.place',
+      env.VITE_RPC_URL    || 'https://ritual-chain--pouaun2499.replit.app',
     ],
-    nativeCurrency:    { name: 'MEE Token', symbol: 'MEE', decimals: 18 },
-    blockExplorerUrls: ['http://explorer.meechain.run.place'],
+    nativeCurrency:   { name: 'MEE Token', symbol: 'MEE', decimals: 18 },
+    blockExplorerUrls:['http://explorer.meechain.run.place'],
     contracts: {
-      token:  env.VITE_TOKEN_CONTRACT_ADDRESS   || '0x5FbDB2315678afecb367f032d93F642f64180aa3',
-      nft:    env.VITE_NFT_CONTRACT_ADDRESS     || '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
-      portal: env.VITE_STAKING_CONTRACT_ADDRESS || '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+      token:   env.VITE_TOKEN_CONTRACT_ADDRESS   || '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+      nft:     env.VITE_NFT_CONTRACT_ADDRESS     || '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
+      portal:  env.VITE_STAKING_CONTRACT_ADDRESS || '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
     },
   };
 
@@ -47,246 +50,220 @@ async function onRequestGet(ctx) {
   });
 }
 
-// ── Helper ────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────
 
-function mkCtx(env = {}) {
+function makeCtx(env = {}) {
   return { env };
 }
 
-// ── Tests: default env values ─────────────────────────────────────────────
+async function getBody(env = {}) {
+  const resp = await onRequestGet(makeCtx(env));
+  const text = await resp.text();
+  return { resp, body: JSON.parse(text) };
+}
 
-describe('/api/network (CF) — default env values', () => {
-  it('responds with HTTP 200', async () => {
-    const res = await onRequestGet(mkCtx());
-    assert.strictEqual(res.status, 200);
-  });
+// ── Tests: chainId field ──────────────────────────────────────────────────
 
-  it('default chainId hex is 0x344e (13390)', async () => {
-    const res = await onRequestGet(mkCtx());
-    const body = await res.json();
+describe('/api/network (CF) — chainId field', () => {
+  it('default chainId is "0x344e" (13390 in hex)', async () => {
+    const { body } = await getBody();
     assert.strictEqual(body.chainId, '0x344e');
   });
 
-  it('chainName is "MeeChain Ritual Chain"', async () => {
-    const res = await onRequestGet(mkCtx());
-    const body = await res.json();
+  it('chainId uses CHAIN_ID env var when set', async () => {
+    const { body } = await getBody({ CHAIN_ID: '1' });
+    assert.strictEqual(body.chainId, '0x1');
+  });
+
+  it('chainId is a lowercase hex string with 0x prefix', async () => {
+    const { body } = await getBody();
+    assert.ok(/^0x[0-9a-f]+$/.test(body.chainId), 'chainId must be lowercase hex with 0x prefix');
+  });
+
+  it('chainId for CHAIN_ID=255 is "0xff"', async () => {
+    const { body } = await getBody({ CHAIN_ID: '255' });
+    assert.strictEqual(body.chainId, '0xff');
+  });
+
+  it('parseInt of chainId hex matches parseInt of CHAIN_ID', async () => {
+    const chainIdDecimal = 13390;
+    const { body } = await getBody({ CHAIN_ID: String(chainIdDecimal) });
+    assert.strictEqual(parseInt(body.chainId, 16), chainIdDecimal);
+  });
+});
+
+// ── Tests: chainName ──────────────────────────────────────────────────────
+
+describe('/api/network (CF) — chainName', () => {
+  it('chainName is always "MeeChain Ritual Chain"', async () => {
+    const { body } = await getBody();
     assert.strictEqual(body.chainName, 'MeeChain Ritual Chain');
   });
 
-  it('rpcUrls is an array with two entries', async () => {
-    const res = await onRequestGet(mkCtx());
-    const body = await res.json();
-    assert.ok(Array.isArray(body.rpcUrls), 'rpcUrls must be array');
+  it('chainName is not affected by env vars', async () => {
+    const { body } = await getBody({ CHAIN_ID: '1', DRPC_RPC_URL: 'https://other.rpc' });
+    assert.strictEqual(body.chainName, 'MeeChain Ritual Chain');
+  });
+});
+
+// ── Tests: rpcUrls field ──────────────────────────────────────────────────
+
+describe('/api/network (CF) — rpcUrls field', () => {
+  it('rpcUrls is an array with exactly 2 entries', async () => {
+    const { body } = await getBody();
+    assert.ok(Array.isArray(body.rpcUrls));
     assert.strictEqual(body.rpcUrls.length, 2);
   });
 
-  it('first default rpcUrl is rpc.meechain.run.place', async () => {
-    const res = await onRequestGet(mkCtx());
-    const body = await res.json();
-    assert.ok(body.rpcUrls[0].includes('rpc.meechain.run.place'));
+  it('first rpcUrl defaults to http://rpc.meechain.run.place', async () => {
+    const { body } = await getBody();
+    assert.strictEqual(body.rpcUrls[0], 'http://rpc.meechain.run.place');
   });
 
-  it('second default rpcUrl is the Replit endpoint', async () => {
-    const res = await onRequestGet(mkCtx());
-    const body = await res.json();
-    assert.ok(body.rpcUrls[1].includes('ritual-chain'));
+  it('first rpcUrl uses DRPC_RPC_URL env var when set', async () => {
+    const { body } = await getBody({ DRPC_RPC_URL: 'https://custom.drpc.example' });
+    assert.strictEqual(body.rpcUrls[0], 'https://custom.drpc.example');
   });
 
+  it('second rpcUrl defaults to replit fallback URL', async () => {
+    const { body } = await getBody();
+    assert.strictEqual(body.rpcUrls[1], 'https://ritual-chain--pouaun2499.replit.app');
+  });
+
+  it('second rpcUrl uses VITE_RPC_URL env var when set', async () => {
+    const { body } = await getBody({ VITE_RPC_URL: 'https://custom.vite.rpc' });
+    assert.strictEqual(body.rpcUrls[1], 'https://custom.vite.rpc');
+  });
+
+  it('both rpcUrls can be overridden independently', async () => {
+    const { body } = await getBody({ DRPC_RPC_URL: 'https://rpc1.example', VITE_RPC_URL: 'https://rpc2.example' });
+    assert.strictEqual(body.rpcUrls[0], 'https://rpc1.example');
+    assert.strictEqual(body.rpcUrls[1], 'https://rpc2.example');
+  });
+});
+
+// ── Tests: nativeCurrency ─────────────────────────────────────────────────
+
+describe('/api/network (CF) — nativeCurrency', () => {
   it('nativeCurrency.name is "MEE Token"', async () => {
-    const res = await onRequestGet(mkCtx());
-    const body = await res.json();
+    const { body } = await getBody();
     assert.strictEqual(body.nativeCurrency.name, 'MEE Token');
   });
 
   it('nativeCurrency.symbol is "MEE"', async () => {
-    const res = await onRequestGet(mkCtx());
-    const body = await res.json();
+    const { body } = await getBody();
     assert.strictEqual(body.nativeCurrency.symbol, 'MEE');
   });
 
   it('nativeCurrency.decimals is 18', async () => {
-    const res = await onRequestGet(mkCtx());
-    const body = await res.json();
+    const { body } = await getBody();
     assert.strictEqual(body.nativeCurrency.decimals, 18);
   });
+});
 
-  it('blockExplorerUrls contains explorer.meechain.run.place', async () => {
-    const res = await onRequestGet(mkCtx());
-    const body = await res.json();
-    assert.ok(Array.isArray(body.blockExplorerUrls), 'blockExplorerUrls must be array');
-    assert.ok(
-      body.blockExplorerUrls.some(u => u.includes('explorer.meechain.run.place')),
-      'blockExplorerUrls must include explorer.meechain.run.place'
-    );
+// ── Tests: blockExplorerUrls ──────────────────────────────────────────────
+
+describe('/api/network (CF) — blockExplorerUrls', () => {
+  it('blockExplorerUrls is an array', async () => {
+    const { body } = await getBody();
+    assert.ok(Array.isArray(body.blockExplorerUrls));
   });
 
-  it('contracts has token, nft, portal keys', async () => {
-    const res = await onRequestGet(mkCtx());
-    const body = await res.json();
-    assert.ok('token' in body.contracts,  'contracts must have token');
-    assert.ok('nft' in body.contracts,    'contracts must have nft');
-    assert.ok('portal' in body.contracts, 'contracts must have portal');
+  it('blockExplorerUrls has exactly one entry', async () => {
+    const { body } = await getBody();
+    assert.strictEqual(body.blockExplorerUrls.length, 1);
   });
 
-  it('default token contract is 0x5FbDB...', async () => {
-    const res = await onRequestGet(mkCtx());
-    const body = await res.json();
+  it('first blockExplorerUrl is http://explorer.meechain.run.place', async () => {
+    const { body } = await getBody();
+    assert.strictEqual(body.blockExplorerUrls[0], 'http://explorer.meechain.run.place');
+  });
+});
+
+// ── Tests: contracts field ────────────────────────────────────────────────
+
+describe('/api/network (CF) — contracts field', () => {
+  it('contracts has token, nft, and portal keys', async () => {
+    const { body } = await getBody();
+    assert.ok('token'  in body.contracts, 'contracts.token must be present');
+    assert.ok('nft'    in body.contracts, 'contracts.nft must be present');
+    assert.ok('portal' in body.contracts, 'contracts.portal must be present');
+  });
+
+  it('token uses default when VITE_TOKEN_CONTRACT_ADDRESS is not set', async () => {
+    const { body } = await getBody();
     assert.strictEqual(body.contracts.token, '0x5FbDB2315678afecb367f032d93F642f64180aa3');
   });
 
-  it('default nft contract is 0xe7f17...', async () => {
-    const res = await onRequestGet(mkCtx());
-    const body = await res.json();
+  it('nft uses default when VITE_NFT_CONTRACT_ADDRESS is not set', async () => {
+    const { body } = await getBody();
     assert.strictEqual(body.contracts.nft, '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512');
   });
 
-  it('default portal contract is 0x9fE46...', async () => {
-    const res = await onRequestGet(mkCtx());
-    const body = await res.json();
+  it('portal uses default when VITE_STAKING_CONTRACT_ADDRESS is not set', async () => {
+    const { body } = await getBody();
     assert.strictEqual(body.contracts.portal, '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0');
   });
-});
 
-// ── Tests: CHAIN_ID env var ────────────────────────────────────────────────
-
-describe('/api/network (CF) — CHAIN_ID env var', () => {
-  it('converts custom CHAIN_ID to hex correctly', async () => {
-    const res = await onRequestGet(mkCtx({ CHAIN_ID: '1' }));
-    const body = await res.json();
-    assert.strictEqual(body.chainId, '0x1');
+  it('contracts.token uses VITE_TOKEN_CONTRACT_ADDRESS env var', async () => {
+    const { body } = await getBody({ VITE_TOKEN_CONTRACT_ADDRESS: '0xTOKEN' });
+    assert.strictEqual(body.contracts.token, '0xTOKEN');
   });
 
-  it('handles CHAIN_ID=1 (Ethereum mainnet) for testing', async () => {
-    const res = await onRequestGet(mkCtx({ CHAIN_ID: '1' }));
-    const body = await res.json();
-    assert.strictEqual(body.chainId, '0x1');
+  it('contracts.nft uses VITE_NFT_CONTRACT_ADDRESS env var', async () => {
+    const { body } = await getBody({ VITE_NFT_CONTRACT_ADDRESS: '0xNFT' });
+    assert.strictEqual(body.contracts.nft, '0xNFT');
   });
 
-  it('handles large CHAIN_ID (e.g., 137 Polygon) hex correctly', async () => {
-    const res = await onRequestGet(mkCtx({ CHAIN_ID: '137' }));
-    const body = await res.json();
-    assert.strictEqual(body.chainId, '0x89');
+  it('contracts.portal uses VITE_STAKING_CONTRACT_ADDRESS env var', async () => {
+    const { body } = await getBody({ VITE_STAKING_CONTRACT_ADDRESS: '0xPORTAL' });
+    assert.strictEqual(body.contracts.portal, '0xPORTAL');
   });
 
-  it('falls back to 13390 if CHAIN_ID is not set', async () => {
-    const res = await onRequestGet(mkCtx({}));
-    const body = await res.json();
-    assert.strictEqual(body.chainId, '0x344e');
-  });
-
-  it('chainId hex from 13390 is always 0x344e', async () => {
-    // Regression: verify hex arithmetic
-    assert.strictEqual((13390).toString(16), '344e');
+  it('contracts field does NOT contain "staking" key (CF network uses portal)', async () => {
+    const { body } = await getBody();
+    assert.ok(!('staking' in body.contracts), 'CF network handler uses portal, not staking');
   });
 });
 
-// ── Tests: RPC URL env var overrides ──────────────────────────────────────
-
-describe('/api/network (CF) — RPC URL env var overrides', () => {
-  it('uses DRPC_RPC_URL env var as first rpcUrl', async () => {
-    const res = await onRequestGet(mkCtx({ DRPC_RPC_URL: 'https://custom-drpc.example.com' }));
-    const body = await res.json();
-    assert.strictEqual(body.rpcUrls[0], 'https://custom-drpc.example.com');
-  });
-
-  it('uses VITE_RPC_URL env var as second rpcUrl', async () => {
-    const res = await onRequestGet(mkCtx({ VITE_RPC_URL: 'https://custom-vite.example.com' }));
-    const body = await res.json();
-    assert.strictEqual(body.rpcUrls[1], 'https://custom-vite.example.com');
-  });
-
-  it('both RPC URL env vars can be overridden independently', async () => {
-    const env = { DRPC_RPC_URL: 'https://a.com', VITE_RPC_URL: 'https://b.com' };
-    const res = await onRequestGet(mkCtx(env));
-    const body = await res.json();
-    assert.strictEqual(body.rpcUrls[0], 'https://a.com');
-    assert.strictEqual(body.rpcUrls[1], 'https://b.com');
-  });
-});
-
-// ── Tests: contract address env var overrides ─────────────────────────────
-
-describe('/api/network (CF) — contract address env var overrides', () => {
-  it('uses VITE_TOKEN_CONTRACT_ADDRESS env var', async () => {
-    const res = await onRequestGet(mkCtx({ VITE_TOKEN_CONTRACT_ADDRESS: '0x1111' }));
-    const body = await res.json();
-    assert.strictEqual(body.contracts.token, '0x1111');
-  });
-
-  it('uses VITE_NFT_CONTRACT_ADDRESS env var', async () => {
-    const res = await onRequestGet(mkCtx({ VITE_NFT_CONTRACT_ADDRESS: '0x2222' }));
-    const body = await res.json();
-    assert.strictEqual(body.contracts.nft, '0x2222');
-  });
-
-  it('uses VITE_STAKING_CONTRACT_ADDRESS env var as portal', async () => {
-    const res = await onRequestGet(mkCtx({ VITE_STAKING_CONTRACT_ADDRESS: '0x3333' }));
-    const body = await res.json();
-    assert.strictEqual(body.contracts.portal, '0x3333');
-  });
-});
-
-// ── Tests: response headers ────────────────────────────────────────────────
+// ── Tests: HTTP response headers ──────────────────────────────────────────
 
 describe('/api/network (CF) — response headers', () => {
   it('Content-Type is application/json', async () => {
-    const res = await onRequestGet(mkCtx());
-    assert.ok(
-      (res.headers.get('Content-Type') || '').includes('application/json'),
-      'Content-Type must include application/json'
-    );
+    const { resp } = await getBody();
+    assert.ok(resp.headers.get('Content-Type').includes('application/json'));
   });
 
   it('Access-Control-Allow-Origin is *', async () => {
-    const res = await onRequestGet(mkCtx());
-    assert.strictEqual(res.headers.get('Access-Control-Allow-Origin'), '*');
+    const { resp } = await getBody();
+    assert.strictEqual(resp.headers.get('Access-Control-Allow-Origin'), '*');
+  });
+
+  it('response body is valid JSON', async () => {
+    const resp = await onRequestGet(makeCtx());
+    const text = await resp.text();
+    assert.doesNotThrow(() => JSON.parse(text));
   });
 });
 
-// ── Tests: regression / shape ─────────────────────────────────────────────
+// ── Tests: regression — response shape ───────────────────────────────────
 
 describe('/api/network (CF) — regression: response shape', () => {
-  const REQUIRED_FIELDS = [
-    'chainId', 'chainName', 'rpcUrls', 'nativeCurrency',
-    'blockExplorerUrls', 'contracts',
-  ];
-
-  it('response contains all required top-level fields', async () => {
-    const res = await onRequestGet(mkCtx());
-    const body = await res.json();
-    for (const field of REQUIRED_FIELDS) {
+  it('response has all expected top-level fields', async () => {
+    const { body } = await getBody();
+    const required = ['chainId', 'chainName', 'rpcUrls', 'nativeCurrency', 'blockExplorerUrls', 'contracts'];
+    for (const field of required) {
       assert.ok(field in body, `response must include field: ${field}`);
     }
   });
 
-  it('chainId is a hex string starting with 0x', async () => {
-    const res = await onRequestGet(mkCtx());
-    const body = await res.json();
-    assert.ok(typeof body.chainId === 'string' && body.chainId.startsWith('0x'));
+  it('chainId roundtrips through parseInt correctly', async () => {
+    const { body } = await getBody({ CHAIN_ID: '13390' });
+    assert.strictEqual(parseInt(body.chainId, 16), 13390);
   });
 
-  it('all contract addresses start with 0x', async () => {
-    const res = await onRequestGet(mkCtx());
-    const body = await res.json();
-    for (const [key, addr] of Object.entries(body.contracts)) {
-      assert.ok(
-        typeof addr === 'string' && addr.startsWith('0x'),
-        `contracts.${key} must start with 0x`
-      );
-    }
-  });
-
-  it('nativeCurrency has name, symbol, decimals', async () => {
-    const res = await onRequestGet(mkCtx());
-    const body = await res.json();
-    assert.ok('name' in body.nativeCurrency);
-    assert.ok('symbol' in body.nativeCurrency);
-    assert.ok('decimals' in body.nativeCurrency);
-  });
-
-  it('decimals is exactly 18 (EVM standard)', async () => {
-    const res = await onRequestGet(mkCtx());
-    const body = await res.json();
-    assert.strictEqual(body.nativeCurrency.decimals, 18);
+  it('CHAIN_ID=0 produces "0x0"', async () => {
+    const { body } = await getBody({ CHAIN_ID: '0' });
+    assert.strictEqual(body.chainId, '0x0');
   });
 });
