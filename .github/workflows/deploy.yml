@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - genspark_ai_developer
+      - meechain
   pull_request:
     branches:
       - main
@@ -25,7 +25,7 @@ jobs:
       - name: 📦 Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: 🔨 Build static assets
         run: |
@@ -54,7 +54,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: meebot-io
+          projectName: meechain-connect
           directory: deploy/public
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ github.ref_name == 'main' && 'main' || 'preview' }}
@@ -63,8 +63,8 @@ jobs:
       - name: 📝 Deployment Summary
         if: success()
         run: |
-          echo "## 🎉 Deployed to meebot.io!" >> $GITHUB_STEP_SUMMARY
-          echo "- 🌐 Pages URL: https://meebot-io.pages.dev" >> $GITHUB_STEP_SUMMARY
-          echo "- 🔗 Custom domain: https://meebot.io" >> $GITHUB_STEP_SUMMARY
+          echo "## 🎉 Deployed to meechain!" >> $GITHUB_STEP_SUMMARY
+          echo "- 🌐 Pages URL: https://meechain.pages.dev" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔗 Custom domain: https://app.meechain.live" >> $GITHUB_STEP_SUMMARY
           echo "- 📅 Deployed: $(date -u)" >> $GITHUB_STEP_SUMMARY
           echo "- 🌿 Branch: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
