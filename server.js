@@ -127,7 +127,17 @@ if (fs.existsSync(configPath)) {
   baseURL = baseURL || cfg?.openai?.base_url;
 }
 
-const openai = new OpenAI({ apiKey, baseURL });
+const hasOpenAICredentials = Boolean(apiKey);
+const openai = hasOpenAICredentials ? new OpenAI({ apiKey, baseURL }) : null;
+
+function ensureOpenAIEnabled(req, res) {
+  if (openai) return true;
+  res.status(503).json({
+    error: 'AI service unavailable',
+    detail: 'OPENAI_API_KEY is not configured on server',
+  });
+  return false;
+}
 
 // ── MeeBot System Prompt ─────────────────────────────────────────
 const MEEBOT_SYSTEM_PROMPT = `คุณคือ "MeeBot" — AI Assistant ผู้ช่วยอัจฉริยะของแพลตฟอร์ม MeeChain
@@ -428,6 +438,7 @@ app.get('/api/chain/transactions', async (req, res) => {
 
 // ── API: Chat (Streaming SSE) ─────────────────────────────────────
 app.post('/api/chat/stream', async (req, res) => {
+  if (!ensureOpenAIEnabled(req, res)) return;
   const { message, sessionId = 'default' } = req.body;
   if (!message?.trim()) return res.status(400).json({ error: 'Message required' });
 
@@ -473,6 +484,7 @@ app.post('/api/chat/stream', async (req, res) => {
 
 // ── API: Chat (Non-streaming fallback) ───────────────────────────
 app.post('/api/chat', async (req, res) => {
+  if (!ensureOpenAIEnabled(req, res)) return;
   const { message, sessionId = 'default' } = req.body;
   if (!message?.trim()) return res.status(400).json({ error: 'Message required' });
 
@@ -505,6 +517,7 @@ app.delete('/api/chat/:sessionId', (req, res) => {
 
 // ── API: NFT Description Generator (AI) ──────────────────────────
 app.post('/api/nft/describe', async (req, res) => {
+  if (!ensureOpenAIEnabled(req, res)) return;
   const { name, category, traits } = req.body;
   if (!name) return res.status(400).json({ error: 'NFT name required' });
 
