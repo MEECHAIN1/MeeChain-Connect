@@ -65,7 +65,7 @@
     "express": "^4.22.2",
     "js-yaml": "^4.1.1",
     "openai": "^6.34.0",
-    "ws": "^8.20.0"
+    "ws": "^8.20.1"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^7.0.0",
