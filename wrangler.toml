@@ -3,6 +3,9 @@ pages_build_output_dir = "deploy/public"
 compatibility_date = "2025-03-10"
 compatibility_flags = ["nodejs_compat"]
 
+# wrangler.toml
+name = 'meechain-connect'
+
 [vars]
 CHAIN_ID = "13390"
 # PRIMARY RPC — rpc.meechain.live (Cloudflare Tunnel)
