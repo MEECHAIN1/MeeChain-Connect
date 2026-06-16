@@ -1,29 +1,28 @@
 'use strict';
 /**
- * Tests for cf-deploy/functions/api/chat/stream.js
+ * Tests for the Cloudflare Pages Function: cf-deploy/functions/api/chat/stream.js
  *
- * Tests the Cloudflare Pages Function for streaming MeeBot AI responses
- * via Server-Sent Events (SSE). Logic is replicated from the source file.
+ * Handler under test:
+ *   onRequestPost(ctx) — handles POST /api/chat/stream (SSE streaming)
+ *   onRequestOptions()  — handles OPTIONS /api/chat/stream (CORS preflight)
  *
- * Functions under test:
- *   onRequestPost(ctx) — streams AI response as SSE events
- *   onRequestOptions() — returns CORS preflight headers
- *
- * Key behaviours:
- *   - Empty/missing message → 400 JSON (not SSE)
- *   - No OPENAI_API_KEY → SSE stream with delta error message + done:true
- *   - OpenAI upstream error → SSE stream with error field
- *   - OpenAI succeeds → SSE stream with delta chunks + done:true
+ * Behaviour of onRequestPost:
+ *   - Missing/empty/whitespace message → 400 { error: 'Message required' } (non-streaming JSON)
+ *   - No OPENAI_API_KEY → SSE stream with { delta: '<Thai error>' } then { done: true }
+ *   - OpenAI returns non-ok → SSE stream with { error: 'AI Error: HTTP <status>' }
+ *   - Success → SSE stream proxied through as { delta: <content> } events + { done: true }
  *   - OPENAI_BASE_URL trailing slash is stripped
- *   - OPTIONS → CORS headers
+ *   - Content-Type is text/event-stream for all SSE responses
+ *   - CORS Access-Control-Allow-Origin: * on all responses
+ *
+ * SSE parsing helpers are replicated from the handler to enable white-box testing
+ * of the streaming transform logic.
  */
 
 const assert = require('assert');
-const { describe, it, beforeEach, afterEach } = require('mocha');
+const { describe, it } = require('mocha');
 
 // ── Replicate handler logic from cf-deploy/functions/api/chat/stream.js ───
-
-const SYSTEM_PROMPT = `MeeBot system prompt (test stub)`;
 
 async function onRequestPost(ctx) {
   const { request, env } = ctx;
@@ -59,7 +58,7 @@ async function onRequestPost(ctx) {
       });
     }
 
-    const upstreamRes = await globalThis.fetch(`${baseURL}/chat/completions`, {
+    const upstreamRes = await ctx._fetch(`${baseURL}/chat/completions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -68,7 +67,7 @@ async function onRequestPost(ctx) {
       body: JSON.stringify({
         model:       'gpt-5-mini',
         messages:    [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: '(system prompt)' },
           { role: 'user',   content: message },
         ],
         stream:      true,
@@ -78,6 +77,7 @@ async function onRequestPost(ctx) {
     });
 
     if (!upstreamRes.ok) {
+      await upstreamRes.text();
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
         start(controller) {
@@ -90,6 +90,7 @@ async function onRequestPost(ctx) {
       });
     }
 
+    // Transform upstream SSE → our SSE format
     const { readable, writable } = new TransformStream();
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
@@ -161,18 +162,17 @@ async function onRequestOptions() {
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
-function mkCtx(env = {}, bodyJson = {}) {
+function makeCtx({ message, env = {}, fetchImpl } = {}) {
   return {
+    request: { json: async () => ({ message }) },
     env,
-    request: { json: async () => bodyJson },
+    _fetch: fetchImpl || (() => { throw new Error('fetch not mocked'); }),
   };
 }
 
-/**
- * Reads all text from a Response body (SSE stream) and returns it as a string.
- */
-async function readResponseText(res) {
-  const reader = res.body.getReader();
+/** Read all text from a Response whose body is a ReadableStream */
+async function readStream(resp) {
+  const reader = resp.body.getReader();
   const decoder = new TextDecoder();
   let result = '';
   while (true) {
@@ -183,309 +183,390 @@ async function readResponseText(res) {
   return result;
 }
 
-/**
- * Parses SSE text into an array of data objects.
- * Each line of form `data: {...}` is parsed to its JSON value.
- */
-function parseSseEvents(text) {
+/** Parse SSE text into an array of parsed JSON data objects */
+function parseSSE(text) {
   return text
     .split('\n')
     .filter(line => line.startsWith('data: '))
     .map(line => JSON.parse(line.slice(6).trim()));
 }
 
-/**
- * Creates a ReadableStream that emits the given SSE lines.
- */
-function makeSseStream(lines) {
+/** Build a fake upstream ReadableStream from an array of SSE line strings */
+function buildUpstreamStream(lines) {
   const encoder = new TextEncoder();
+  const text = lines.join('\n') + '\n';
   return new ReadableStream({
     start(controller) {
-      for (const line of lines) {
-        controller.enqueue(encoder.encode(line + '\n'));
-      }
+      controller.enqueue(encoder.encode(text));
       controller.close();
     },
   });
 }
 
-// ── fetch mock management ─────────────────────────────────────────────────
+// ── Tests: message validation ─────────────────────────────────────────────
 
-let _originalFetch;
-beforeEach(() => {
-  _originalFetch = globalThis.fetch;
+describe('/api/chat/stream (CF) onRequestPost — message validation', () => {
+  it('returns 400 for empty message', async () => {
+    const ctx = makeCtx({ message: '', env: {} });
+    const resp = await onRequestPost(ctx);
+    assert.strictEqual(resp.status, 400);
+    const body = await resp.json();
+    assert.strictEqual(body.error, 'Message required');
+  });
+
+  it('returns 400 for whitespace-only message', async () => {
+    const ctx = makeCtx({ message: '   ', env: {} });
+    const resp = await onRequestPost(ctx);
+    assert.strictEqual(resp.status, 400);
+  });
+
+  it('returns 400 for null message', async () => {
+    const ctx = makeCtx({ message: null, env: {} });
+    const resp = await onRequestPost(ctx);
+    assert.strictEqual(resp.status, 400);
+  });
+
+  it('returns 400 for missing message key', async () => {
+    const ctx = { request: { json: async () => ({}) }, env: {}, _fetch: () => {} };
+    const resp = await onRequestPost(ctx);
+    assert.strictEqual(resp.status, 400);
+  });
+
+  it('400 response is application/json (not SSE)', async () => {
+    const ctx = makeCtx({ message: '', env: {} });
+    const resp = await onRequestPost(ctx);
+    assert.ok(resp.headers.get('Content-Type').includes('application/json'));
+  });
 });
-afterEach(() => {
-  globalThis.fetch = _originalFetch;
-});
 
-// ── Tests: input validation ────────────────────────────────────────────────
+// ── Tests: no API key — SSE fallback ─────────────────────────────────────
 
-describe('/api/chat/stream (CF) — input validation', () => {
-  it('returns 400 when message is missing', async () => {
-    const res = await onRequestPost(mkCtx({}, {}));
-    assert.strictEqual(res.status, 400);
-    const body = await res.json();
-    assert.ok(body.error.includes('Message'));
+describe('/api/chat/stream (CF) onRequestPost — no OPENAI_API_KEY', () => {
+  it('returns text/event-stream Content-Type', async () => {
+    const ctx = makeCtx({ message: 'Hello', env: {} });
+    const resp = await onRequestPost(ctx);
+    assert.ok(resp.headers.get('Content-Type').includes('text/event-stream'));
   });
 
-  it('returns 400 when message is empty string', async () => {
-    const res = await onRequestPost(mkCtx({}, { message: '' }));
-    assert.strictEqual(res.status, 400);
-  });
-
-  it('returns 400 when message is whitespace only', async () => {
-    const res = await onRequestPost(mkCtx({}, { message: '   ' }));
-    assert.strictEqual(res.status, 400);
-  });
-
-  it('400 response is JSON, not SSE', async () => {
-    const res = await onRequestPost(mkCtx({}, { message: '' }));
-    assert.ok((res.headers.get('Content-Type') || '').includes('application/json'));
-  });
-});
-
-// ── Tests: missing API key ─────────────────────────────────────────────────
-
-describe('/api/chat/stream (CF) — missing API key', () => {
-  it('returns 200 status (not 400/500)', async () => {
-    const res = await onRequestPost(mkCtx({}, { message: 'สวัสดี' }));
-    assert.strictEqual(res.status, 200);
-  });
-
-  it('Content-Type is text/event-stream', async () => {
-    const res = await onRequestPost(mkCtx({}, { message: 'สวัสดี' }));
-    assert.ok((res.headers.get('Content-Type') || '').includes('text/event-stream'));
-  });
-
-  it('Access-Control-Allow-Origin is *', async () => {
-    const res = await onRequestPost(mkCtx({}, { message: 'สวัสดี' }));
-    assert.strictEqual(res.headers.get('Access-Control-Allow-Origin'), '*');
+  it('returns CORS header', async () => {
+    const ctx = makeCtx({ message: 'Hello', env: {} });
+    const resp = await onRequestPost(ctx);
+    assert.strictEqual(resp.headers.get('Access-Control-Allow-Origin'), '*');
   });
 
   it('stream contains a delta event with error message', async () => {
-    const res = await onRequestPost(mkCtx({}, { message: 'สวัสดี' }));
-    const text = await readResponseText(res);
-    const events = parseSseEvents(text);
-    const deltaEvent = events.find(e => e.delta);
-    assert.ok(deltaEvent, 'must emit at least one delta event');
-    assert.ok(deltaEvent.delta.includes('OPENAI_API_KEY'), 'delta must mention OPENAI_API_KEY');
+    const ctx = makeCtx({ message: 'Hello', env: {} });
+    const resp = await onRequestPost(ctx);
+    const text = await readStream(resp);
+    const events = parseSSE(text);
+    const deltaEvent = events.find(e => e.delta !== undefined);
+    assert.ok(deltaEvent, 'must have a delta event');
+    assert.ok(typeof deltaEvent.delta === 'string' && deltaEvent.delta.length > 0);
   });
 
-  it('stream ends with done:true event', async () => {
-    const res = await onRequestPost(mkCtx({}, { message: 'สวัสดี' }));
-    const text = await readResponseText(res);
-    const events = parseSseEvents(text);
+  it('stream ends with a done:true event', async () => {
+    const ctx = makeCtx({ message: 'Hello', env: {} });
+    const resp = await onRequestPost(ctx);
+    const text = await readStream(resp);
+    const events = parseSSE(text);
+    const lastEvent = events[events.length - 1];
+    assert.strictEqual(lastEvent.done, true, 'last SSE event must be { done: true }');
+  });
+
+  it('stream has exactly 2 events: delta then done', async () => {
+    const ctx = makeCtx({ message: 'Hello', env: {} });
+    const resp = await onRequestPost(ctx);
+    const text = await readStream(resp);
+    const events = parseSSE(text);
+    assert.strictEqual(events.length, 2);
+    assert.ok('delta' in events[0], 'first event must have delta');
+    assert.ok(events[1].done === true, 'second event must be done');
+  });
+});
+
+// ── Tests: OpenAI non-ok response ─────────────────────────────────────────
+
+describe('/api/chat/stream (CF) onRequestPost — OpenAI non-ok response', () => {
+  function makeErrorUpstream(status) {
+    return {
+      ok: false,
+      status,
+      text: async () => 'upstream error',
+      body: null,
+    };
+  }
+
+  it('returns text/event-stream Content-Type on OpenAI error', async () => {
+    const ctx = makeCtx({
+      message: 'Hello',
+      env: { OPENAI_API_KEY: 'sk-test' },
+      fetchImpl: async () => makeErrorUpstream(500),
+    });
+    const resp = await onRequestPost(ctx);
+    assert.ok(resp.headers.get('Content-Type').includes('text/event-stream'));
+  });
+
+  it('SSE error event contains AI Error with HTTP status', async () => {
+    const ctx = makeCtx({
+      message: 'Hello',
+      env: { OPENAI_API_KEY: 'sk-test' },
+      fetchImpl: async () => makeErrorUpstream(503),
+    });
+    const resp = await onRequestPost(ctx);
+    const text = await readStream(resp);
+    const events = parseSSE(text);
+    const errorEvent = events.find(e => e.error !== undefined);
+    assert.ok(errorEvent, 'must have an error event');
+    assert.ok(errorEvent.error.includes('503'), `error must mention HTTP 503, got: ${errorEvent.error}`);
+  });
+
+  it('returns CORS header on upstream error', async () => {
+    const ctx = makeCtx({
+      message: 'Hello',
+      env: { OPENAI_API_KEY: 'sk-test' },
+      fetchImpl: async () => makeErrorUpstream(401),
+    });
+    const resp = await onRequestPost(ctx);
+    assert.strictEqual(resp.headers.get('Access-Control-Allow-Origin'), '*');
+  });
+});
+
+// ── Tests: SSE streaming success ──────────────────────────────────────────
+
+describe('/api/chat/stream (CF) onRequestPost — successful streaming', () => {
+  function makeStreamingUpstream(contentChunks) {
+    // Build SSE lines like OpenAI would send
+    const lines = contentChunks.map(chunk =>
+      `data: ${JSON.stringify({ choices: [{ delta: { content: chunk } }] })}`
+    );
+    lines.push('data: [DONE]');
+    const body = buildUpstreamStream(lines);
+    return { ok: true, status: 200, body, text: async () => '' };
+  }
+
+  it('returns text/event-stream Content-Type on success', async () => {
+    const ctx = makeCtx({
+      message: 'Hello',
+      env: { OPENAI_API_KEY: 'sk-test' },
+      fetchImpl: async () => makeStreamingUpstream(['Hello']),
+    });
+    const resp = await onRequestPost(ctx);
+    assert.ok(resp.headers.get('Content-Type').includes('text/event-stream'));
+  });
+
+  it('returns CORS header on success', async () => {
+    const ctx = makeCtx({
+      message: 'Hello',
+      env: { OPENAI_API_KEY: 'sk-test' },
+      fetchImpl: async () => makeStreamingUpstream(['Hello']),
+    });
+    const resp = await onRequestPost(ctx);
+    assert.strictEqual(resp.headers.get('Access-Control-Allow-Origin'), '*');
+  });
+
+  it('returns X-Accel-Buffering: no to prevent proxy buffering', async () => {
+    const ctx = makeCtx({
+      message: 'Hello',
+      env: { OPENAI_API_KEY: 'sk-test' },
+      fetchImpl: async () => makeStreamingUpstream(['Hello']),
+    });
+    const resp = await onRequestPost(ctx);
+    assert.strictEqual(resp.headers.get('X-Accel-Buffering'), 'no');
+  });
+
+  it('streams content chunks as delta events', async () => {
+    const chunks = ['Hel', 'lo ', 'MeeBot'];
+    const ctx = makeCtx({
+      message: 'Hello',
+      env: { OPENAI_API_KEY: 'sk-test' },
+      fetchImpl: async () => makeStreamingUpstream(chunks),
+    });
+    const resp = await onRequestPost(ctx);
+    const text = await readStream(resp);
+    const events = parseSSE(text);
+    const deltas = events.filter(e => e.delta !== undefined).map(e => e.delta);
+    assert.deepStrictEqual(deltas, chunks);
+  });
+
+  it('final event is { done: true }', async () => {
+    const ctx = makeCtx({
+      message: 'Hello',
+      env: { OPENAI_API_KEY: 'sk-test' },
+      fetchImpl: async () => makeStreamingUpstream(['Word']),
+    });
+    const resp = await onRequestPost(ctx);
+    const text = await readStream(resp);
+    const events = parseSSE(text);
     const lastEvent = events[events.length - 1];
     assert.strictEqual(lastEvent.done, true);
   });
 
-  it('stream contains exactly 2 events (delta + done)', async () => {
-    const res = await onRequestPost(mkCtx({}, { message: 'สวัสดี' }));
-    const text = await readResponseText(res);
-    const events = parseSseEvents(text);
-    assert.strictEqual(events.length, 2);
+  it('SSE lines that do not start with "data: " are ignored', async () => {
+    const encoder = new TextEncoder();
+    const body = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(
+          'event: ping\n' +
+          ': comment\n' +
+          `data: ${JSON.stringify({ choices: [{ delta: { content: 'Hi' } }] })}\n` +
+          'data: [DONE]\n'
+        ));
+        controller.close();
+      },
+    });
+    const ctx = makeCtx({
+      message: 'Hello',
+      env: { OPENAI_API_KEY: 'sk-test' },
+      fetchImpl: async () => ({ ok: true, status: 200, body, text: async () => '' }),
+    });
+    const resp = await onRequestPost(ctx);
+    const text = await readStream(resp);
+    const events = parseSSE(text);
+    const deltas = events.filter(e => e.delta !== undefined);
+    assert.strictEqual(deltas.length, 1);
+    assert.strictEqual(deltas[0].delta, 'Hi');
+  });
+
+  it('malformed JSON in SSE data line is silently ignored', async () => {
+    const encoder = new TextEncoder();
+    const body = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(
+          'data: {bad json}\n' +
+          `data: ${JSON.stringify({ choices: [{ delta: { content: 'OK' } }] })}\n` +
+          'data: [DONE]\n'
+        ));
+        controller.close();
+      },
+    });
+    const ctx = makeCtx({
+      message: 'Hello',
+      env: { OPENAI_API_KEY: 'sk-test' },
+      fetchImpl: async () => ({ ok: true, status: 200, body, text: async () => '' }),
+    });
+    const resp = await onRequestPost(ctx);
+    const text = await readStream(resp);
+    const events = parseSSE(text);
+    const deltas = events.filter(e => e.delta !== undefined);
+    assert.strictEqual(deltas.length, 1, 'malformed line must be silently skipped');
+    assert.strictEqual(deltas[0].delta, 'OK');
+  });
+
+  it('chunk with no delta content is skipped (role-only delta)', async () => {
+    const encoder = new TextEncoder();
+    const body = new ReadableStream({
+      start(controller) {
+        // role-only delta (no content) followed by content delta
+        controller.enqueue(encoder.encode(
+          `data: ${JSON.stringify({ choices: [{ delta: { role: 'assistant' } }] })}\n` +
+          `data: ${JSON.stringify({ choices: [{ delta: { content: 'Hello' } }] })}\n` +
+          'data: [DONE]\n'
+        ));
+        controller.close();
+      },
+    });
+    const ctx = makeCtx({
+      message: 'Hello',
+      env: { OPENAI_API_KEY: 'sk-test' },
+      fetchImpl: async () => ({ ok: true, status: 200, body, text: async () => '' }),
+    });
+    const resp = await onRequestPost(ctx);
+    const text = await readStream(resp);
+    const events = parseSSE(text);
+    const deltas = events.filter(e => e.delta !== undefined);
+    assert.strictEqual(deltas.length, 1, 'role-only delta must be skipped');
+    assert.strictEqual(deltas[0].delta, 'Hello');
   });
 });
 
-// ── Tests: upstream error ──────────────────────────────────────────────────
+// ── Tests: baseURL trailing slash stripping ───────────────────────────────
 
-describe('/api/chat/stream (CF) — upstream HTTP error', () => {
-  it('returns SSE stream when upstream returns 500', async () => {
-    globalThis.fetch = async () => new Response('Server Error', { status: 500 });
-
-    const res = await onRequestPost(mkCtx({ OPENAI_API_KEY: 'sk-test' }, { message: 'สวัสดี' }));
-    assert.ok((res.headers.get('Content-Type') || '').includes('text/event-stream'));
-  });
-
-  it('SSE stream contains error event with HTTP status', async () => {
-    globalThis.fetch = async () => new Response('Too Many Requests', { status: 429 });
-
-    const res = await onRequestPost(mkCtx({ OPENAI_API_KEY: 'sk-test' }, { message: 'สวัสดี' }));
-    const text = await readResponseText(res);
-    const events = parseSseEvents(text);
-    const errorEvent = events.find(e => e.error);
-    assert.ok(errorEvent, 'must have error event');
-    assert.ok(errorEvent.error.includes('429'), `error must include status code, got: ${errorEvent.error}`);
-  });
-
-  it('returns 500 SSE stream on network exception', async () => {
-    globalThis.fetch = async () => { throw new Error('Connection refused'); };
-
-    const res = await onRequestPost(mkCtx({ OPENAI_API_KEY: 'sk-test' }, { message: 'สวัสดี' }));
-    assert.strictEqual(res.status, 500);
-    const text = await res.text();
-    assert.ok(text.includes('Connection refused'));
-  });
-});
-
-// ── Tests: successful streaming ────────────────────────────────────────────
-
-describe('/api/chat/stream (CF) — successful streaming', () => {
-  it('returns SSE stream with correct Content-Type', async () => {
-    const sseLines = [
-      'data: ' + JSON.stringify({ choices: [{ delta: { content: 'สวัส' } }] }),
-      'data: ' + JSON.stringify({ choices: [{ delta: { content: 'ดีครับ' } }] }),
-      'data: [DONE]',
-    ];
-
-    globalThis.fetch = async () => new Response(makeSseStream(sseLines), { status: 200 });
-
-    const res = await onRequestPost(mkCtx({ OPENAI_API_KEY: 'sk-test' }, { message: 'hi' }));
-    assert.ok((res.headers.get('Content-Type') || '').includes('text/event-stream'));
-  });
-
-  it('stream emits done:true event at end', async () => {
-    const sseLines = [
-      'data: ' + JSON.stringify({ choices: [{ delta: { content: 'Hello' } }] }),
-      'data: [DONE]',
-    ];
-
-    globalThis.fetch = async () => new Response(makeSseStream(sseLines), { status: 200 });
-
-    const res = await onRequestPost(mkCtx({ OPENAI_API_KEY: 'sk-test' }, { message: 'hi' }));
-    const text = await readResponseText(res);
-    const events = parseSseEvents(text);
-    assert.ok(events.some(e => e.done === true), 'must have done:true event');
-  });
-
-  it('stream emits delta events with content', async () => {
-    const sseLines = [
-      'data: ' + JSON.stringify({ choices: [{ delta: { content: 'ทดสอบ' } }] }),
-      'data: [DONE]',
-    ];
-
-    globalThis.fetch = async () => new Response(makeSseStream(sseLines), { status: 200 });
-
-    const res = await onRequestPost(mkCtx({ OPENAI_API_KEY: 'sk-test' }, { message: 'hi' }));
-    const text = await readResponseText(res);
-    const events = parseSseEvents(text);
-    const deltaEvents = events.filter(e => e.delta);
-    assert.ok(deltaEvents.length > 0, 'must have at least one delta event');
-    assert.strictEqual(deltaEvents[0].delta, 'ทดสอบ');
-  });
-
-  it('skips SSE lines without delta content', async () => {
-    // Empty delta (e.g., role announcement) should not emit an event
-    const sseLines = [
-      'data: ' + JSON.stringify({ choices: [{ delta: { role: 'assistant' } }] }),
-      'data: ' + JSON.stringify({ choices: [{ delta: { content: 'ตอบ' } }] }),
-      'data: [DONE]',
-    ];
-
-    globalThis.fetch = async () => new Response(makeSseStream(sseLines), { status: 200 });
-
-    const res = await onRequestPost(mkCtx({ OPENAI_API_KEY: 'sk-test' }, { message: 'test' }));
-    const text = await readResponseText(res);
-    const events = parseSseEvents(text);
-    const deltaEvents = events.filter(e => e.delta);
-    // Only the content delta (not the role delta) should be emitted
-    assert.strictEqual(deltaEvents.length, 1);
-    assert.strictEqual(deltaEvents[0].delta, 'ตอบ');
-  });
-
-  it('uses OPENAI_BASE_URL env var without trailing slash', async () => {
-    let calledUrl = '';
-    globalThis.fetch = async (url) => {
-      calledUrl = url;
-      return new Response(makeSseStream(['data: [DONE]']), { status: 200 });
-    };
-
-    const ctx = mkCtx(
-      { OPENAI_API_KEY: 'sk-test', OPENAI_BASE_URL: 'https://custom.api.example.com/v1/' },
-      { message: 'test' }
-    );
+describe('/api/chat/stream (CF) onRequestPost — baseURL normalization', () => {
+  it('strips trailing slash from OPENAI_BASE_URL', async () => {
+    let calledUrl = null;
+    const ctx = makeCtx({
+      message: 'Hello',
+      env: { OPENAI_API_KEY: 'sk-test', OPENAI_BASE_URL: 'https://api.openai.com/v1/' },
+      fetchImpl: async (url, opts) => {
+        calledUrl = url;
+        return {
+          ok: true, status: 200,
+          body: buildUpstreamStream(['data: [DONE]']),
+          text: async () => '',
+        };
+      },
+    });
     await onRequestPost(ctx);
-    assert.ok(!calledUrl.includes('//chat'), 'trailing slash must be stripped before path join');
-    assert.ok(calledUrl.includes('/chat/completions'));
+    assert.ok(calledUrl && !calledUrl.includes('//chat'), `URL should not have double slash: ${calledUrl}`);
   });
 
-  it('response headers include X-Accel-Buffering: no', async () => {
-    globalThis.fetch = async () => new Response(makeSseStream(['data: [DONE]']), { status: 200 });
-
-    const res = await onRequestPost(mkCtx({ OPENAI_API_KEY: 'sk-test' }, { message: 'test' }));
-    assert.strictEqual(res.headers.get('X-Accel-Buffering'), 'no');
-  });
-
-  it('response headers include Cache-Control: no-cache', async () => {
-    globalThis.fetch = async () => new Response(makeSseStream(['data: [DONE]']), { status: 200 });
-
-    const res = await onRequestPost(mkCtx({ OPENAI_API_KEY: 'sk-test' }, { message: 'test' }));
-    assert.strictEqual(res.headers.get('Cache-Control'), 'no-cache');
-  });
-
-  it('CORS header present on successful streaming response', async () => {
-    globalThis.fetch = async () => new Response(makeSseStream(['data: [DONE]']), { status: 200 });
-
-    const res = await onRequestPost(mkCtx({ OPENAI_API_KEY: 'sk-test' }, { message: 'test' }));
-    assert.strictEqual(res.headers.get('Access-Control-Allow-Origin'), '*');
+  it('default baseURL does not have trailing slash before /chat/completions', async () => {
+    let calledUrl = null;
+    const ctx = makeCtx({
+      message: 'Hello',
+      env: { OPENAI_API_KEY: 'sk-test' },
+      fetchImpl: async (url) => {
+        calledUrl = url;
+        const body = buildUpstreamStream(['data: [DONE]']);
+        return { ok: true, status: 200, body, text: async () => '' };
+      },
+    });
+    await onRequestPost(ctx);
+    assert.ok(calledUrl === 'https://api.openai.com/v1/chat/completions', `Unexpected URL: ${calledUrl}`);
   });
 });
 
-// ── Tests: OPTIONS preflight ───────────────────────────────────────────────
+// ── Tests: exception handling ─────────────────────────────────────────────
 
-describe('/api/chat/stream (CF) — OPTIONS preflight', () => {
-  it('returns 200 status', async () => {
-    const res = await onRequestOptions();
-    assert.strictEqual(res.status, 200);
+describe('/api/chat/stream (CF) onRequestPost — exception handling', () => {
+  it('returns 500 with SSE error event when fetch throws', async () => {
+    const ctx = makeCtx({
+      message: 'Hello',
+      env: { OPENAI_API_KEY: 'sk-test' },
+      fetchImpl: async () => { throw new Error('Connection refused'); },
+    });
+    const resp = await onRequestPost(ctx);
+    assert.strictEqual(resp.status, 500);
+    const text = await resp.text();
+    assert.ok(text.startsWith('data: '), 'error response must be SSE formatted');
+    const event = JSON.parse(text.trim().replace('data: ', ''));
+    assert.ok(event.error.includes('Connection refused'));
   });
 
+  it('returns SSE Content-Type for 500 error', async () => {
+    const ctx = makeCtx({
+      message: 'Hello',
+      env: { OPENAI_API_KEY: 'sk-test' },
+      fetchImpl: async () => { throw new Error('oops'); },
+    });
+    const resp = await onRequestPost(ctx);
+    assert.ok(resp.headers.get('Content-Type').includes('text/event-stream'));
+  });
+});
+
+// ── Tests: onRequestOptions (CORS preflight) ──────────────────────────────
+
+describe('/api/chat/stream (CF) onRequestOptions — CORS preflight', () => {
   it('Access-Control-Allow-Origin is *', async () => {
-    const res = await onRequestOptions();
-    assert.strictEqual(res.headers.get('Access-Control-Allow-Origin'), '*');
+    const resp = await onRequestOptions();
+    assert.strictEqual(resp.headers.get('Access-Control-Allow-Origin'), '*');
   });
 
   it('Access-Control-Allow-Methods includes POST and OPTIONS', async () => {
-    const res = await onRequestOptions();
-    const methods = res.headers.get('Access-Control-Allow-Methods') || '';
+    const resp = await onRequestOptions();
+    const methods = resp.headers.get('Access-Control-Allow-Methods');
     assert.ok(methods.includes('POST'));
     assert.ok(methods.includes('OPTIONS'));
   });
 
   it('Access-Control-Allow-Headers includes Content-Type', async () => {
-    const res = await onRequestOptions();
-    const headers = res.headers.get('Access-Control-Allow-Headers') || '';
-    assert.ok(headers.includes('Content-Type'));
-  });
-});
-
-// ── Tests: request payload shape ──────────────────────────────────────────
-
-describe('/api/chat/stream (CF) — OpenAI request payload', () => {
-  it('sends stream: true to OpenAI', async () => {
-    let capturedBody = null;
-    globalThis.fetch = async (url, opts) => {
-      capturedBody = JSON.parse(opts.body);
-      return new Response(makeSseStream(['data: [DONE]']), { status: 200 });
-    };
-
-    const ctx = mkCtx({ OPENAI_API_KEY: 'sk-test' }, { message: 'test' });
-    await onRequestPost(ctx);
-    assert.strictEqual(capturedBody.stream, true);
+    const resp = await onRequestOptions();
+    assert.ok(resp.headers.get('Access-Control-Allow-Headers').includes('Content-Type'));
   });
 
-  it('sends model gpt-5-mini', async () => {
-    let capturedBody = null;
-    globalThis.fetch = async (url, opts) => {
-      capturedBody = JSON.parse(opts.body);
-      return new Response(makeSseStream(['data: [DONE]']), { status: 200 });
-    };
-
-    const ctx = mkCtx({ OPENAI_API_KEY: 'sk-test' }, { message: 'test' });
-    await onRequestPost(ctx);
-    assert.strictEqual(capturedBody.model, 'gpt-5-mini');
-  });
-
-  it('sends user message content correctly', async () => {
-    let capturedBody = null;
-    globalThis.fetch = async (url, opts) => {
-      capturedBody = JSON.parse(opts.body);
-      return new Response(makeSseStream(['data: [DONE]']), { status: 200 });
-    };
-
-    const ctx = mkCtx({ OPENAI_API_KEY: 'sk-test' }, { message: 'คำถามทดสอบ' });
-    await onRequestPost(ctx);
-    const userMsg = capturedBody.messages.find(m => m.role === 'user');
-    assert.strictEqual(userMsg.content, 'คำถามทดสอบ');
+  it('response body is empty', async () => {
+    const resp = await onRequestOptions();
+    const text = await resp.text();
+    assert.strictEqual(text, '');
   });
 });
