@@ -100,7 +100,7 @@ warn() { echo "⚠️  $*"; }
 # info prints an informational message prefixed with an info emoji.
 info() { echo "ℹ️  $*"; }
 
-# require_cmd checks that a required command exists in PATH.
+# require_cmd verifies that a required command exists in PATH and exits with an error if not found.
 require_cmd() {
   local cmd="$1"
   if ! command -v "$cmd" >/dev/null 2>&1; then
@@ -138,7 +138,7 @@ status_code() {
   awk 'toupper($1) ~ /^HTTP/ {code=$2} END{print code}' "$HEADERS"
 }
 
-# assert_no_access_redirect verifies the HTTP response was not blocked by Cloudflare Access.
+# assert_no_access_redirect fails if the HTTP response contains a Cloudflare Access redirect.
 assert_no_access_redirect() {
   local location
   location="$(awk 'tolower($1)=="location:" {print $2}' "$HEADERS" | tr -d '\r' || true)"
@@ -155,7 +155,7 @@ curl_get() {
   fi
 }
 
-# curl_post_json ส่งคำขอ POST พร้อมข้อมูล JSON ไปยัง URL ที่ระบุ
+# curl_post_json ส่งคำขอ POST พร้อมข้อมูล JSON ไปยัง URL ที่ระบุ และบันทึกส่วนหัวการตอบกลับไปยัง HEADERS และเนื้อหาไปยัง BODY
 curl_post_json() {
   local url="$1"
   local payload="$2"
@@ -190,7 +190,7 @@ json_field() {
   node -e "const fs=require('fs'); const data=JSON.parse(fs.readFileSync(process.argv[1], 'utf8')); const value=($expression); if (value === undefined || value === null) process.exit(3); console.log(typeof value === 'object' ? JSON.stringify(value) : value);" "$BODY"
 }
 
-# assert_json_field_equals asserts that a JSON field from the response equals an expected value.
+# assert_json_field_equals verifies that a JSON field extracted from the response matches an expected value.
 assert_json_field_equals() {
   local label="$1"
   local expression="$2"
@@ -205,7 +205,7 @@ assert_json_field_equals() {
   pass "$label = $actual"
 }
 
-# assert_json_field_present ตรวจสอบว่าฟิลด์ JSON ที่ระบุมีอยู่ในข้อมูล JSON และมีค่าที่กำหนด
+# assert_json_field_present ยืนยันว่าฟิลด์ JSON ที่ระบุมีอยู่และมีค่า
 assert_json_field_present() {
   local label="$1"
   local expression="$2"
@@ -213,7 +213,7 @@ assert_json_field_present() {
   pass "$label present"
 }
 
-# assert_json_field_truthy_or_warn ตรวจสอบว่าฟิลด์ JSON เป็นจริง โดยล้มเหลวเมื่อ EXPECT_UPSTREAM_CONNECTED ถูกตั้งค่าเป็น 1 หรือแสดงคำเตือนเป็นอย่างอื่น
+# assert_json_field_truthy_or_warn validates a JSON field is true, with behavior determined by EXPECT_UPSTREAM_CONNECTED.
 assert_json_field_truthy_or_warn() {
   local label="$1"
   local expression="$2"
@@ -230,7 +230,7 @@ assert_json_field_truthy_or_warn() {
   fi
 }
 
-# assert_body_contains ยืนยันว่าเนื้อหาการตอบสนอง HTTP มีข้อความที่คาดหวัง
+# assert_body_contains ยืนยันว่าเนื้อหาการตอบสนอง HTTP มีข้อความที่คาดหวัง โดยพิมพ์ข้อมูลตัวอย่างและหยุดการทำงานหากข้อความไม่พบ
 assert_body_contains() {
   local label="$1"
   local expected="$2"
@@ -304,7 +304,7 @@ check_network_config() {
 }
 
 
-# normalize_dns_name normalizes a DNS name by removing a trailing dot and converting it to lowercase.
+# normalize_dns_name ปกติเป็นชื่อ DNS โดยลบจุดท้ายและแปลงเป็นตัวพิมพ์เล็ก
 normalize_dns_name() {
   local name="$1"
   name="${name%.}"
@@ -366,7 +366,7 @@ check_external_network() {
   check_expected_cname_target "$host"
 }
 
-# run_checks_for_base_url ดำเนินการตรวจสอบ production validation สำหรับ base URL ที่ให้มา ทดสอบเครือข่าย สถานะแอปพลิเคชัน health endpoints RPC proxy และการตั้งค่าเครือข่าย
+# run_checks_for_base_url ดำเนินการตรวจสอบ production validation สำหรับ base URL ที่ระบุ
 run_checks_for_base_url() {
   BASE_URL="$(normalize_url "$1")"
 
