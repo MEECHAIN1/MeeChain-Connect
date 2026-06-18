@@ -2,6 +2,7 @@
 // ║  Cloudflare Pages Function: /api/network            ║
 // ╚══════════════════════════════════════════════════════╝
 
+import { resolveChainId, resolveContracts, resolveRpcUrl } from './_shared.mjs';
 function buildRpcGateway(env = {}) {
   return {
     primary: {
@@ -39,15 +40,16 @@ export async function onRequestGet(ctx) {
   const { env } = ctx;
   const config = getMeechainConfig(env);
 
+  const chainId = resolveChainId(env);
   const data = {
     chainId:          `0x${chainId.toString(16)}`, // 0x344e
     chainName:        'MeeChain Ritual Chain',
     rpcUrls:          [
-      env.DRPC_RPC_URL    || 'https://rpc.meechain.live',
-      env.VITE_RPC_URL    || 'https://rpc.meechain.live',
+      resolveRpcUrl(env),
     ],
     nativeCurrency:   { name: 'MEE Token', symbol: 'MEE', decimals: 18 },
     blockExplorerUrls:['http://explorer.meechain.run.place'],
+    contracts: resolveContracts(env),
     contracts: {
       token:   env.VITE_TOKEN_CONTRACT_ADDRESS   || '0x5FbDB2315678afecb367f032d93F642f64180aa3',
       nft:     env.VITE_NFT_CONTRACT_ADDRESS     || '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
