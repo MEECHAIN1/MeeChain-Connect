@@ -22,7 +22,7 @@ services:
 
   portainer:
     image: portainer/portainer-ee:lts
-    command: -H tcp://tasks.agent:9001 --tlsskipverify
+    command: -H tcp://tasks.agent:9001
     ports:
       - "9443:9443"
       - "9000:9000"
@@ -45,9 +45,3 @@ networks:
 
 volumes:
   portainer_data:
-  db-data:
-    driver: local
-    driver_opts:
-      type: "nfs"
-      o: "addr=192.168.1.4,nolock,soft,rw"
-      device: ":/mnt/nfs/data"
