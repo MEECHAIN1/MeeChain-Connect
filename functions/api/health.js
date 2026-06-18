@@ -19,7 +19,8 @@ export async function onRequestGet(ctx) {
     chainId:   resolveChainId(env),
     rpc:       resolveRpcUrl(env),
     contracts: {
-      ...contracts,
+      token: contracts.token,
+      nft: contracts.nft,
       staking: contracts.portal,
     chainId:   config.chainId,
     rpc:       config.rpcPrimary,
