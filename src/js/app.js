@@ -953,50 +953,67 @@ function initKeyboardShortcuts() {
 // WEB3 / NETWORK STATUS BAR
 // ============================================================
 async function checkWeb3Status() {
+  const dot = $('#net-dot');
+  const label = $('#net-label');
+  const block = $('#net-block');
+  const upstream = $('#net-upstream-state');
+
+  const applyDisconnected = (text, upstreamText = '🟡 Upstream: Unavailable') => {
+    if (typeof liveChainConnected !== 'undefined') liveChainConnected = false;
+    if (dot) dot.className = 'net-dot offline';
+    if (label) label.textContent = text;
+    if (upstream) upstream.textContent = upstreamText;
+  };
+
   try {
-    const res = await fetch('/api/web3/status');
+    const res = await fetch('/api/web3/status', { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     liveChainConnected = Boolean(data.connected);
 
-    // ── Update the top network status bar ──────────────────
-    const dot   = $('#net-dot');
-    const label = $('#net-label');
-    const block = $('#net-block');
     syncContractChips(data.contracts, data.chainId || 13390);
-
-    if (dot) {
-      dot.className = `net-dot ${data.connected ? 'online' : 'offline'}`;
-    }
+    if (dot) dot.className = `net-dot ${data.connected ? 'online' : 'offline'}`;
+    const upstreamReady = data.connected || data.upstreamReady;
+    if (upstream) upstream.textContent = upstreamReady ? '🟢 Upstream: Ready' : '🟡 Upstream: Degraded';
     if (label) {
       label.textContent = data.connected
         ? `🟢 เชื่อมต่อ Ritual Chain สำเร็จ (Chain ID: ${data.chainId || 13390})`
-        : '🔴 Ritual Chain: Offline — ใช้ข้อมูล Mock';
+        : '🟡 RPC upstream ยังไม่พร้อม (POST JSON-RPC ยังไม่ครบ) — ใช้ local/mock data';
     }
     if (block && data.blockNumber) {
       block.textContent = '#' + Number(data.blockNumber).toLocaleString();
     }
 
-    // ── Also update live block counter ─────────────────────
     if (data.connected && data.blockNumber) {
       blockNumber = Number(data.blockNumber);
-      const el      = $('#block-number');
+      const el = $('#block-number');
       const totalEl = $('#total-blocks');
-      if (el)      el.textContent      = blockNumber.toLocaleString('th-TH');
+      if (el) el.textContent = blockNumber.toLocaleString('th-TH');
       if (totalEl) totalEl.textContent = blockNumber.toLocaleString('th-TH');
     }
 
     if (data.connected) {
       showToast(`✅ เชื่อมต่อ Ritual Chain | Block #${data.blockNumber || '—'}`, 'success');
     }
-  } catch(e) {
+    return;
+  } catch (e) {
     console.warn('Web3 status check failed:', e.message);
-    liveChainConnected = false;
-    const dot   = $('#net-dot');
-    const label = $('#net-label');
-    if (dot)   dot.className   = 'net-dot offline';
-    if (label) label.textContent = '🔴 ไม่สามารถเชื่อมต่อ Server ได้';
   }
+
+  // Fallback: if API status endpoint fails, still check if RPC proxy health is alive
+  try {
+    const healthRes = await fetch('/rpc/health', { cache: 'no-store' });
+    if (healthRes.ok) {
+      const health = await healthRes.json();
+      syncContractChips(health.contracts || {}, health.chainId || 13390);
+      applyDisconnected('🟡 Server online แต่ RPC upstream ยังไม่พร้อม', '🟡 Upstream: Health endpoint reachable');
+      return;
+    }
+  } catch (e) {
+    console.warn('RPC health fallback failed:', e.message);
+  }
+
+  applyDisconnected('🔴 ไม่สามารถเชื่อมต่อ Server ได้', '🔴 Upstream: Unknown');
 }
 
 // Poll network status every 30 seconds

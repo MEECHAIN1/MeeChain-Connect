@@ -1,95 +1,62 @@
 #!/usr/bin/env bash
-# ============================================================
-# MeeChain Dashboard — Universal Start Script
-# Supports: PM2 (bare metal), Docker, Podman, podman-compose
-#
-# Usage:
-#   bash scripts/start.sh              → auto-detect best runtime
-#   bash scripts/start.sh pm2          → force PM2
-#   bash scripts/start.sh podman       → force Podman container
-#   bash scripts/start.sh docker       → force Docker container
-#   bash scripts/start.sh compose      → force compose (podman-compose / docker compose)
-# ============================================================
 
-set -euo pipefail
-
-APP_NAME="meechain-dashboard"
-PORT="${PORT:-3000}"
-IMAGE="${IMAGE:-meechain-dashboard:latest}"
+set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+# shellcheck source=./lib.sh
+source "${SCRIPT_DIR}/lib.sh"
 
-# ── Colors ──────────────────────────────────────────────────
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
-# log พิมพ์ข้อความสถานะนำหน้าด้วย "[start]" เป็นสีเขียวไปยัง stdout.
-log()  { echo -e "${GREEN}[start]${NC} $*"; }
-# warn พิมพ์ข้อความเตือนที่ขึ้นต้นด้วย `[warn]` เป็นสีเหลืองไปยัง stdout.
-warn() { echo -e "${YELLOW}[warn]${NC}  $*"; }
-# err แสดงข้อความข้อผิดพลาดที่มีคำนำหน้า [error] เป็นสีแดงไปยัง stderr.
-err()  { echo -e "${RED}[error]${NC} $*" >&2; }
-
-# detect_runtime ตรวจสอบ runtime ที่ติดตั้งบนระบบ และพิมพ์ค่าเดียวจากชุด {podman, docker, pm2, node, none} เพื่อระบุสิ่งที่ใช้ได้.
-detect_runtime() {
-  # Prefer whichever runtime is already hosting APP_NAME
-  if command -v pm2 &>/dev/null && pm2 list 2>/dev/null | grep -q "$APP_NAME"; then echo "pm2"; return; fi
-  if command -v podman &>/dev/null && podman ps --format '{{.Names}}' 2>/dev/null | grep -qx "$APP_NAME"; then echo "podman"; return; fi
-  if command -v docker &>/dev/null && docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$APP_NAME"; then echo "docker"; return; fi
-  if   command -v podman       &>/dev/null; then echo "podman"
-  elif command -v docker       &>/dev/null; then echo "docker"
-  elif command -v pm2          &>/dev/null; then echo "pm2"
-  elif command -v node         &>/dev/null; then echo "node"
-  else  echo "none"
-  fi
-}
-
-# detect_compose ตรวจสอบว่า `podman-compose`, `docker compose` หรือ `docker-compose` ใดใช้งานได้แล้วพิมพ์ชื่อคำสั่งที่พบ หรือพิมพ์ `none` หากไม่มีคำสั่งที่รองรับอยู่ในระบบ
-detect_compose() {
-  if   command -v podman-compose &>/dev/null; then echo "podman-compose"
-  elif docker compose version    &>/dev/null 2>&1; then echo "docker compose"
-  elif command -v docker-compose &>/dev/null; then echo "docker-compose"
-  else  echo "none"
-  fi
-}
-
-# start_pm2 เริ่มแอป MeeChain Dashboard ด้วย PM2 และบันทึกพร้อมแสดงสถานะ PM2.
 start_pm2() {
+  ensure_root_dir
   log "Starting with PM2..."
-  cd "$ROOT_DIR"
+
+  if ! has_cmd pm2; then
+    err "PM2 is not installed"
+    info "Install: npm install -g pm2"
+    exit 1
+  fi
+
+  if [ ! -f "$ROOT_DIR/ecosystem.config.cjs" ]; then
+    err "Missing ecosystem.config.cjs"
+    exit 1
+  fi
+
   if pm2 list | grep -q "$APP_NAME"; then
     pm2 restart "$APP_NAME"
   else
     pm2 start ecosystem.config.cjs --env production
   fi
+
   pm2 save
-  log "PM2 status:"
   pm2 status
+  wait_for_health || true
 }
 
-# start_podman เริ่มคอนเทนเนอร์ด้วย Podman (rootless): สร้าง image หากไม่พบ, ลบคอนเทนเนอร์เดิม, โหลดตัวแปรจาก .env ถ้ามี, และรันคอนเทนเนอร์พร้อมพอร์ต, volume, นโยบาย restart และการตรวจสอบสุขภาพ (healthcheck).
 start_podman() {
+  ensure_root_dir
   log "Starting with Podman (rootless)..."
-  cd "$ROOT_DIR"
 
-  # Build image if not present
+  if ! has_cmd podman; then
+    err "Podman is not installed"
+    exit 1
+  fi
+
   if ! podman image exists "$IMAGE"; then
     log "Building image $IMAGE ..."
     podman build -t "$IMAGE" .
   fi
 
-  # Remove existing container if running
-  podman rm -f "$APP_NAME" 2>/dev/null || true
+  podman rm -f "$APP_NAME" >/dev/null 2>&1 || true
 
-  # Run container with env file
-  ENV_ARGS=""
+  local env_args=()
   if [ -f "$ROOT_DIR/.env" ]; then
-    ENV_ARGS="--env-file $ROOT_DIR/.env"
+    env_args=(--env-file "$ROOT_DIR/.env")
   fi
 
   podman run -d \
     --name "$APP_NAME" \
     --replace \
     -p "${PORT}:3000" \
-    $ENV_ARGS \
+    "${env_args[@]}" \
     -e NODE_ENV=production \
     -e PORT=3000 \
     -v meechain_logs:/app/logs:Z \
@@ -100,90 +67,205 @@ start_podman() {
     --health-retries 3 \
     "$IMAGE"
 
-  log "Container '$APP_NAME' started on port $PORT"
-  log "Logs: podman logs -f $APP_NAME"
   podman ps --filter "name=$APP_NAME"
+  wait_for_health || true
 }
 
-# start_docker เริ่ม MeeChain Dashboard ด้วย Docker โดยจะสร้าง image หากขาด ลบคอนเทนเนอร์เดิม แล้วรันคอนเทนเนอร์แบบ detached พร้อมผูกพอร์ต ตั้งตัวแปรสภาพแวดล้อมจาก .env (ถ้ามี) มอนต์โวลุ่ม meechain_logs และตั้งนโยบายรีสตาร์ท unless-stopped.
 start_docker() {
+  ensure_root_dir
   log "Starting with Docker..."
-  cd "$ROOT_DIR"
 
-  if ! docker image inspect "$IMAGE" &>/dev/null; then
+  if ! has_cmd docker; then
+    err "Docker is not installed"
+    exit 1
+  fi
+
+  if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
     log "Building image $IMAGE ..."
     docker build -t "$IMAGE" .
   fi
 
-  docker rm -f "$APP_NAME" 2>/dev/null || true
+  docker rm -f "$APP_NAME" >/dev/null 2>&1 || true
 
-  ENV_ARGS=""
+  local env_args=()
   if [ -f "$ROOT_DIR/.env" ]; then
-    ENV_ARGS="--env-file $ROOT_DIR/.env"
+    env_args=(--env-file "$ROOT_DIR/.env")
   fi
 
   docker run -d \
     --name "$APP_NAME" \
     -p "${PORT}:3000" \
-    $ENV_ARGS \
+    "${env_args[@]}" \
     -e NODE_ENV=production \
     -e PORT=3000 \
     -v meechain_logs:/app/logs \
     --restart unless-stopped \
     "$IMAGE"
 
-  log "Container '$APP_NAME' started on port $PORT"
   docker ps --filter "name=$APP_NAME"
+  wait_for_health || true
 }
 
-# start_compose เริ่มบริการโดยใช้เครื่องมือ compose ที่ตรวจพบ (podman-compose, `docker compose` หรือ `docker-compose`), เปลี่ยนไปที่ ROOT_DIR แล้วรัน `up -d --build`; หากไม่พบเครื่องมือจะพิมพ์ข้อความผิดพลาดและออกด้วยรหัส 1.
 start_compose() {
-  local COMPOSE
-  COMPOSE=$(detect_compose)
-  if [ "$COMPOSE" = "none" ]; then
-    err "No compose tool found. Install podman-compose or docker compose."
+  ensure_root_dir
+
+  if ! compose_file_exists; then
+    err "Compose file not found (compose.yml / docker-compose.yml / docker-compose.yaml)"
     exit 1
   fi
-  log "Starting with $COMPOSE ..."
-  cd "$ROOT_DIR"
-  $COMPOSE up -d --build
-  log "Services started. Logs: $COMPOSE logs -f"
-}
 
-# start_node เริ่มแอปด้วย Node แบบพื้นฐานเมื่อไม่มีตัวจัดการรันไทม์อื่น โดยรัน `node server.js` พื้นหลังและบันทึก PID ไปที่ /tmp/meechain.pid
-start_node() {
-  warn "No PM2/Podman/Docker found. Starting with plain node (no auto-restart)..."
-  cd "$ROOT_DIR"
-  node server.js &
-  echo $! > /tmp/meechain.pid
-  log "Server PID: $(cat /tmp/meechain.pid) — stop with: kill \$(cat /tmp/meechain.pid)"
-}
+  local compose_cmd
+  compose_cmd="$(detect_compose)"
 
-# ── Main ─────────────────────────────────────────────────────
-MODE="${1:-auto}"
-
-case "$MODE" in
-  auto)
-    RUNTIME=$(detect_runtime)
-    log "Auto-detected runtime: $RUNTIME"
-    case "$RUNTIME" in
-      pm2)    start_pm2    ;;
-      podman) start_podman ;;
-      docker) start_docker ;;
-      node)   start_node   ;;
-      none)   err "No supported runtime found (pm2/podman/docker/node)." ; exit 1 ;;
-    esac
-    ;;
-  pm2)     start_pm2    ;;
-  podman)  start_podman ;;
-  docker)  start_docker ;;
-  compose) start_compose ;;
-  node)    start_node   ;;
-  *)
-    err "Unknown mode: $MODE"
-    echo "Usage: $0 [auto|pm2|podman|docker|compose|node]"
+  if [ "$compose_cmd" = "none" ]; then
+    err "Compose tool not found"
+    info "Install Docker Compose plugin or podman-compose"
     exit 1
-    ;;
-esac
+  fi
 
-log "Done! Health check: curl http://localhost:${PORT}/api/health"
+  log "Starting with ${compose_cmd} ..."
+
+  case "$compose_cmd" in
+    "podman-compose") podman-compose up -d --build ;;
+    "docker compose") docker compose up -d --build ;;
+    "docker-compose") docker-compose up -d --build ;;
+  esac
+
+  info "Services started"
+  wait_for_health || true
+}
+
+start_node() {
+  ensure_root_dir
+  warn "Starting with plain node (no auto-restart)"
+
+  if ! has_cmd node; then
+    err "Node.js is not installed"
+    exit 1
+  fi
+
+  if [ ! -f "$ROOT_DIR/server.js" ]; then
+    err "Missing server.js"
+    exit 1
+  fi
+
+  if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" >/dev/null 2>&1; then
+    warn "Node process already running with PID $(cat "$PID_FILE")"
+    info "Stop it first: bash scripts/stop.sh node"
+    exit 1
+  fi
+
+  nohup node server.js > "$ROOT_DIR/meechain.out.log" 2>&1 &
+  echo $! > "$PID_FILE"
+
+  log "Server PID: $(cat "$PID_FILE")"
+  dim "  Stop with: bash scripts/stop.sh node"
+  dim "  Logs: bash scripts/logs.sh node"
+  wait_for_health || true
+}
+
+show_explain() {
+  local env runtime rec rt reason fallback
+  env="$(detect_env)"
+  runtime="$(detect_runtime)"
+  rec="$(recommend_runtime)"
+  rt="$(echo "$rec" | cut -d'|' -f1)"
+  reason="$(echo "$rec" | cut -d'|' -f2)"
+  fallback="$(echo "$rec" | cut -d'|' -f3)"
+
+  print_banner
+  bold "  🔍 Environment Report"
+  sep
+  echo ""
+  echo -e "  OS / Platform:   ${CYAN}${env}${NC}"
+  echo -e "  Runtime found:   ${CYAN}${runtime}${NC}"
+  echo ""
+  echo -e "  ${BOLD}→ Recommended:${NC}   ${GREEN}${rt}${NC}"
+  echo -e "     เหตุผล:       ${reason}"
+  echo -e "     Fallback:     ${fallback}"
+  echo ""
+  sep
+  bold "  📦 Available tools:"
+
+  for tool in pm2 podman docker node; do
+    if has_cmd "$tool"; then
+      echo -e "  ${GREEN}✓${NC} ${tool} $("$tool" --version 2>/dev/null | head -1 || true)"
+    else
+      echo -e "  ${DIM}✗ ${tool}  (not installed)${NC}"
+    fi
+  done
+
+  echo ""
+  sep
+  bold "  📋 Commands:"
+  dim  "  bash scripts/start.sh            → auto"
+  dim  "  bash scripts/start.sh pm2        → force PM2"
+  dim  "  bash scripts/start.sh podman     → force Podman"
+  dim  "  bash scripts/start.sh docker     → force Docker"
+  dim  "  bash scripts/start.sh compose    → force compose"
+  dim  "  bash scripts/start.sh node       → force plain Node"
+  dim  "  bash scripts/start.sh --explain  → inspect environment"
+  echo ""
+}
+
+show_help() {
+  print_banner
+  cat <<EOF
+
+Usage:
+  bash scripts/start.sh [auto|pm2|podman|docker|compose|node|--explain]
+
+$(show_help_common)
+
+EOF
+}
+
+main() {
+  ensure_port_is_number
+  local mode="${1:-auto}"
+
+  case "$mode" in
+    --explain|-e|explain)
+      show_explain
+      exit 0
+      ;;
+    --help|-h|help)
+      show_help
+      exit 0
+      ;;
+    auto)
+      print_banner
+      print_recommendation
+
+      local runtime
+      runtime="$(recommend_runtime | cut -d'|' -f1)"
+      log "Starting with: ${BOLD}${runtime}${NC}"
+
+      case "$runtime" in
+        pm2)    start_pm2 ;;
+        podman) start_podman ;;
+        docker) start_docker ;;
+        node)   start_node ;;
+        none)
+          err "No supported runtime found (pm2 / podman / docker / node)"
+          info "Install Node.js or a container runtime first"
+          exit 1
+          ;;
+      esac
+      ;;
+    pm2)     print_banner; log "Forced: pm2";     start_pm2 ;;
+    podman)  print_banner; log "Forced: podman";  start_podman ;;
+    docker)  print_banner; log "Forced: docker";  start_docker ;;
+    compose) print_banner; log "Forced: compose"; start_compose ;;
+    node)    print_banner; log "Forced: node";    start_node ;;
+    *)
+      err "Unknown mode: $mode"
+      echo "Usage: $0 [auto|pm2|podman|docker|compose|node|--explain]"
+      exit 1
+      ;;
+  esac
+
+  print_success_footer
+}
+
+main "$@"

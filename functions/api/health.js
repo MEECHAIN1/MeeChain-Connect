@@ -3,9 +3,11 @@
 // ╚══════════════════════════════════════════════════════╝
 
 import { resolveChainId, resolveContracts, resolveRpcUrl } from './_shared.mjs';
+import { getMeechainConfig } from './_shared/meechain-config.js';
 
 export async function onRequestGet(ctx) {
   const { env } = ctx;
+  const config = getMeechainConfig(env);
 
   const contracts = resolveContracts(env);
 
@@ -19,6 +21,12 @@ export async function onRequestGet(ctx) {
     contracts: {
       ...contracts,
       staking: contracts.portal,
+    chainId:   config.chainId,
+    rpc:       config.rpcPrimary,
+    contracts: {
+      token: config.contracts.token,
+      nft: config.contracts.nft,
+      staking: config.contracts.portal,
     },
     domain:    'meebot.io',
     version:   '2.0.0',

@@ -144,9 +144,92 @@ GUIDE
 # install_debian ติดตั้ง Podman และ podman-compose บนระบบ Ubuntu/Debian โดยใช้ apt-get และแสดงเวอร์ชันที่ติดตั้งแล้ว
 install_debian() {
   title "📦 Installing Podman on Ubuntu/Debian"
-  apt-get update -qq
-  apt-get install -y podman podman-compose
-  log "Podman installed: $(podman --version)"
+  export DEBIAN_FRONTEND=noninteractive
+  ensure_yarn_repo_keyring
+
+  info "Refreshing apt indexes..."
+  apt-get update
+
+  if apt-cache show podman >/dev/null 2>&1; then
+    info "Installing podman from distro repositories..."
+    apt-get install -y podman
+  else
+    warn "podman package not found in default repositories."
+    install_podman_from_backports_or_libcontainers
+  fi
+
+  if command -v podman >/dev/null 2>&1; then
+    log "Podman installed: $(podman --version)"
+  else
+    err "Podman installation did not complete successfully."
+    exit 1
+  fi
+}
+
+# ensure_yarn_repo_keyring ซ่อม keyring ของ Yarn repo ให้ใช้ signed-by แทน apt-key (deprecated)
+ensure_yarn_repo_keyring() {
+  local yarn_list="/etc/apt/sources.list.d/yarn.list"
+  local yarn_keyring="/etc/apt/keyrings/yarn.gpg"
+
+  if [ ! -f "$yarn_list" ]; then
+    return 0
+  fi
+
+  info "Yarn repository detected, verifying keyring..."
+  mkdir -p /etc/apt/keyrings
+
+  if [ ! -f "$yarn_keyring" ]; then
+    curl -fsSL https://dl.yarnpkg.com/debian/pubkey.gpg | gpg --dearmor > "$yarn_keyring"
+  fi
+
+  if ! grep -q "signed-by=/etc/apt/keyrings/yarn.gpg" "$yarn_list"; then
+    cat > "$yarn_list" << 'EOF'
+deb [signed-by=/etc/apt/keyrings/yarn.gpg] https://dl.yarnpkg.com/debian stable main
+EOF
+  fi
+}
+
+# install_podman_from_backports_or_libcontainers ติดตั้ง Podman จาก backports ก่อน แล้ว fallback ไป libcontainers repo
+install_podman_from_backports_or_libcontainers() {
+  . /etc/os-release
+
+  local codename="${VERSION_CODENAME:-}"
+  local version_id="${VERSION_ID:-}"
+  local backports=""
+  local libcontainers_version=""
+
+  if [ -n "$codename" ]; then
+    backports="${codename}-backports"
+  fi
+
+  if [ -n "$version_id" ]; then
+    libcontainers_version="${version_id%%.*}"
+  fi
+
+  if [ -n "$backports" ]; then
+    info "Trying Debian backports: $backports"
+    if apt-get install -y -t "$backports" podman; then
+      return 0
+    fi
+    warn "Backports installation failed."
+  fi
+
+  if [ -z "$libcontainers_version" ]; then
+    err "Cannot determine Debian VERSION_ID for libcontainers fallback."
+    return 1
+  fi
+
+  warn "Falling back to libcontainers stable repository..."
+  mkdir -p /etc/apt/keyrings
+  curl -fsSL "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/Debian_${libcontainers_version}/Release.key" \
+    | gpg --dearmor > /etc/apt/keyrings/libcontainers.gpg
+
+  cat > /etc/apt/sources.list.d/libcontainers.list << EOF
+deb [signed-by=/etc/apt/keyrings/libcontainers.gpg] https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/Debian_${libcontainers_version}/ /
+EOF
+
+  apt-get update
+  apt-get install -y podman
 }
 
 # install_fedora ติดตั้ง Podman และ podman-compose บนระบบ Fedora/RHEL แล้วแสดงเวอร์ชันที่ติดตั้ง

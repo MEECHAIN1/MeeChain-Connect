@@ -25,7 +25,7 @@
   <div id="loading-screen">
     <div class="loader-content">
       <div class="loader-logo">
-        <img src="src/assets/images/meechain_logo.png" alt="MeeChain" class="loader-img" onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><circle cx=\"40\" cy=\"40\" r=\"38\" fill=\"%237C3AED\"/><text x=\"40\" y=\"52\" text-anchor=\"middle\" font-size=\"36\" fill=\"white\">🐻</text></svg>'" />
+        <img src="src/assets/images/meechain_logo.png" alt="MeeChain" class="loader-img" onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><circle cx=\"40\" cy=\"40\" r=\"38\" fill=\"%237C3AED\"/><text x=\"40\" y=\"52\" text-anchor=\"middle\" font-size=\"36\" fill=\"white\">
       </div>
       <div class="loader-bar-wrap">
         <div class="loader-bar"></div>
@@ -132,6 +132,7 @@
             <span class="ws-status-dot ws-offline" data-ws="status-dot"></span>
             <span data-ws="status-text" style="font-size:11px;">Connecting...</span>
           </span>
+          <span class="net-chip" id="net-upstream-state">🟡 Upstream: Checking...</span>
           <span class="net-chip net-chip-contract" title="MEE Token Contract">📋 Token: <strong id="net-token">0xDc64...F6C9</strong></span>
           <span class="net-chip net-chip-contract" title="MeeBot NFT Contract">🖼️ NFT: <strong id="net-nft">0x5FC8...5707</strong></span>
           <span class="net-chip net-chip-contract" title="Neonova Portal Contract">⛩️ Portal: <strong id="net-portal">0xa513...C853</strong></span>

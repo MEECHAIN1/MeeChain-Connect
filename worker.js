@@ -1,10 +1,10 @@
 import { ethers } from 'ethers';
 
 const DEFAULT_CONTRACTS = {
-  token: '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9',
-  nft: '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707',
+  token: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+  nft: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
   dao: '0x0165878A594ca255338adfa4d48449f69242Eb8F',
-  portal: '0xa513E6E4b8f2a923D98304ec87F64353C4D5C853',
+  portal: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
 };
 
 const STATIC_REPO_BASE = 'https://raw.githubusercontent.com/MEECHAIN1/MeeChain-Connect/main';
@@ -81,6 +81,38 @@ function json(data, status = 200, extraHeaders = {}) {
   });
 }
 
+function buildRpcGateway(env = {}) {
+  return {
+    primary: {
+      type: 'IPv4',
+      address: env.RPC_PRIMARY_IPV4 || '172.64.36.1',
+      badge: '🥇 Primary RPC',
+    },
+    secondary: {
+      type: 'IPv6',
+      address: env.RPC_SECONDARY_IPV6 || '2a06:98c1:54::4b:43e8',
+      badge: '🥈 Secondary RPC',
+    },
+    dns: {
+      dot: {
+        endpoint: env.RPC_DOT_ENDPOINT || 'ohsut0yy6x.cloudflare-gateway.com',
+        badge: '🔒 DoT Secured',
+      },
+      doh: {
+        endpoint: env.RPC_DOH_ENDPOINT || 'https://ohsut0yy6x.cloudflare-gateway.com/dns-query',
+        badge: '🔒 DoH Enabled',
+      },
+    },
+    ritualFlow: [
+      '✅ Set IPv4 as Primary',
+      '✅ Add IPv6 as Fallback',
+      '✅ Enable DoT',
+      '✅ Enable DoH',
+      '🎉 RPC Connection Tested',
+    ],
+  };
+}
+
 function getConfig(env) {
   const chainId = Number.parseInt(env.CHAIN_ID || '13390', 10) || 13390;
   const upstreamRpcUrl = env.DRPC_RPC_URL || env.VITE_RPC_URL || 'https://rpc.meechain.live';
@@ -99,6 +131,7 @@ function getConfig(env) {
       staking: portal,
       dao: env.GOVERNANCE_DAO_ADDRESS || DEFAULT_CONTRACTS.dao,
     },
+    rpcGateway: buildRpcGateway(env),
   };
 }
 
@@ -321,6 +354,7 @@ async function handleNetwork(env) {
     nativeCurrency: { name: 'MEE Token', symbol: 'MEE', decimals: 18 },
     blockExplorerUrls: ['http://explorer.meechain.run.place', `${config.appOrigin}/explorer.html`],
     contracts: config.contracts,
+    rpcGateway: config.rpcGateway,
   });
 }
 
