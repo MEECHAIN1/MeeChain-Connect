@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Production post-deploy validation for MeeChain Connect.
+# usage() แสดงข้อความช่วยเหลือที่อธิบายวิธีการใช้งานสคริปต์ อาร์กิวเมนต์ ตัวอย่าง และตัวแปรสภาพแวดล้อม
 
 usage() {
   cat <<'USAGE'
@@ -91,11 +91,16 @@ HEADERS="$TMP_DIR/headers"
 BODY="$TMP_DIR/body"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
+# pass prints a success marker with the provided message.
 pass() { echo "✅ $*"; }
+# fail แสดงข้อความข้อผิดพลาดพร้อมเครื่องหมายล้มเหลวไปยัง stderr และหยุดการทำงานของสคริปต์
 fail() { echo "❌ $*" >&2; exit 1; }
+# warn prints a warning message prefixed with a warning emoji.
 warn() { echo "⚠️  $*"; }
+# info prints an informational message prefixed with an info emoji.
 info() { echo "ℹ️  $*"; }
 
+# require_cmd checks that a required command exists in PATH.
 require_cmd() {
   local cmd="$1"
   if ! command -v "$cmd" >/dev/null 2>&1; then
@@ -103,6 +108,7 @@ require_cmd() {
   fi
 }
 
+# normalize_url extracts and echoes the origin (scheme, host, and optional port) from a URL string.
 normalize_url() {
   local raw="$1"
   local original="${raw%/}"
@@ -127,10 +133,12 @@ if [[ -n "$CF_ACCESS_CLIENT_ID" && -n "$CF_ACCESS_CLIENT_SECRET" ]]; then
   ACCESS_HEADERS+=(-H "CF-Access-Client-Secret: ${CF_ACCESS_CLIENT_SECRET}")
 fi
 
+# status_code ดึงรหัสสถานะ HTTP จากไฟล์ headers และพิมพ์ออก
 status_code() {
   awk 'toupper($1) ~ /^HTTP/ {code=$2} END{print code}' "$HEADERS"
 }
 
+# assert_no_access_redirect verifies the HTTP response was not blocked by Cloudflare Access.
 assert_no_access_redirect() {
   local location
   location="$(awk 'tolower($1)=="location:" {print $2}' "$HEADERS" | tr -d '\r' || true)"
@@ -139,6 +147,7 @@ assert_no_access_redirect() {
   fi
 }
 
+# curl_get ส่งคำขอ GET ไปยัง URL ที่ระบุและบันทึกส่วนหัวและเนื้อหาของการตอบสนองลงในไฟล์
 curl_get() {
   local url="$1"
   if ! curl "${CURL_ARGS[@]}" -D "$HEADERS" -o "$BODY" "${ACCESS_HEADERS[@]}" "$url"; then
@@ -146,6 +155,7 @@ curl_get() {
   fi
 }
 
+# curl_post_json ส่งคำขอ POST พร้อมข้อมูล JSON ไปยัง URL ที่ระบุ
 curl_post_json() {
   local url="$1"
   local payload="$2"
@@ -158,6 +168,7 @@ curl_post_json() {
   fi
 }
 
+# assert_http_200 verifies that the HTTP response has status 200 and is not a Cloudflare Access redirect.
 assert_http_200() {
   local label="$1"
   local code
@@ -173,11 +184,13 @@ assert_http_200() {
   pass "$label HTTP 200"
 }
 
+# json_field evaluates a JavaScript expression against the parsed body JSON and prints the result, exiting with status 3 if the value is undefined or null.
 json_field() {
   local expression="$1"
   node -e "const fs=require('fs'); const data=JSON.parse(fs.readFileSync(process.argv[1], 'utf8')); const value=($expression); if (value === undefined || value === null) process.exit(3); console.log(typeof value === 'object' ? JSON.stringify(value) : value);" "$BODY"
 }
 
+# assert_json_field_equals asserts that a JSON field from the response equals an expected value.
 assert_json_field_equals() {
   local label="$1"
   local expression="$2"
@@ -192,6 +205,7 @@ assert_json_field_equals() {
   pass "$label = $actual"
 }
 
+# assert_json_field_present ตรวจสอบว่าฟิลด์ JSON ที่ระบุมีอยู่ในข้อมูล JSON และมีค่าที่กำหนด
 assert_json_field_present() {
   local label="$1"
   local expression="$2"
@@ -199,6 +213,7 @@ assert_json_field_present() {
   pass "$label present"
 }
 
+# assert_json_field_truthy_or_warn ตรวจสอบว่าฟิลด์ JSON เป็นจริง โดยล้มเหลวเมื่อ EXPECT_UPSTREAM_CONNECTED ถูกตั้งค่าเป็น 1 หรือแสดงคำเตือนเป็นอย่างอื่น
 assert_json_field_truthy_or_warn() {
   local label="$1"
   local expression="$2"
@@ -215,6 +230,7 @@ assert_json_field_truthy_or_warn() {
   fi
 }
 
+# assert_body_contains ยืนยันว่าเนื้อหาการตอบสนอง HTTP มีข้อความที่คาดหวัง
 assert_body_contains() {
   local label="$1"
   local expected="$2"
@@ -227,6 +243,7 @@ assert_body_contains() {
   pass "$label contains '$expected'"
 }
 
+# check_get_json validates that a GET request to the specified endpoint path returns HTTP 200 status.
 check_get_json() {
   local path="$1"
   local label="$2"
@@ -236,6 +253,7 @@ check_get_json() {
 }
 
 
+# check_app_shell ตรวจสอบว่าเส้นทางรูตประกอบด้วยข้อความแอปพลิเคชันที่คาดหวัง
 check_app_shell() {
   if [[ "$SKIP_APP" -eq 1 ]]; then
     info "skipping app shell check (--skip-app)"
@@ -246,6 +264,7 @@ check_app_shell() {
   assert_body_contains "app shell" "$EXPECTED_APP_TEXT"
 }
 
+# check_health_endpoints ตรวจสอบสถานะความสุขและข้อมูลเมตาดาต้าของจุดสิ้นสุด health ในแอปพลิเคชัน API และ RPC
 check_health_endpoints() {
   check_get_json "/health" "root health"
   assert_json_field_equals "root health status" "data.status" "ok"
@@ -260,6 +279,7 @@ check_health_endpoints() {
   assert_json_field_present "RPC health mode" "data.mode"
 }
 
+# check_rpc_proxy validates JSON-RPC proxy responses for eth_chainId and eth_blockNumber calls.
 check_rpc_proxy() {
   info "POST ${BASE_URL}/rpc eth_chainId"
   curl_post_json "${BASE_URL}/rpc" '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
@@ -272,6 +292,7 @@ check_rpc_proxy() {
   assert_json_field_present "RPC eth_blockNumber result" "data.result"
 }
 
+# check_network_config ตรวจสอบการกำหนดค่าเครือข่ายและสถานะการเชื่อมต่อ web3
 check_network_config() {
   check_get_json "/api/network" "network config"
   assert_json_field_equals "network chainId" "String(data.chainId)" "$EXPECTED_CHAIN_ID_HEX"
@@ -283,12 +304,14 @@ check_network_config() {
 }
 
 
+# normalize_dns_name normalizes a DNS name by removing a trailing dot and converting it to lowercase.
 normalize_dns_name() {
   local name="$1"
   name="${name%.}"
   printf '%s\n' "${name,,}"
 }
 
+# check_expected_cname_target ตรวจสอบว่า CNAME record ของโฮสต์ตรงกับค่าเป้าหมายที่คาดหวัง
 check_expected_cname_target() {
   local host="$1"
   [[ -n "$EXPECTED_CNAME_TARGET" ]] || return
@@ -320,6 +343,7 @@ check_expected_cname_target() {
   warn "$message"
 }
 
+# check_external_network ตรวจสอบการแก้ไขชื่อ DNS สำหรับโฮสต์ของ URL ฐานและตรวจสอบการกำหนดค่า CNAME
 check_external_network() {
   if [[ "$SKIP_NETWORK" -eq 1 ]]; then
     info "skipping external network checks (--skip-network)"
@@ -342,6 +366,7 @@ check_external_network() {
   check_expected_cname_target "$host"
 }
 
+# run_checks_for_base_url ดำเนินการตรวจสอบ production validation สำหรับ base URL ที่ให้มา ทดสอบเครือข่าย สถานะแอปพลิเคชัน health endpoints RPC proxy และการตั้งค่าเครือข่าย
 run_checks_for_base_url() {
   BASE_URL="$(normalize_url "$1")"
 
@@ -363,6 +388,7 @@ run_checks_for_base_url() {
   pass "production validation checklist passed for $BASE_URL"
 }
 
+# main runs production validation checks across all configured base URLs, reporting success if all pass.
 main() {
   require_cmd curl
   require_cmd node
