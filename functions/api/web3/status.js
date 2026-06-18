@@ -2,6 +2,14 @@
 // ║  Cloudflare Pages Function: /api/web3/status        ║
 // ╚══════════════════════════════════════════════════════╝
 
+import { resolveChainId, resolveContracts, resolveRpcUrl } from '../_shared.mjs';
+
+export async function onRequestGet(ctx) {
+  const { env } = ctx;
+
+  const rpcUrl = resolveRpcUrl(env);
+  const chainId = resolveChainId(env);
+  const contracts = resolveContracts(env);
 import { getMeechainConfig } from '../_shared/meechain-config.js';
 
 export async function onRequestGet(ctx) {
