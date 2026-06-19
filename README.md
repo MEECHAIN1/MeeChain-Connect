@@ -54,6 +54,15 @@ bash scripts/start.sh docker
 bash scripts/start.sh compose
 ```
 
+### Portainer (Docker Swarm)
+
+ไฟล์ `docker-compose.portainer.yml` เพิ่ม Portainer EE แบบเชื่อมผ่าน Portainer Agent สำหรับ Docker Swarm โดยเปิดพอร์ต `9443`, `9000`, และ `8000`
+
+```bash
+docker swarm init # run once on manager, if Swarm is not initialized yet
+docker stack deploy -c docker-compose.portainer.yml portainer
+```
+
 ### Plain Node
 
 ```bash
