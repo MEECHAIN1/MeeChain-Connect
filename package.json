@@ -63,14 +63,14 @@
     "dotenv": "^16.6.1",
     "ethers": "^6.16.0",
     "express": "^4.22.2",
-    "js-yaml": "^4.2.0",
+    "js-yaml": "^4.3.1",
     "openai": "^6.34.0",
-    "ws": "^8.21.0"
+    "ws": "^8.21.1"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^7.0.0",
     "docdash": "^2.0.2",
-    "hardhat": "^3.4.0",
+    "hardhat": "^3.12.0",
     "install": "^0.13.0",
     "jsdoc": "^4.0.5",
     "mocha": "^11.7.5",
