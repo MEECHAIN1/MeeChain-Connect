@@ -61,7 +61,7 @@
     "@openzeppelin/contracts": "5.0.2",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
-    "ethers": "^6.16.0",
+    "ethers": "^6.17.0",
     "express": "^4.22.2",
     "js-yaml": "^4.2.0",
     "openai": "^6.34.0",
